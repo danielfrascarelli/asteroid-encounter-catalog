@@ -273,3 +273,18 @@ Encuentros conocidos en la literatura (para tests de regresión):
 - Los notebooks son para exploración, **no** para pipeline. Lógica reutilizable debe migrar a `src/`.
 - Los datos crudos de MPCORB y Gaia pueden ser grandes (GB). Antes de cargarlos enteros, considerar streaming o queries SQL.
 - Cuando se ajusten parámetros del pipeline, hacerlo en `config.yaml`, **no** hardcodeado.
+
+---
+
+## Convenciones de colaboración con el agente
+
+### Git
+- **Autor de todos los commits**: `Daniel Frascarelli <dsanfra@gmail.com>` — cuenta GitHub: `danielfrascarelli`.
+- **No agregar `Co-Authored-By`** en ningún commit. El agente no debe aparecer como co-autor.
+- Antes de commitear, verificar que author y committer tengan el email correcto (`dsanfra@gmail.com`). Si el git config local usa otro email, sobreescribir con `GIT_COMMITTER_EMAIL` al hacer el commit.
+- No usar `--no-verify` ni saltar hooks salvo indicación explícita.
+
+### Estilo de trabajo
+- Respuestas cortas y directas. Sin resumen al final de cada respuesta ("lo que hice fue...").
+- Operar sin pausas para preguntas de clarificación; tomar la decisión razonable y continuar.
+- Todo el proyecto corre dentro de Docker. No sugerir ni usar entornos Python locales.
