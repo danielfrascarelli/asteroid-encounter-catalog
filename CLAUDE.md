@@ -284,6 +284,11 @@ Encuentros conocidos en la literatura (para tests de regresión):
 - Antes de commitear, verificar que author y committer tengan el email correcto (`dsanfra@gmail.com`). Si el git config local usa otro email, sobreescribir con `GIT_COMMITTER_EMAIL` al hacer el commit.
 - No usar `--no-verify` ni saltar hooks salvo indicación explícita.
 
+### Flujo de trabajo con Git
+- **Nunca trabajar en `main`**. Ante cualquier cambio, crear una branch descriptiva (ej. `feat/propagation`, `fix/kdtree-duplicates`, `docs/roadmap-update`).
+- **No commitear ni pushear automáticamente** tras editar archivos. Presentar los cambios al usuario y esperar confirmación explícita antes de hacer `git commit`.
+- Una vez confirmado el commit, abrir un PR hacia `main` en lugar de mergear directamente.
+
 ### Estilo de trabajo
 - Respuestas cortas y directas. Sin resumen al final de cada respuesta ("lo que hice fue...").
 - Operar sin pausas para preguntas de clarificación; tomar la decisión razonable y continuar.
