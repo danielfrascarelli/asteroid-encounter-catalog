@@ -1,0 +1,183 @@
+# =============================================================================
+# Configuración del pipeline: Catálogo de Encuentros Cercanos entre Asteroides
+# =============================================================================
+# Este archivo controla TODOS los parámetros del pipeline. No hardcodear valores
+# en el código; agregarlos aquí y leerlos vía src/utils/config.py
+#
+# Para corridas locales personalizadas, copiar a config.local.yaml (gitignored).
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Metadata del run
+# -----------------------------------------------------------------------------
+run:
+  name: "default"                    # Identificador del run (usado en paths de output)
+  description: "Corrida estándar del pipeline"
+  seed: 42                           # Seed para reproducibilidad
+
+
+# -----------------------------------------------------------------------------
+# Paths de datos
+# -----------------------------------------------------------------------------
+paths:
+  data_root: "./data"
+  raw: "./data/raw"                  # Datos descargados crudos
+  cache: "./data/cache"              # Computaciones intermedias cacheadas
+  output: "./data/output"            # Catálogo final
+  logs: "./logs"
+
+
+# -----------------------------------------------------------------------------
+# Fuentes de datos externas
+# -----------------------------------------------------------------------------
+sources:
+  mpcorb:
+    url: "https://www.minorplanetcenter.net/iau/MPCORB/MPCORB.DAT.gz"
+    local_filename: "MPCORB.DAT"
+    refresh_days: 30                 # Re-descargar si la copia local es más vieja
+
+  gaia_sso:
+    table: "gaiadr3.sso_observation"
+    archive_url: "https://gea.esac.esa.int/tap-server/tap"
+    columns:                         # Subset de columnas a descargar
+      - solution_id
+      - source_id
+      - denomination
+      - number_mp
+      - transit_id
+      - observation_id
+      - epoch
+      - epoch_utc
+      - ra
+      - dec
+      - g_mag
+      - x_gaia
+      - y_gaia
+      - z_gaia
+
+  jpl_horizons:
+    api_url: "https://ssd.jpl.nasa.gov/api/horizons.api"
+    rate_limit_seconds: 1.0          # Mínimo entre queries (cortesía)
+
+
+# -----------------------------------------------------------------------------
+# Subset de asteroides a procesar
+# -----------------------------------------------------------------------------
+subset:
+  only_numbered: true                # Solo asteroides con número MPC asignado
+  max_asteroids: null                # null = todos. Poner un int para tests rápidos
+  exclude_neas: false                # Si true, excluye NEAs (sus órbitas requieren más cuidado)
+  semimajor_axis_au:                 # Filtro adicional por semieje mayor
+    min: 1.5                         # Limitar al cinturón principal por default
+    max: 4.0
+
+
+# -----------------------------------------------------------------------------
+# Ventana temporal de análisis
+# -----------------------------------------------------------------------------
+time_window:
+  # Por default cubre todo el período de Gaia DR3
+  start: "2014-07-25T00:00:00"       # UTC, ISO 8601
+  end:   "2017-05-28T00:00:00"
+  scale: "utc"                       # Escala del input. Se convierte a TDB internamente.
+
+
+# -----------------------------------------------------------------------------
+# Propagación orbital
+# -----------------------------------------------------------------------------
+propagation:
+  method: "kepler"                   # "kepler" (rápido, 2 cuerpos) o "rebound" (preciso, N-cuerpos)
+  time_step_hours: 1.0               # Resolución temporal de la grilla
+  reference_frame: "barycentric"     # "barycentric" o "heliocentric"
+  cache_results: true                # Guardar grilla propagada en data/cache/
+
+  # Solo aplicable si method = "rebound"
+  rebound:
+    integrator: "ias15"              # Integrador adaptativo de alta precisión
+    include_planets:                 # Cuerpos perturbadores a incluir
+      - "sun"
+      - "mercury"
+      - "venus"
+      - "earth"
+      - "mars"
+      - "jupiter"
+      - "saturn"
+      - "uranus"
+      - "neptune"
+    include_major_asteroids: false   # Incluir Ceres/Vesta/Pallas/Hygiea como perturbadores
+
+
+# -----------------------------------------------------------------------------
+# Detección de encuentros
+# -----------------------------------------------------------------------------
+detection:
+  threshold_au: 0.01                 # Umbral de distancia (clave!)
+  prefilter:
+    enabled: true                    # Filtrar pares incompatibles antes del KD-tree
+    semimajor_diff_max_au: 0.5       # Pares con |Δa| mayor a esto se descartan
+    inclination_diff_max_deg: 30.0   # Idem para inclinación
+
+  kdtree:
+    leaf_size: 30                    # Parámetro de scipy.spatial.cKDTree
+
+  refinement:
+    enabled: true                    # Refinar candidatos con sub-grid temporal
+    fine_time_step_seconds: 60.0     # Resolución del sub-grid (típico: 1 minuto)
+    window_hours: 2.0                # Ventana alrededor del mínimo grueso
+
+
+# -----------------------------------------------------------------------------
+# Caracterización de encuentros
+# -----------------------------------------------------------------------------
+characterize:
+  compute_relative_velocity: true    # |v1 - v2| en el encuentro
+  compute_phase_angle: true          # Para visibilidad desde Gaia
+  estimate_diameters: true           # Desde magnitud absoluta H (asume albedo típico)
+  default_albedo: 0.14               # Albedo geométrico promedio (C-type)
+
+
+# -----------------------------------------------------------------------------
+# Paralelización
+# -----------------------------------------------------------------------------
+parallel:
+  enabled: true
+  n_workers: "auto"                  # "auto" = os.cpu_count(), o un entero específico
+  backend: "multiprocessing"         # "multiprocessing" o "dask"
+  chunk_size_days: 30                # Bloques temporales por worker
+
+
+# -----------------------------------------------------------------------------
+# Output
+# -----------------------------------------------------------------------------
+output:
+  format: "parquet"                  # "parquet" (recomendado) o "csv"
+  filename: "encounters_catalog"     # Sin extensión
+  compression: "zstd"                # Solo aplicable a parquet
+  include_metadata: true             # Adjuntar config y versiones en un sidecar
+
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+logging:
+  level: "INFO"                      # DEBUG | INFO | WARNING | ERROR
+  format: "rich"                     # "rich" (colores en terminal) o "plain"
+  file_logging: true                 # Además de stdout, guardar en logs/run_{name}.log
+  show_progress_bars: true           # tqdm para loops largos
+
+
+# -----------------------------------------------------------------------------
+# Validación
+# -----------------------------------------------------------------------------
+validation:
+  known_pairs:                       # Pares que el pipeline DEBE detectar (regression test)
+    - perturber: 1                   # (1) Ceres
+      test: 11                       # (11) Parthenope - encuentro documentado
+    - perturber: 4                   # (4) Vesta
+      test: 17                       # (17) Thetis
+    - perturber: 2                   # (2) Pallas
+      test: 23                       # (23) Thalia
+
+  compare_with_jpl: false            # Si true, querea JPL Horizons para los top-N encuentros
+  jpl_validation_top_n: 10           # Cantidad de encuentros a validar

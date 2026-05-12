@@ -1,0 +1,40 @@
+services:
+
+  # ── Pipeline runner ──────────────────────────────────────────────────────────
+  # Uso: docker compose run --rm pipeline python -m scripts.run_pipeline
+  pipeline:
+    build: .
+    image: gaia-asteroid-encounters
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config.yaml:/app/config.yaml:ro
+      # config.local.yaml opcional; si no existe Docker simplemente lo ignora
+      - ./config.local.yaml:/app/config.local.yaml:ro
+    # Sin command: usa el CMD del Dockerfile (run_pipeline con config.yaml)
+    # Sobreescribir en CLI: docker compose run --rm pipeline python -m scripts.X
+
+  # ── Dashboard interactivo ────────────────────────────────────────────────────
+  # Uso: docker compose up dashboard
+  dashboard:
+    image: gaia-asteroid-encounters
+    build: .
+    command: streamlit run src/dashboard/app.py --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    depends_on:
+      - pipeline
+    # dashboard solo tiene sentido si ya hay un catálogo en data/output/
+
+  # ── Tests ────────────────────────────────────────────────────────────────────
+  # Uso: docker compose run --rm test
+  test:
+    image: gaia-asteroid-encounters
+    build: .
+    command: pytest tests/ -v
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro

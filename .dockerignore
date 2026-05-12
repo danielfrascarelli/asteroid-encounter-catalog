@@ -1,0 +1,12 @@
+.git/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+data/
+logs/
+*.local.yaml
+notebooks/
+.mypy_cache/
+.ruff_cache/
