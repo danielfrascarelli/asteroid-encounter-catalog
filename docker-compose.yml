@@ -17,23 +17,19 @@ services:
   # ── Dashboard interactivo ────────────────────────────────────────────────────
   # Uso: docker compose up dashboard
   dashboard:
-    image: gaia-asteroid-encounters
-    build: .
+    image: gaia-asteroid-encounters  # reutiliza la imagen ya construida por pipeline
     command: streamlit run src/dashboard/app.py --server.address 0.0.0.0
     ports:
       - "8501:8501"
     volumes:
       - ./data:/app/data
       - ./config.yaml:/app/config.yaml:ro
-    depends_on:
-      - pipeline
-    # dashboard solo tiene sentido si ya hay un catálogo en data/output/
+    # dashboard requiere que data/output/ tenga un catálogo generado previamente
 
   # ── Tests ────────────────────────────────────────────────────────────────────
   # Uso: docker compose run --rm test
   test:
-    image: gaia-asteroid-encounters
-    build: .
+    image: gaia-asteroid-encounters  # reutiliza la imagen ya construida por pipeline
     command: pytest tests/ -v
     volumes:
       - ./data:/app/data
