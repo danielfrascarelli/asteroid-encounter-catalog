@@ -5,6 +5,15 @@ asteroid transit. The ``epoch`` column is in TCB (Barycentric Coordinate Time)
 as a Julian Date. All other processing converts to TDB via
 ``src.utils.time_utils.tcb_to_tdb`` before use.
 
+Download strategy
+-----------------
+Instead of sequential OFFSET pagination (O(n²) server-side scans), the
+download splits the ``number_mp`` range into *n_workers* sub-ranges and
+fetches them in parallel via ``ThreadPoolExecutor``.  Each sub-range is a
+single async TAP job — no pagination needed within a range because each
+chunk is well under the server's 3M-row async limit.  Unnumbered objects
+(``number_mp IS NULL``) are fetched as a separate job.
+
 Usage (via download script):
     docker compose run --rm pipeline python -m scripts.download_gaia_sso
 """
@@ -12,6 +21,9 @@ Usage (via download script):
 from __future__ import annotations
 
 import logging
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import polars as pl
@@ -19,7 +31,6 @@ from astroquery.utils.tap.core import TapPlus
 
 logger = logging.getLogger(__name__)
 
-# Minimum columns required by downstream pipeline stages
 _REQUIRED_COLUMNS = {
     "solution_id",
     "source_id",
@@ -28,36 +39,86 @@ _REQUIRED_COLUMNS = {
     "epoch",
 }
 
+# Gaia DR3: numbered SSO objects go up to ~158 000
+_DEFAULT_MP_MAX = 160_000
+
+
+def _fetch_range(
+    archive_url: str,
+    col_list: str,
+    mp_start: int | None,
+    mp_end: int | None,
+) -> tuple[pl.DataFrame, float]:
+    """Fetch one number_mp sub-range (or NULL) via a single async TAP job.
+
+    Creates its own TapPlus instance so it is safe to call from threads.
+
+    Returns
+    -------
+    tuple of (DataFrame, elapsed_seconds)
+    """
+    if mp_start is None:
+        where = "number_mp IS NULL"
+    else:
+        where = f"number_mp BETWEEN {mp_start} AND {mp_end}"
+
+    adql = f"SELECT {col_list} FROM gaiadr3.sso_observation WHERE {where}"
+    logger.debug("TAP async job: %s", adql)
+
+    t0 = time.monotonic()
+    tap = TapPlus(url=archive_url)
+    job = tap.launch_job_async(adql)
+    table = job.get_results()
+    elapsed = time.monotonic() - t0
+
+    if len(table) == 0:
+        return pl.DataFrame(), elapsed
+    return pl.from_pandas(table.to_pandas()), elapsed
+
+
+def _query_mp_max(archive_url: str) -> int:
+    """Return MAX(number_mp) from the table (fast single-row query)."""
+    tap = TapPlus(url=archive_url)
+    job = tap.launch_job("SELECT MAX(number_mp) AS mp_max FROM gaiadr3.sso_observation")
+    table = job.get_results()
+    val = table["mp_max"][0]
+    return int(val) if val is not None else _DEFAULT_MP_MAX
+
 
 def download_gaia_sso(
     archive_url: str,
     columns: list[str],
     dest: str | Path,
     *,
-    chunk_size: int = 50_000,
+    n_workers: int | str = "auto",
+    mp_max: int | None = None,
 ) -> pl.DataFrame:
-    """Download ``gaiadr3.sso_observation`` via TAP and save to Parquet.
+    """Download ``gaiadr3.sso_observation`` via parallel TAP jobs.
 
-    The download uses chunked ADQL queries (ORDER BY + OFFSET) to avoid
-    TAP server row-count limits. The ``epoch`` column is preserved as-is
-    in TCB; conversion to TDB happens at the propagation stage.
+    Splits the ``number_mp`` range into *n_workers* sub-ranges and fetches
+    them concurrently.  Each sub-range is one async TAP job, avoiding the
+    O(n²) cost of OFFSET-based pagination.
 
     Parameters
     ----------
     archive_url:
         Base URL of the Gaia TAP server.
     columns:
-        List of column names to retrieve. Must include all of
-        ``_REQUIRED_COLUMNS``.
+        Column names to retrieve. Must include all of ``_REQUIRED_COLUMNS``.
     dest:
-        Output path for the Parquet file.
-    chunk_size:
-        Rows per TAP query (default 50 000, well within the 2M row limit).
+        Output path for the Parquet file (written once, at the end).
+    n_workers:
+        Number of parallel TAP connections. ``"auto"`` uses
+        ``min(os.cpu_count(), 8)`` (Gaia TAP handles ~8 concurrent jobs
+        without throttling).
+    mp_max:
+        Upper bound of ``number_mp`` range. If ``None``, queried first with
+        ``MAX(number_mp)``.
 
     Returns
     -------
     polars.DataFrame
-        All downloaded observations.
+        All downloaded observations, concatenated and sorted by ``source_id``.
 
     Raises
     ------
@@ -71,45 +132,59 @@ def download_gaia_sso(
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
 
+    if n_workers == "auto":
+        n_workers = min(os.cpu_count() or 4, 8)
+
     col_list = ", ".join(columns)
-    tap = TapPlus(url=archive_url)
+
+    if mp_max is None:
+        logger.info("Querying MAX(number_mp) from %s…", archive_url)
+        mp_max = _query_mp_max(archive_url)
+
+    # Build sub-ranges: n_workers numbered ranges + 1 NULL range
+    step = max(1, mp_max // n_workers)
+    ranges: list[tuple[int | None, int | None]] = [
+        (start, min(start + step - 1, mp_max))
+        for start in range(1, mp_max + 1, step)
+    ]
+    ranges.append((None, None))  # unnumbered objects
+
+    logger.info(
+        "gaiadr3.sso_observation — %d parallel workers | %d ranges | "
+        "number_mp 1–%d + unnumbered",
+        n_workers, len(ranges), mp_max,
+    )
 
     frames: list[pl.DataFrame] = []
-    offset = 0
+    total_ranges = len(ranges)
+    completed = 0
 
-    logger.info("Downloading gaiadr3.sso_observation from %s", archive_url)
-
-    while True:
-        adql = (
-            f"SELECT TOP {chunk_size} {col_list} "
-            f"FROM gaiadr3.sso_observation "
-            f"ORDER BY source_id "
-            f"OFFSET {offset}"
-        )
-        logger.debug("TAP query: %s", adql)
-        job = tap.launch_job(adql)
-        table = job.get_results()
-
-        if len(table) == 0:
-            break
-
-        df = pl.from_pandas(table.to_pandas())
-        frames.append(df)
-        logger.info("  fetched %d rows (total so far: %d)", len(df),
-                    sum(len(f) for f in frames))
-
-        if len(table) < chunk_size:
-            break
-
-        offset += chunk_size
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        futures = {
+            pool.submit(_fetch_range, archive_url, col_list, mp_start, mp_end): (mp_start, mp_end)
+            for mp_start, mp_end in ranges
+        }
+        for fut in as_completed(futures):
+            mp_start, mp_end = futures[fut]
+            completed += 1
+            pct = 100 * completed / total_ranges
+            label = "unnumbered" if mp_start is None else f"mp {mp_start}–{mp_end}"
+            try:
+                df, elapsed = fut.result()
+                if len(df) > 0:
+                    frames.append(df)
+                logger.info("  [%d/%d | %5.1f%%] %-22s %.1fs",
+                            completed, total_ranges, pct, label, elapsed)
+            except Exception:
+                logger.exception("  [%d/%d | %5.1f%%] %-22s FAILED",
+                                 completed, total_ranges, pct, label)
 
     if not frames:
         logger.warning("No rows returned from Gaia TAP — writing empty file")
         result = pl.DataFrame()
     else:
-        result = pl.concat(frames)
+        result = pl.concat(frames).sort("source_id")
 
-    # Annotate epoch scale in metadata via schema comment (Parquet metadata)
     result.write_parquet(dest, compression="zstd")
     logger.info("Saved %d observations to %s", len(result), dest)
     return result
