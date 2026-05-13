@@ -15,14 +15,14 @@ ENV UV_SYSTEM_PYTHON=1
 
 WORKDIR /app
 
-# Dependency layer (cached unless pyproject.toml changes)
+# Dependency layer — cached unless pyproject.toml changes.
+# Stubs mínimos para que el editable install no falle antes de copiar el source real.
 COPY pyproject.toml ./
-RUN uv pip install -e ".[dev]" --no-cache
+RUN mkdir -p src scripts tests \
+    && touch src/__init__.py scripts/__init__.py tests/__init__.py \
+    && uv pip install -e ".[dev]" --no-cache
 
-# Source code
+# Source code (layer separada para no invalidar el cache de deps en cada cambio)
 COPY . .
-
-# data/ and logs/ are always mounted from the host (see docker-compose.yml)
-VOLUME ["/app/data", "/app/logs"]
 
 CMD ["python", "-m", "scripts.run_pipeline", "--config", "config.yaml"]
