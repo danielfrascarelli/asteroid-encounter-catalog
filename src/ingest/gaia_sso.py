@@ -8,11 +8,11 @@ as a Julian Date. All other processing converts to TDB via
 Download strategy
 -----------------
 Instead of sequential OFFSET pagination (O(n²) server-side scans), the
-download splits the ``number_mp`` range into *n_workers* sub-ranges and
-fetches them in parallel via ``ThreadPoolExecutor``.  Each sub-range is a
-single async TAP job — no pagination needed within a range because each
-chunk is well under the server's 3M-row async limit.  Unnumbered objects
-(``number_mp IS NULL``) are fetched as a separate job.
+download splits the ``number_mp`` range into fixed-size batches and fetches
+up to *n_workers* batches concurrently via ``ThreadPoolExecutor``.  Small
+batches (default 5 000) keep each async TAP job under ~3 minutes, avoiding
+the server-side connection resets that occur on long-running jobs.
+Unnumbered objects (``number_mp IS NULL``) are fetched as a separate job.
 
 Usage (via download script):
     docker compose run --rm pipeline python -m scripts.download_gaia_sso
@@ -85,6 +85,9 @@ def _query_mp_max(archive_url: str) -> int:
     return int(val) if val is not None else _DEFAULT_MP_MAX
 
 
+_DEFAULT_BATCH_SIZE = 5_000
+
+
 def download_gaia_sso(
     archive_url: str,
     columns: list[str],
@@ -92,12 +95,14 @@ def download_gaia_sso(
     *,
     n_workers: int | str = "auto",
     mp_max: int | None = None,
+    batch_size: int = _DEFAULT_BATCH_SIZE,
 ) -> pl.DataFrame:
     """Download ``gaiadr3.sso_observation`` via parallel TAP jobs.
 
-    Splits the ``number_mp`` range into *n_workers* sub-ranges and fetches
-    them concurrently.  Each sub-range is one async TAP job, avoiding the
-    O(n²) cost of OFFSET-based pagination.
+    Splits the ``number_mp`` range into batches of *batch_size* and fetches
+    up to *n_workers* batches concurrently.  Using small batches keeps each
+    TAP job short (< 5 min), avoiding server-side connection resets that occur
+    on long-running async jobs.
 
     Parameters
     ----------
@@ -114,6 +119,10 @@ def download_gaia_sso(
     mp_max:
         Upper bound of ``number_mp`` range. If ``None``, queried first with
         ``MAX(number_mp)``.
+    batch_size:
+        Number of ``number_mp`` values per TAP job. Smaller values reduce
+        per-job duration and the risk of server-side connection resets.
+        Default: 5 000 (≈ 2–3 min per job on the Gaia archive).
 
     Returns
     -------
@@ -141,8 +150,7 @@ def download_gaia_sso(
         logger.info("Querying MAX(number_mp) from %s…", archive_url)
         mp_max = _query_mp_max(archive_url)
 
-    # Build sub-ranges: n_workers numbered ranges + 1 NULL range
-    step = max(1, mp_max // n_workers)
+    step = max(1, batch_size)
     ranges: list[tuple[int | None, int | None]] = [
         (start, min(start + step - 1, mp_max))
         for start in range(1, mp_max + 1, step)
@@ -151,8 +159,8 @@ def download_gaia_sso(
 
     logger.info(
         "gaiadr3.sso_observation — %d parallel workers | %d ranges | "
-        "number_mp 1–%d + unnumbered",
-        n_workers, len(ranges), mp_max,
+        "batch_size %d | number_mp 1–%d + unnumbered",
+        n_workers, len(ranges), step, mp_max,
     )
 
     frames: list[pl.DataFrame] = []
