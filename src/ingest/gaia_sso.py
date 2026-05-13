@@ -136,7 +136,24 @@ def _fetch_range(
             t0 = time.monotonic()
             tap = TapPlus(url=archive_url)
             job = tap.launch_job_async(adql)
-            table = job.get_results()
+            # Inner retry: "Cannot find result" can be a server-side race condition
+            # where the phase flips to COMPLETED before the result file is flushed.
+            # Retry the download a few times before resubmitting the whole job.
+            table = None
+            for dl_attempt in range(3):
+                try:
+                    table = job.get_results()
+                    break
+                except Exception as dl_exc:
+                    if "Cannot find result" in str(dl_exc) and dl_attempt < 2:
+                        wait = 10 * (dl_attempt + 1)  # 10s, 20s
+                        logger.warning(
+                            "  %s result not ready yet, waiting %ds (dl %d/3): %s",
+                            label, wait, dl_attempt + 1, dl_exc,
+                        )
+                        time.sleep(wait)
+                    else:
+                        raise
             elapsed = time.monotonic() - t0
             df = pl.DataFrame() if len(table) == 0 else pl.from_pandas(table.to_pandas())
             part = cache_path.with_suffix(".part")
