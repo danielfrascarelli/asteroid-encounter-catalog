@@ -339,7 +339,7 @@ def load_config(
 
     if local_path is not None:
         local_path = Path(local_path)
-        if local_path.exists():
+        if local_path.is_file():
             with local_path.open() as fh:
                 local_raw: dict[str, Any] = yaml.safe_load(fh) or {}
             raw = _deep_merge(raw, local_raw)
