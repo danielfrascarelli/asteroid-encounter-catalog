@@ -41,6 +41,8 @@ sources:
     table: "gaiadr3.sso_observation"
     archive_url: "https://gea.esac.esa.int/tap-server/tap"
     batch_size: 5000                 # number_mp values per TAP job (smaller = shorter jobs, avoids server connection resets)
+    n_workers: 3                     # concurrent TAP jobs — tuned to Gaia server limits, not CPU count
+    max_retries: 3                   # retry attempts per failed batch (exponential backoff: 30s, 60s, 120s)
     columns:                         # Subset de columnas a descargar
       - solution_id
       - source_id

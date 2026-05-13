@@ -46,6 +46,8 @@ class GaiaSSOSourceConfig:
     archive_url: str
     columns: list[str]
     batch_size: int = 5_000
+    n_workers: int | str = "auto"
+    max_retries: int = 3
 
 
 @dataclass

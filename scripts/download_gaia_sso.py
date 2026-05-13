@@ -34,11 +34,15 @@ def main() -> None:
     cfg = load_config(args.config)
     dest = Path(cfg.paths.raw) / "gaia_sso.parquet"
 
+    cache_dir = Path(cfg.paths.cache) / "gaia_sso_chunks"
     download_gaia_sso(
         archive_url=cfg.sources.gaia_sso.archive_url,
         columns=cfg.sources.gaia_sso.columns,
         dest=dest,
         batch_size=cfg.sources.gaia_sso.batch_size,
+        n_workers=cfg.sources.gaia_sso.n_workers,
+        cache_dir=cache_dir,
+        max_retries=cfg.sources.gaia_sso.max_retries,
     )
 
 
