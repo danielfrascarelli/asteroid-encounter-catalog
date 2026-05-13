@@ -40,6 +40,7 @@ sources:
   gaia_sso:
     table: "gaiadr3.sso_observation"
     archive_url: "https://gea.esac.esa.int/tap-server/tap"
+    batch_size: 5000                 # number_mp values per TAP job (smaller = shorter jobs, avoids server connection resets)
     columns:                         # Subset de columnas a descargar
       - solution_id
       - source_id

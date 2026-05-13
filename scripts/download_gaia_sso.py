@@ -38,6 +38,7 @@ def main() -> None:
         archive_url=cfg.sources.gaia_sso.archive_url,
         columns=cfg.sources.gaia_sso.columns,
         dest=dest,
+        batch_size=cfg.sources.gaia_sso.batch_size,
     )
 
 

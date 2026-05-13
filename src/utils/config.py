@@ -45,6 +45,7 @@ class GaiaSSOSourceConfig:
     table: str
     archive_url: str
     columns: list[str]
+    batch_size: int = 5_000
 
 
 @dataclass
