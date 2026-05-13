@@ -135,11 +135,13 @@ def _fetch_range(
         try:
             t0 = time.monotonic()
             tap = TapPlus(url=archive_url)
-            job = tap.launch_job_async(adql)
-            # Inner retry: "Cannot find result" can be a server-side race condition
-            # where the phase flips to COMPLETED before the result file is flushed.
-            # Retry the download a few times before resubmitting the whole job.
-            table = None
+            # background=True: submit + start the job but return immediately without
+            # calling get_results() internally. This lets us own the download retry.
+            # Without this, launch_job_async calls get_results() internally and the
+            # "Cannot find result" HTTP 500 explodes before we can catch it.
+            job = tap.launch_job_async(adql, background=True)
+            # Inner retry: "Cannot find result" can be a transient server race condition
+            # (phase flips to COMPLETED before the result file is fully flushed).
             for dl_attempt in range(3):
                 try:
                     table = job.get_results()
