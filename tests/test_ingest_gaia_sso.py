@@ -55,7 +55,7 @@ COLUMNS = [
 
 
 def _tap_mock_for(df: pl.DataFrame) -> MagicMock:
-    """Return a TapPlus mock whose async job yields *df*."""
+    """Return a TapPlus mock whose sync job yields *df*."""
     from astropy.table import Table
 
     table = Table.from_pandas(df.to_pandas())
@@ -63,7 +63,7 @@ def _tap_mock_for(df: pl.DataFrame) -> MagicMock:
     job.get_results.return_value = table
 
     tap = MagicMock()
-    tap.launch_job_async.return_value = job
+    tap.launch_job.return_value = job
     return tap
 
 
@@ -203,39 +203,6 @@ def test_retry_on_failure(
 # Cross-batch reuse
 # ---------------------------------------------------------------------------
 
-
-@patch("src.ingest.gaia_sso.time.sleep", return_value=None)
-@patch("src.ingest.gaia_sso.TapPlus")
-def test_inner_retry_on_cannot_find_result(
-    mock_tap_cls: MagicMock, mock_sleep: MagicMock, tmp_path: Path
-) -> None:
-    """Inner dl retry recovers from 'Cannot find result' without resubmitting the job."""
-    good_result = _tap_mock_for(_make_sso_df())
-    # TapPlus is called once; the job's get_results fails twice then succeeds
-    job_mock = MagicMock()
-    job_mock.get_results.side_effect = [
-        Exception("Error 500: Cannot find result 'result' for job 'xyz'"),
-        Exception("Error 500: Cannot find result 'result' for job 'xyz'"),
-        _tap_mock_for(_make_sso_df()).launch_job_async.return_value.get_results.return_value,
-    ]
-    mock_tap_cls.return_value.launch_job_async.return_value = job_mock
-    # Patch get_results directly on the job returned by launch_job_async
-    good_table_tap = _tap_mock_for(_make_sso_df())
-    good_table = good_table_tap.launch_job_async.return_value.get_results.return_value
-    job_mock.get_results.side_effect = [
-        Exception("Error 500: Cannot find result 'result' for job 'xyz'"),
-        Exception("Error 500: Cannot find result 'result' for job 'xyz'"),
-        good_table,
-    ]
-
-    cache_dir = tmp_path / "chunks"
-    cache_dir.mkdir()
-    cp = _chunk_path(cache_dir, 1, 5)
-    _fetch_range("http://fake", ", ".join(COLUMNS), 1, 5, cache_path=cp, max_retries=3)
-
-    assert cp.exists()
-    assert mock_tap_cls.call_count == 1   # job was NOT resubmitted
-    assert mock_sleep.call_count == 2     # slept before dl attempt 2 and 3
 
 
 def test_cross_batch_reuse_builds_chunk(tmp_path: Path) -> None:
