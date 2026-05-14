@@ -76,7 +76,17 @@ def test_chunk_path_naming(tmp_path: Path) -> None:
 
 def test_to_pipeline_schema_has_expected_columns() -> None:
     result = _to_pipeline_schema(_make_raw_df())
-    expected = {"number", "designation", "a_au", "e", "i_deg", "omega_deg", "Omega_deg", "M_deg", "epoch_jd"}
+    expected = {
+        "number",
+        "designation",
+        "a_au",
+        "e",
+        "i_deg",
+        "omega_deg",
+        "Omega_deg",
+        "M_deg",
+        "epoch_jd",
+    }
     assert set(result.columns) == expected
 
 
@@ -167,7 +177,17 @@ def test_download_returns_pipeline_columns(mock_tap_cls: MagicMock, tmp_path: Pa
         n_workers=2,
         cache_dir=tmp_path / "chunks",
     )
-    for col in ("number", "designation", "a_au", "e", "i_deg", "Omega_deg", "omega_deg", "M_deg", "epoch_jd"):
+    for col in (
+        "number",
+        "designation",
+        "a_au",
+        "e",
+        "i_deg",
+        "Omega_deg",
+        "omega_deg",
+        "M_deg",
+        "epoch_jd",
+    ):
         assert col in df.columns, f"Missing column: {col}"
 
 

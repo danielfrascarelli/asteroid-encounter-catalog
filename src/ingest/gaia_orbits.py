@@ -212,10 +212,7 @@ def download_gaia_orbits(
         mp_max = _query_mp_max(archive_url)
 
     step = max(1, batch_size)
-    ranges = [
-        (start, min(start + step - 1, mp_max))
-        for start in range(1, mp_max + 1, step)
-    ]
+    ranges = [(start, min(start + step - 1, mp_max)) for start in range(1, mp_max + 1, step)]
 
     cached = [(s, e) for s, e in ranges if _chunk_path(cache_dir, s, e).exists()]
     pending = [(s, e) for s, e in ranges if not _chunk_path(cache_dir, s, e).exists()]
