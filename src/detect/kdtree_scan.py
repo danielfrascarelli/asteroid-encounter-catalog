@@ -19,6 +19,7 @@ import logging
 import numpy as np
 import polars as pl
 from scipy.spatial import cKDTree
+from tqdm import tqdm
 
 from src.propagate.grid import propagate_grid
 
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 def scan_time_grid(
     elements: pl.DataFrame,
     time_grid: np.ndarray,
-    pairs: np.ndarray,
+    pairs: np.ndarray | None,
     threshold_au: float,
     leaf_size: int = 30,
 ) -> list[tuple[int, int, float, float]]:
@@ -54,15 +55,27 @@ def scan_time_grid(
         One entry per pair where the minimum observed distance is below
         *threshold_au*.  Pairs never seen within threshold are omitted.
     """
-    if len(pairs) == 0:
+    if pairs is not None and len(pairs) == 0:
         return []
 
-    # Build a fast set for O(1) membership tests (query_pairs guarantees i<j)
-    compatible_set: set[tuple[int, int]] = {(int(p[0]), int(p[1])) for p in pairs}
+    # Build a fast set for O(1) membership tests (query_pairs guarantees i<j).
+    # When pairs is None the orbital prefilter was skipped; all spatially close
+    # pairs returned by query_pairs are accepted.
+    compatible_set: set[tuple[int, int]] | None = (
+        None if pairs is None else {(int(p[0]), int(p[1])) for p in pairs}
+    )
 
     best: dict[tuple[int, int], tuple[float, float]] = {}
 
-    for step_idx, (t_jd, pos) in enumerate(propagate_grid(elements, time_grid)):
+    for step_idx, (t_jd, pos) in enumerate(
+        tqdm(
+            propagate_grid(elements, time_grid),
+            total=len(time_grid),
+            desc="KD-tree scan",
+            unit="step",
+            leave=False,
+        )
+    ):
         tree = cKDTree(pos, leafsize=leaf_size)
         raw: np.ndarray = tree.query_pairs(threshold_au, output_type="ndarray")
 
@@ -75,7 +88,7 @@ def scan_time_grid(
 
         for (a_idx, b_idx), d in zip(raw, dists):
             key = (int(a_idx), int(b_idx))  # query_pairs guarantees i < j
-            if key not in compatible_set:
+            if compatible_set is not None and key not in compatible_set:
                 continue
             d_f = float(d)
             if key not in best or d_f < best[key][1]:

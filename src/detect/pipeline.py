@@ -11,10 +11,15 @@ import numpy as np
 import polars as pl
 
 from src.detect.kdtree_scan import scan_time_grid
+from src.detect.parallel import scan_parallel
 from src.detect.prefilter import compatible_pairs
 from src.detect.refine import refine_candidates
 
 logger = logging.getLogger(__name__)
+
+# Above this N, np.triu_indices materialises O(N²) pairs (>35 GB at N=94k).
+# Skip prefilter and rely on the KD-tree spatial query alone.
+_PREFILTER_MAX_N = 5_000
 
 _SCHEMA = {
     "number_1": pl.Int32,
@@ -39,6 +44,8 @@ def detect_encounters(
     window_hours: float = 2.0,
     prefilter_enabled: bool = True,
     refinement_enabled: bool = True,
+    n_workers: int | str = 1,
+    chunk_size_days: float = 30.0,
 ) -> pl.DataFrame:
     """Detect close asteroid encounters over a time grid.
 
@@ -85,19 +92,41 @@ def detect_encounters(
     )
 
     # --- Step 1: prefilter ---
-    if prefilter_enabled:
-        pairs = compatible_pairs(elements, semimajor_diff_max_au, inclination_diff_max_deg)
-    else:
-        ii, jj = np.triu_indices(n, k=1)
-        pairs = np.stack([ii, jj], axis=1).astype(np.int32)
-        logger.info("Prefilter disabled: %d pairs", len(pairs))
+    pairs: np.ndarray | None
 
-    if len(pairs) == 0:
+    if prefilter_enabled:
+        if n <= _PREFILTER_MAX_N:
+            pairs = compatible_pairs(elements, semimajor_diff_max_au, inclination_diff_max_deg)
+        else:
+            logger.info(
+                "N=%d > %d: skipping pair precomputation, KD-tree spatial filter only",
+                n,
+                _PREFILTER_MAX_N,
+            )
+            pairs = None
+    else:
+        if n <= _PREFILTER_MAX_N:
+            ii, jj = np.triu_indices(n, k=1)
+            pairs = np.stack([ii, jj], axis=1).astype(np.int32)
+            logger.info("Prefilter disabled: %d pairs", len(pairs))
+        else:
+            logger.info("Prefilter disabled; N=%d — using KD-tree spatial filter only", n)
+            pairs = None
+
+    if pairs is not None and len(pairs) == 0:
         logger.info("No compatible pairs — catalog is empty")
         return pl.DataFrame(schema=_SCHEMA)
 
     # --- Step 2: KD-tree coarse scan ---
-    candidates = scan_time_grid(elements, time_grid, pairs, threshold_au, leaf_size)
+    from src.detect.parallel import resolve_n_workers
+
+    nw = resolve_n_workers(n_workers)
+    if nw > 1:
+        candidates = scan_parallel(
+            elements, time_grid, pairs, threshold_au, leaf_size, n_workers, chunk_size_days
+        )
+    else:
+        candidates = scan_time_grid(elements, time_grid, pairs, threshold_au, leaf_size)
     logger.info("%d coarse candidates after KD-tree scan", len(candidates))
 
     if not candidates:
