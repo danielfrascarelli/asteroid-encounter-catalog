@@ -85,14 +85,32 @@ def detect_encounters(
     )
 
     # --- Step 1: prefilter ---
-    if prefilter_enabled:
-        pairs = compatible_pairs(elements, semimajor_diff_max_au, inclination_diff_max_deg)
-    else:
-        ii, jj = np.triu_indices(n, k=1)
-        pairs = np.stack([ii, jj], axis=1).astype(np.int32)
-        logger.info("Prefilter disabled: %d pairs", len(pairs))
+    # For large N, np.triu_indices(N) materialises O(N²) pairs (>35 GB at N=94k).
+    # The KD-tree spatial query at 0.01 AU already provides tight filtering, so
+    # skip pair precomputation and let scan_time_grid use query_pairs directly.
+    _PREFILTER_MAX_N = 5_000
+    pairs: np.ndarray | None
 
-    if len(pairs) == 0:
+    if prefilter_enabled:
+        if n <= _PREFILTER_MAX_N:
+            pairs = compatible_pairs(elements, semimajor_diff_max_au, inclination_diff_max_deg)
+        else:
+            logger.info(
+                "N=%d > %d: skipping pair precomputation, KD-tree spatial filter only",
+                n,
+                _PREFILTER_MAX_N,
+            )
+            pairs = None
+    else:
+        if n <= _PREFILTER_MAX_N:
+            ii, jj = np.triu_indices(n, k=1)
+            pairs = np.stack([ii, jj], axis=1).astype(np.int32)
+            logger.info("Prefilter disabled: %d pairs", len(pairs))
+        else:
+            logger.info("Prefilter disabled; N=%d — using KD-tree spatial filter only", n)
+            pairs = None
+
+    if pairs is not None and len(pairs) == 0:
         logger.info("No compatible pairs — catalog is empty")
         return pl.DataFrame(schema=_SCHEMA)
 
