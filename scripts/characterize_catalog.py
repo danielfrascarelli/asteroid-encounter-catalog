@@ -1,0 +1,140 @@
+"""Enrich the encounter catalog with physical and observational properties.
+
+Reads the detection output (encounters_catalog.parquet), characterizes each
+encounter, and writes an enriched catalog (encounters_characterized.parquet).
+
+Usage:
+    docker compose run --rm pipeline python -m scripts.characterize_catalog
+    docker compose run --rm pipeline python -m scripts.characterize_catalog --config config.yaml
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import time
+from pathlib import Path
+
+import polars as pl
+
+from src.characterize.encounter import characterize_catalog
+from src.ingest.gaia_orbits import load_gaia_orbits
+from src.ingest.mpcorb import parse_mpcorb
+from src.utils.config import load_config
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+_REQUIRED_BODIES = [1, 2, 4, 10]
+_BODY_NAMES = {1: "Ceres", 2: "Pallas", 4: "Vesta", 10: "Hygiea"}
+_SUPPLEMENT_EPOCH_JD = 2457200.5
+
+
+def _supplement_elements(elements: pl.DataFrame, mpcorb: pl.DataFrame) -> pl.DataFrame:
+    """Add major bodies missing from gaia_orbits using MPCORB elements."""
+    present = set(elements["number"].to_list())
+    missing = [n for n in _REQUIRED_BODIES if n not in present]
+    if not missing:
+        return elements
+    logger.info("Supplementing elements from MPCORB for bodies: %s", missing)
+    supplement = mpcorb.filter(pl.col("number").is_in(missing)).select(elements.columns)
+    return pl.concat([supplement, elements])
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Characterize encounter catalog")
+    parser.add_argument("--config", default="config.yaml")
+    parser.add_argument(
+        "--input",
+        default=None,
+        help="Override input catalog path (default: data/output/encounters_catalog.parquet)",
+    )
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Override output catalog path (default: data/output/encounters_characterized.parquet)",
+    )
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
+    out_dir = Path(cfg.paths.output)
+
+    in_path = Path(args.input) if args.input else out_dir / "encounters_catalog.parquet"
+    out_path = Path(args.output) if args.output else out_dir / "encounters_characterized.parquet"
+
+    # --- Load detection catalog ---
+    logger.info("Loading detection catalog: %s", in_path)
+    encounters = pl.read_parquet(in_path)
+    logger.info("%d encounters loaded", len(encounters))
+
+    # --- Load orbital elements ---
+    orbits_path = Path(cfg.paths.raw) / "gaia_orbits.parquet"
+    elements = load_gaia_orbits(orbits_path)
+
+    # --- Load MPCORB ---
+    mpcorb_path = Path(cfg.paths.raw) / "MPCORB.DAT"
+    logger.info("Parsing MPCORB: %s", mpcorb_path)
+    mpcorb = parse_mpcorb(str(mpcorb_path))
+
+    # --- Supplement elements for major bodies not in gaia_orbits ---
+    elements = _supplement_elements(elements, mpcorb)
+
+    # --- Characterize ---
+    t0 = time.monotonic()
+    enriched = characterize_catalog(
+        encounters,
+        elements,
+        mpcorb,
+        albedo=cfg.characterize.default_albedo,
+    )
+    elapsed = time.monotonic() - t0
+    logger.info("Characterization complete in %.1fs", elapsed)
+
+    # --- Save ---
+    out_dir.mkdir(parents=True, exist_ok=True)
+    enriched.write_parquet(out_path, compression="zstd")
+    logger.info("Enriched catalog saved → %s  (%d rows)", out_path, len(enriched))
+
+    # --- Summary stats ---
+    observable = enriched.filter(pl.col("gaia_observable"))
+    logger.info("Gaia-observable encounters: %d / %d", len(observable), len(enriched))
+    logger.info(
+        "Velocity range (km/s): %.3f – %.3f",
+        float(enriched["rel_vel_km_s"].min()),  # type: ignore[arg-type]
+        float(enriched["rel_vel_km_s"].max()),  # type: ignore[arg-type]
+    )
+    logger.info(
+        "Diameter range body 1 (km): %.1f – %.1f",
+        float(enriched["diameter_1_km"].drop_nulls().min()),  # type: ignore[arg-type]
+        float(enriched["diameter_1_km"].drop_nulls().max()),  # type: ignore[arg-type]
+    )
+
+    # --- Gate check: major bodies ---
+    for n in _REQUIRED_BODIES:
+        hits = enriched.filter((pl.col("number_1") == n) | (pl.col("number_2") == n))
+        if len(hits) == 0:
+            logger.warning("Gate: (%d) not in enriched catalog", n)
+        else:
+            row = hits.head(1).row(0, named=True)
+            logger.info(
+                "Gate OK: (%d) — closest %.6f AU  D=%.0f km  class=%s",
+                n,
+                float(hits["dist_au"].min()),  # type: ignore[arg-type]
+                (
+                    float(hits.filter(pl.col("number_1") == n).head(1)["diameter_1_km"][0])
+                    if len(hits.filter(pl.col("number_1") == n)) > 0
+                    else float("nan")
+                ),
+                row["class_1"] if row["number_1"] == n else row["class_2"],
+            )
+
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())
