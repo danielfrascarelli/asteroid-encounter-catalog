@@ -8,8 +8,8 @@ as a Julian Date. All other processing converts to TDB via
 Download strategy
 -----------------
 The ``number_mp`` range is split into fixed-size batches. Each batch is
-fetched as an async TAP job and written to its own Parquet file in *cache_dir*
-immediately upon completion (atomic rename from ``.part``).
+fetched as a synchronous TAP query (/tap/sync) and written to its own Parquet
+file in *cache_dir* immediately upon completion (atomic rename from ``.part``).
 
 On rerun, completed chunks are skipped. If *batch_size* changed between runs,
 existing chunks are reused when their union fully covers a new range — no
@@ -108,7 +108,10 @@ def _fetch_range(
     cache_path: Path,
     max_retries: int = 3,
 ) -> tuple[pl.DataFrame, float]:
-    """Fetch one number_mp sub-range (or NULL) via a single async TAP job.
+    """Fetch one number_mp sub-range (or NULL) via a synchronous TAP query.
+
+    Uses /tap/sync — the result comes back in the HTTP response body, so there
+    is no job polling and no "Cannot find result" race condition.
 
     Retries with exponential backoff (±10 % jitter) on failure. Writes result
     atomically to cache_path before returning.
@@ -135,36 +138,22 @@ def _fetch_range(
         try:
             t0 = time.monotonic()
             tap = TapPlus(url=archive_url)
-            job = tap.launch_job_async(adql)
-            # Inner retry: "Cannot find result" can be a server-side race condition
-            # where the phase flips to COMPLETED before the result file is flushed.
-            # Retry the download a few times before resubmitting the whole job.
-            table = None
-            for dl_attempt in range(3):
-                try:
-                    table = job.get_results()
-                    break
-                except Exception as dl_exc:
-                    if "Cannot find result" in str(dl_exc) and dl_attempt < 2:
-                        wait = 10 * (dl_attempt + 1)  # 10s, 20s
-                        logger.warning(
-                            "  %s result not ready yet, waiting %ds (dl %d/3): %s",
-                            label, wait, dl_attempt + 1, dl_exc,
-                        )
-                        time.sleep(wait)
-                    else:
-                        raise
+            job = tap.launch_job(adql)
+            table = job.get_results()
             elapsed = time.monotonic() - t0
             df = pl.DataFrame() if len(table) == 0 else pl.from_pandas(table.to_pandas())
+            df = df.rename({c: c.lower() for c in df.columns if c != c.lower()})
             part = cache_path.with_suffix(".part")
             df.write_parquet(part, compression="zstd")
             part.rename(cache_path)
             return df, elapsed
         except Exception as exc:
             last_exc = exc
+            is_last = attempt == max_retries
             logger.warning(
                 "  %s attempt %d/%d failed: %s",
                 label, attempt + 1, max_retries + 1, exc,
+                exc_info=is_last,
             )
 
     raise RuntimeError(f"All {max_retries + 1} attempts failed for {label}") from last_exc

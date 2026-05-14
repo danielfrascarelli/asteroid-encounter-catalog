@@ -40,9 +40,9 @@ sources:
   gaia_sso:
     table: "gaiadr3.sso_observation"
     archive_url: "https://gea.esac.esa.int/tap-server/tap"
-    batch_size: 1000                 # number_mp values per TAP job — ~24k rows/job keeps each job under ~70s (server timeout ~120s)
-    n_workers: 1                     # sequential downloads — avoids concurrent job race conditions on the Gaia TAP server
-    max_retries: 3                   # retry attempts per failed batch (exponential backoff: 30s, 60s, 120s)
+    batch_size: 50000                  # number_mp values per TAP job — dense ranges (mp 1-100) have ~22k rows, sparse (mp 150k+) ~4.5k rows; stays under server result-file limit
+    n_workers: 10                     # sequential downloads — avoids concurrent job race conditions on the Gaia TAP server
+    max_retries: 10                   # retry attempts per failed batch (exponential backoff: 30s, 60s, 120s)
     columns:                         # Subset de columnas a descargar
       - solution_id
       - source_id

@@ -37,31 +37,30 @@ La respuesta es valiosa por varias razones:
 
 ### Requisitos previos
 
-- Python ≥ 3.11
+- Docker + Docker Compose
 - ~10 GB de espacio en disco (datos crudos + cache)
 - 8 GB de RAM mínimo (16 GB recomendado para subset completo)
+
+No se requiere Python local — todo corre dentro del contenedor.
 
 ### Instalación
 
 ```bash
-# Clonar el repo
 git clone https://github.com/tu-usuario/asteroid-encounters.git
 cd asteroid-encounters
-
-# Crear entorno e instalar dependencias
-uv sync
-# o alternativamente:
-# poetry install
+docker compose build
 ```
 
 ### Descarga de datos
 
 ```bash
 # MPCORB (~50 MB, varios minutos)
-python -m scripts.download_mpcorb
+docker compose run --rm pipeline python -m scripts.download_mpcorb
 
-# Observaciones Gaia SSO (~varios GB, dependiendo del subset)
-python -m scripts.download_gaia_sso --subset numbered
+# Observaciones Gaia SSO (~varios GB, puede tardar horas)
+# Los chunks se guardan en data/cache/gaia_sso_chunks/ — si se interrumpe,
+# el siguiente run retoma desde el último chunk completado.
+docker compose run --rm pipeline python -m scripts.download_gaia_sso --config config.yaml
 ```
 
 ### Primer test sobre subset pequeño
@@ -72,7 +71,7 @@ cp config.yaml config.local.yaml
 # editar config.local.yaml → subset.max_asteroids: 1000
 
 # Correr pipeline
-python -m scripts.run_pipeline --config config.local.yaml
+docker compose run --rm pipeline python -m scripts.run_pipeline --config config.local.yaml
 ```
 
 Deberías ver salida estilo:
@@ -88,7 +87,7 @@ Deberías ver salida estilo:
 ### Explorar resultados
 
 ```bash
-streamlit run src/dashboard/app.py
+docker compose up dashboard
 ```
 
 Y abrir `http://localhost:8501` en el navegador.
@@ -173,21 +172,32 @@ pytest tests/test_validation.py -v
 
 ```bash
 # Tests
-pytest tests/ -v
+docker compose run --rm test
+
+# Tests específicos
+docker compose run --rm test pytest tests/test_ingest_gaia_sso.py -v
 
 # Formato y lint
-ruff check . --fix
-black .
+docker compose run --rm pipeline ruff check . --fix
+docker compose run --rm pipeline black .
 
 # Type checking
-mypy src/
+docker compose run --rm pipeline mypy src/
 ```
 
-Antes de hacer commit, asegurate de que pasen los tests y el lint:
+### Debugear con VS Code
+
+Para adjuntar el debugger de VS Code a un proceso corriendo en Docker:
 
 ```bash
-make check  # tests + lint + format check
+# 1. Levantar el contenedor en modo debug (queda esperando la conexión)
+docker compose -f docker-compose.yml -f docker-compose.debug.yml \
+  run --rm --service-ports pipeline -m scripts.download_gaia_sso --config config.yaml
+
+# 2. En VS Code: Run & Debug → "Docker: Attach to pipeline" → ▶
 ```
+
+El proceso no arranca hasta que VS Code se conecte. Podés poner breakpoints en cualquier archivo de `src/` o `scripts/`.
 
 ## 📚 Referencias
 
