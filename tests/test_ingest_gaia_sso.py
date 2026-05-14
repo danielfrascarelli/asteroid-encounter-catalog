@@ -48,9 +48,20 @@ def _make_sso_df() -> pl.DataFrame:
 
 
 COLUMNS = [
-    "solution_id", "source_id", "denomination", "number_mp",
-    "transit_id", "observation_id", "epoch", "epoch_utc",
-    "ra", "dec", "g_mag", "x_gaia", "y_gaia", "z_gaia",
+    "solution_id",
+    "source_id",
+    "denomination",
+    "number_mp",
+    "transit_id",
+    "observation_id",
+    "epoch",
+    "epoch_utc",
+    "ra",
+    "dec",
+    "g_mag",
+    "x_gaia",
+    "y_gaia",
+    "z_gaia",
 ]
 
 
@@ -100,8 +111,12 @@ def test_download_writes_parquet(mock_tap_cls: MagicMock, tmp_path: Path) -> Non
     mock_tap_cls.return_value = _tap_mock_for(_make_sso_df())
     dest = tmp_path / "gaia_sso.parquet"
     download_gaia_sso(
-        archive_url="http://fake", columns=COLUMNS, dest=dest,
-        mp_max=10, n_workers=2, cache_dir=tmp_path / "chunks",
+        archive_url="http://fake",
+        columns=COLUMNS,
+        dest=dest,
+        mp_max=10,
+        n_workers=2,
+        cache_dir=tmp_path / "chunks",
     )
     assert dest.exists()
 
@@ -110,9 +125,12 @@ def test_download_writes_parquet(mock_tap_cls: MagicMock, tmp_path: Path) -> Non
 def test_download_returns_dataframe(mock_tap_cls: MagicMock, tmp_path: Path) -> None:
     mock_tap_cls.return_value = _tap_mock_for(_make_sso_df())
     df = download_gaia_sso(
-        archive_url="http://fake", columns=COLUMNS,
+        archive_url="http://fake",
+        columns=COLUMNS,
         dest=tmp_path / "out.parquet",
-        mp_max=10, n_workers=2, cache_dir=tmp_path / "chunks",
+        mp_max=10,
+        n_workers=2,
+        cache_dir=tmp_path / "chunks",
     )
     assert isinstance(df, pl.DataFrame)
 
@@ -121,9 +139,12 @@ def test_download_returns_dataframe(mock_tap_cls: MagicMock, tmp_path: Path) -> 
 def test_ceres_observations_present(mock_tap_cls: MagicMock, tmp_path: Path) -> None:
     mock_tap_cls.return_value = _tap_mock_for(_make_sso_df())
     df = download_gaia_sso(
-        archive_url="http://fake", columns=COLUMNS,
+        archive_url="http://fake",
+        columns=COLUMNS,
         dest=tmp_path / "out.parquet",
-        mp_max=10, n_workers=2, cache_dir=tmp_path / "chunks",
+        mp_max=10,
+        n_workers=2,
+        cache_dir=tmp_path / "chunks",
     )
     assert len(df.filter(pl.col("number_mp") == 1)) > 0
 
@@ -135,11 +156,15 @@ def test_progress_logging(
     """Verify that progress lines with percentage and timing are logged."""
     mock_tap_cls.return_value = _tap_mock_for(_make_sso_df())
     import logging
+
     with caplog.at_level(logging.INFO, logger="src.ingest.gaia_sso"):
         download_gaia_sso(
-            archive_url="http://fake", columns=COLUMNS,
+            archive_url="http://fake",
+            columns=COLUMNS,
             dest=tmp_path / "out.parquet",
-            mp_max=10, n_workers=2, cache_dir=tmp_path / "chunks",
+            mp_max=10,
+            n_workers=2,
+            cache_dir=tmp_path / "chunks",
         )
     progress_lines = [r for r in caplog.records if "%" in r.message and "s" in r.message]
     assert len(progress_lines) > 0, "Expected progress log lines with % and timing"
@@ -169,9 +194,13 @@ def test_resume_skips_cached_ranges(mock_tap_cls: MagicMock, tmp_path: Path) -> 
     # Pre-populate first batch (batch_size=5, mp_max=10 → ranges: (1,5), (6,10), unnumbered)
     _make_sso_df().write_parquet(_chunk_path(cache_dir, 1, 5))
     download_gaia_sso(
-        archive_url="http://fake", columns=COLUMNS,
-        dest=tmp_path / "out.parquet", mp_max=10, n_workers=2,
-        batch_size=5, cache_dir=cache_dir,
+        archive_url="http://fake",
+        columns=COLUMNS,
+        dest=tmp_path / "out.parquet",
+        mp_max=10,
+        n_workers=2,
+        batch_size=5,
+        cache_dir=cache_dir,
     )
     # (1,5) is cached; (6,10) and unnumbered are pending → 2 TAP calls, not 3
     assert mock_tap_cls.call_count == 2
@@ -184,9 +213,7 @@ def test_resume_skips_cached_ranges(mock_tap_cls: MagicMock, tmp_path: Path) -> 
 
 @patch("src.ingest.gaia_sso.time.sleep", return_value=None)
 @patch("src.ingest.gaia_sso.TapPlus")
-def test_retry_on_failure(
-    mock_tap_cls: MagicMock, mock_sleep: MagicMock, tmp_path: Path
-) -> None:
+def test_retry_on_failure(mock_tap_cls: MagicMock, mock_sleep: MagicMock, tmp_path: Path) -> None:
     """_fetch_range retries on failure and succeeds on the Nth attempt."""
     good_tap = _tap_mock_for(_make_sso_df())
     mock_tap_cls.side_effect = [RuntimeError("boom"), RuntimeError("boom"), good_tap]
@@ -202,7 +229,6 @@ def test_retry_on_failure(
 # ---------------------------------------------------------------------------
 # Cross-batch reuse
 # ---------------------------------------------------------------------------
-
 
 
 def test_cross_batch_reuse_builds_chunk(tmp_path: Path) -> None:

@@ -16,6 +16,7 @@ from src.utils.config import PipelineConfig, load_config
 def config_path(tmp_path: Path) -> Path:
     """Copy the real config.yaml to a temp directory."""
     import shutil
+
     src = Path(__file__).parent.parent / "config.yaml"
     dst = tmp_path / "config.yaml"
     shutil.copy(src, dst)

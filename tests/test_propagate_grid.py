@@ -45,15 +45,17 @@ def test_grid_fractional_step() -> None:
 # propagate_grid
 # ---------------------------------------------------------------------------
 
-_ELEMENTS = pl.DataFrame({
-    "a_au": [2.769, 2.362],
-    "e": [0.0758, 0.0889],
-    "i_deg": [10.59, 7.14],
-    "Omega_deg": [80.3, 103.8],
-    "omega_deg": [73.6, 149.6],
-    "M_deg": [95.99, 173.1],
-    "epoch_jd": [2451545.0, 2451545.0],
-})
+_ELEMENTS = pl.DataFrame(
+    {
+        "a_au": [2.769, 2.362],
+        "e": [0.0758, 0.0889],
+        "i_deg": [10.59, 7.14],
+        "Omega_deg": [80.3, 103.8],
+        "omega_deg": [73.6, 149.6],
+        "M_deg": [95.99, 173.1],
+        "epoch_jd": [2451545.0, 2451545.0],
+    }
+)
 
 
 def test_propagate_grid_step_count() -> None:

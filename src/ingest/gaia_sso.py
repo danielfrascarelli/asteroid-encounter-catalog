@@ -54,9 +54,7 @@ def _chunk_path(cache_dir: Path, mp_start: int | None, mp_end: int | None) -> Pa
     return cache_dir / f"mp_{mp_start:07d}_{mp_end:07d}.parquet"
 
 
-def _build_chunk_from_cache(
-    cache_dir: Path, mp_start: int, mp_end: int, dest: Path
-) -> bool:
+def _build_chunk_from_cache(cache_dir: Path, mp_start: int, mp_end: int, dest: Path) -> bool:
     """Try to build chunk [mp_start, mp_end] from existing cached files.
 
     Scans cache_dir for mp_*.parquet files that overlap [mp_start, mp_end],
@@ -132,7 +130,11 @@ def _fetch_range(
             wait *= 1 + random.uniform(-0.1, 0.1)
             logger.warning(
                 "  ↻ retry %d/%d for %s in %.0fs: %s",
-                attempt, max_retries, label, wait, last_exc,
+                attempt,
+                max_retries,
+                label,
+                wait,
+                last_exc,
             )
             time.sleep(wait)
         try:
@@ -152,7 +154,10 @@ def _fetch_range(
             is_last = attempt == max_retries
             logger.warning(
                 "  %s attempt %d/%d failed: %s",
-                label, attempt + 1, max_retries + 1, exc,
+                label,
+                attempt + 1,
+                max_retries + 1,
+                exc,
                 exc_info=is_last,
             )
 
@@ -239,8 +244,7 @@ def download_gaia_sso(
 
     step = max(1, batch_size)
     ranges: list[tuple[int | None, int | None]] = [
-        (start, min(start + step - 1, mp_max))
-        for start in range(1, mp_max + 1, step)
+        (start, min(start + step - 1, mp_max)) for start in range(1, mp_max + 1, step)
     ]
     ranges.append((None, None))
 
@@ -252,9 +256,7 @@ def download_gaia_sso(
     rebuilt: list[tuple[int | None, int | None]] = []
     still_pending: list[tuple[int | None, int | None]] = []
     for s, e in pending:
-        if s is not None and _build_chunk_from_cache(
-            cache_dir, s, e, _chunk_path(cache_dir, s, e)
-        ):
+        if s is not None and e is not None and _build_chunk_from_cache(cache_dir, s, e, _chunk_path(cache_dir, s, e)):
             rebuilt.append((s, e))
         else:
             still_pending.append((s, e))
@@ -267,18 +269,27 @@ def download_gaia_sso(
     logger.info(
         "gaiadr3.sso_observation — %d cached | %d pending | "
         "%d workers | batch_size %d | number_mp 1–%d + unnumbered",
-        len(cached), len(pending), n_workers, step, mp_max,
+        len(cached),
+        len(pending),
+        n_workers,
+        step,
+        mp_max,
     )
 
     failed: list[tuple[int | None, int | None]] = []
     completed = len(cached)
 
     if pending:
-        with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        with ThreadPoolExecutor(max_workers=int(n_workers)) as pool:
             futures = {
                 pool.submit(
-                    _fetch_range, archive_url, col_list, s, e,
-                    _chunk_path(cache_dir, s, e), max_retries,
+                    _fetch_range,
+                    archive_url,
+                    col_list,
+                    s,
+                    e,
+                    _chunk_path(cache_dir, s, e),
+                    max_retries,
                 ): (s, e)
                 for s, e in pending
             }
@@ -291,18 +302,26 @@ def download_gaia_sso(
                     _df, elapsed = fut.result()
                     logger.info(
                         "  [%d/%d | %5.1f%%] %-22s %.1fs",
-                        completed, len(ranges), pct, label, elapsed,
+                        completed,
+                        len(ranges),
+                        pct,
+                        label,
+                        elapsed,
                     )
                 except Exception:
                     logger.exception(
                         "  [%d/%d | %5.1f%%] %-22s FAILED (all retries exhausted)",
-                        completed, len(ranges), pct, label,
+                        completed,
+                        len(ranges),
+                        pct,
+                        label,
                     )
                     failed.append((s, e))
 
     if failed:
         logger.warning(
-            "%d ranges failed permanently: %s", len(failed),
+            "%d ranges failed permanently: %s",
+            len(failed),
             [f"mp {s}–{e}" if s else "unnumbered" for s, e in failed],
         )
 
