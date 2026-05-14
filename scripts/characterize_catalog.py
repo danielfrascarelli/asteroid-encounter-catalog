@@ -1,7 +1,8 @@
 """Enrich the encounter catalog with physical and observational properties.
 
 Reads the detection output (encounters_catalog.parquet), characterizes each
-encounter, and writes an enriched catalog (encounters_characterized.parquet).
+encounter, and writes an enriched catalog (encounters_characterized.parquet)
+along with a JSON metadata sidecar.
 
 Usage:
     docker compose run --rm pipeline python -m scripts.characterize_catalog
@@ -11,12 +12,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import logging
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
 
+from src.catalog.writer import write_catalog
 from src.characterize.encounter import characterize_catalog
 from src.ingest.gaia_orbits import load_gaia_orbits
 from src.ingest.mpcorb import parse_mpcorb
@@ -83,6 +87,7 @@ def main() -> int:
     elements = _supplement_elements(elements, mpcorb)
 
     # --- Characterize ---
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     t0 = time.monotonic()
     enriched = characterize_catalog(
         encounters,
@@ -93,10 +98,15 @@ def main() -> int:
     elapsed = time.monotonic() - t0
     logger.info("Characterization complete in %.1fs", elapsed)
 
-    # --- Save ---
+    # --- Save catalog + metadata sidecar ---
     out_dir.mkdir(parents=True, exist_ok=True)
-    enriched.write_parquet(out_path, compression="zstd")
-    logger.info("Enriched catalog saved → %s  (%d rows)", out_path, len(enriched))
+    write_catalog(
+        enriched,
+        out_path,
+        run_id=run_id,
+        mpcorb_path=mpcorb_path,
+        config_dict=dataclasses.asdict(cfg),
+    )
 
     # --- Summary stats ---
     observable = enriched.filter(pl.col("gaia_observable"))
