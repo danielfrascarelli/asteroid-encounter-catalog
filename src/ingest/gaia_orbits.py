@@ -59,6 +59,7 @@ _DEFAULT_MP_MAX = 160_000
 _DEFAULT_BATCH_SIZE = 5_000
 _RETRY_BASE_SECONDS = 30.0
 _RAD_TO_DEG = 180.0 / math.pi
+_GAIA_EPOCH_OFFSET = 2455197.5  # osc_epoch in TAP is days since J2010.0 (JD 2455197.5)
 
 
 def _chunk_path(cache_dir: Path, mp_start: int, mp_end: int) -> Path:
@@ -134,7 +135,6 @@ def _to_pipeline_schema(df: pl.DataFrame) -> pl.DataFrame:
                 "denomination": "designation",
                 "semi_major_axis": "a_au",
                 "eccentricity": "e",
-                "osc_epoch": "epoch_jd",
             }
         )
         .with_columns(
@@ -143,9 +143,10 @@ def _to_pipeline_schema(df: pl.DataFrame) -> pl.DataFrame:
                 (pl.col("arg_perihelion") * _RAD_TO_DEG).alias("omega_deg"),
                 (pl.col("long_asc_node") * _RAD_TO_DEG).alias("Omega_deg"),
                 (pl.col("mean_anomaly") * _RAD_TO_DEG).alias("M_deg"),
+                (pl.col("osc_epoch") + _GAIA_EPOCH_OFFSET).alias("epoch_jd"),
             ]
         )
-        .drop(["inclination", "arg_perihelion", "long_asc_node", "mean_anomaly"])
+        .drop(["inclination", "arg_perihelion", "long_asc_node", "mean_anomaly", "osc_epoch"])
         .with_columns([pl.col("number").cast(pl.Int32)])
     )
 

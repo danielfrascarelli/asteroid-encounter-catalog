@@ -41,7 +41,7 @@ def _make_raw_df() -> pl.DataFrame:
             "arg_perihelion": [73.6 * _DEG, 310.0 * _DEG, 151.2 * _DEG],
             "long_asc_node": [80.3 * _DEG, 173.1 * _DEG, 103.9 * _DEG],
             "mean_anomaly": [77.4 * _DEG, 78.5 * _DEG, 20.9 * _DEG],
-            "osc_epoch": [2456863.5, 2456863.5, 2456863.5],
+            "osc_epoch": [1666.0, 1666.0, 1666.0],  # days since J2010.0; 1666+2455197.5=2456863.5
         }
     )
 
