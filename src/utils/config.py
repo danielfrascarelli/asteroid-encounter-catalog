@@ -51,6 +51,14 @@ class GaiaSSOSourceConfig:
 
 
 @dataclass
+class GaiaOrbitsSourceConfig:
+    archive_url: str
+    batch_size: int = 5_000
+    n_workers: int | str = "auto"
+    max_retries: int = 3
+
+
+@dataclass
 class JplHorizonsSourceConfig:
     api_url: str
     rate_limit_seconds: float
@@ -60,6 +68,7 @@ class JplHorizonsSourceConfig:
 class SourcesConfig:
     mpcorb: MpcorbSourceConfig
     gaia_sso: GaiaSSOSourceConfig
+    gaia_orbits: GaiaOrbitsSourceConfig
     jpl_horizons: JplHorizonsSourceConfig
 
 
@@ -236,9 +245,10 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
     _require(p, "data_root", "raw", "cache", "output", "logs")
 
     s = raw["sources"]
-    _require(s, "mpcorb", "gaia_sso", "jpl_horizons")
+    _require(s, "mpcorb", "gaia_sso", "gaia_orbits", "jpl_horizons")
     _require(s["mpcorb"], "url", "local_filename", "refresh_days")
     _require(s["gaia_sso"], "table", "archive_url", "columns")
+    _require(s["gaia_orbits"], "archive_url")
     _require(s["jpl_horizons"], "api_url", "rate_limit_seconds")
 
     sub = raw["subset"]
@@ -285,6 +295,7 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
         sources=SourcesConfig(
             mpcorb=MpcorbSourceConfig(**s["mpcorb"]),
             gaia_sso=GaiaSSOSourceConfig(**s["gaia_sso"]),
+            gaia_orbits=GaiaOrbitsSourceConfig(**s["gaia_orbits"]),
             jpl_horizons=JplHorizonsSourceConfig(**s["jpl_horizons"]),
         ),
         subset=SubsetConfig(
