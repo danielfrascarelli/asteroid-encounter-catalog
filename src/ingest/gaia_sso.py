@@ -256,7 +256,11 @@ def download_gaia_sso(
     rebuilt: list[tuple[int | None, int | None]] = []
     still_pending: list[tuple[int | None, int | None]] = []
     for s, e in pending:
-        if s is not None and e is not None and _build_chunk_from_cache(cache_dir, s, e, _chunk_path(cache_dir, s, e)):
+        if (
+            s is not None
+            and e is not None
+            and _build_chunk_from_cache(cache_dir, s, e, _chunk_path(cache_dir, s, e))
+        ):
             rebuilt.append((s, e))
         else:
             still_pending.append((s, e))
