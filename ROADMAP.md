@@ -170,6 +170,49 @@ docker compose up dashboard                             # Streamlit en localhost
 - `pytest tests/test_detection.py::test_known_encounter` pasa.
 - Pipeline de 1000 asteroides corre en < 10 minutos en hardware modesto (no optimizado aún).
 
+### Cómo testear y validar la Fase 3
+
+**Tests unitarios (sin datos reales, rápidos):**
+```bash
+docker compose run --rm -v ./src:/app/src -v ./tests:/app/tests \
+  pipeline pytest tests/test_detection.py -v
+```
+Los 28 tests cubren prefilter, KD-tree scan, refinamiento cuadrático y el pipeline
+completo usando asteroides sintéticos construidos analíticamente.  No requieren
+`data/raw/` ni red.
+
+**Validación sobre datos reales (subset de 1000 asteroides del cinturón principal):**
+```bash
+# Asume que MPCORB.DAT y gaia_sso.parquet ya están en data/raw/
+docker compose run --rm pipeline python - <<'EOF'
+import polars as pl
+from src.ingest.mpcorb import parse_mpcorb
+from src.propagate.grid import make_time_grid
+from src.detect.pipeline import detect_encounters
+from astropy.time import Time
+
+elements = (
+    parse_mpcorb("data/raw/MPCORB.DAT", semimajor_min_au=2.0, semimajor_max_au=3.5)
+    .head(1000)
+)
+# Gaia DR3 window (TDB approximation)
+t_start = Time("2014-07-25", scale="tdb").jd
+t_end   = Time("2016-07-25", scale="tdb").jd
+grid    = make_time_grid(t_start, t_end, step_hours=1.0)
+
+encounters = detect_encounters(elements, grid, threshold_au=0.01)
+print(encounters.sort("dist_au").head(20))
+encounters.write_parquet("data/output/encounters_test_1000.parquet", compression="zstd")
+EOF
+```
+
+**Qué verificar en el output:**
+- Al menos un encuentro encontrado dentro del periodo Gaia (era de ~3 años es suficiente).
+- `number_1 < number_2` para cada fila (garantizado por el prefilter de índices `triu`).
+- `dist_au` ≤ 0.01 para todas las filas.
+- `rel_vel_au_day` > 0 (velocidades relativas físicamente plausibles: 0.001–0.1 AU/día).
+- Sin filas duplicadas: `len(encounters) == encounters.unique(["number_1", "number_2"]).len()`.
+
 ---
 
 ## Fase 4 — Paralelización y corrida completa

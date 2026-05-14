@@ -1,0 +1,425 @@
+"""Tests for src/detect/ — prefilter, KD-tree scan, refinement, pipeline.
+
+All tests use synthetic orbital elements and require no real data files.
+
+Synthetic setup
+---------------
+Three asteroids, epoch JD 2457000.0 TDB (2014-12-09):
+
+  idx  a_au   e     i_deg   Omega  omega   M_deg
+   0   2.500  0.0   0.0     0.0    0.0     0.000
+   1   2.500  0.0   0.0     0.0    0.0     0.010   ← very close to idx=0
+   2   3.500  0.0   0.0     0.0    0.0     0.000   ← different orbit
+
+At t=epoch:
+  • separation(0, 1) ≈ 2.5 × 0.010° × π/180 ≈ 4.36 × 10⁻⁴ AU  → encounter
+  • separation(0, 2) ≈ 1.0 AU                                    → no encounter
+
+Prefilter (semimajor_diff_max_au=0.5, inclination_diff_max_deg=30°):
+  • (0,1) compatible  — |Δa|=0,   |Δi|=0°
+  • (0,2) filtered    — |Δa|=1.0 > 0.5
+  • (1,2) filtered    — |Δa|=1.0 > 0.5
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import polars as pl
+import pytest
+
+from src.detect.kdtree_scan import scan_time_grid
+from src.detect.pipeline import detect_encounters
+from src.detect.prefilter import compatible_pairs
+from src.detect.refine import _quadratic_min, refine_candidates
+from src.propagate.grid import make_time_grid
+
+# ---------------------------------------------------------------------------
+# Shared fixtures
+# ---------------------------------------------------------------------------
+
+_EPOCH = 2457000.0  # JD TDB
+_THRESHOLD = 0.01  # AU
+
+
+def _make_elements(
+    *,
+    a: list[float],
+    e: list[float] | None = None,
+    i_deg: list[float] | None = None,
+    omega_big_deg: list[float] | None = None,
+    omega_deg: list[float] | None = None,
+    m_deg: list[float] | None = None,
+    epoch_jd: list[float] | None = None,
+    numbers: list[int] | None = None,
+    designations: list[str] | None = None,
+) -> pl.DataFrame:
+    n = len(a)
+    return pl.DataFrame(
+        {
+            "number": pl.Series(numbers if numbers is not None else list(range(n)), dtype=pl.Int32),
+            "designation": (
+                designations if designations is not None else [f"A{k}" for k in range(n)]
+            ),
+            "a_au": a,
+            "e": e if e is not None else [0.0] * n,
+            "i_deg": i_deg if i_deg is not None else [0.0] * n,
+            "Omega_deg": omega_big_deg if omega_big_deg is not None else [0.0] * n,
+            "omega_deg": omega_deg if omega_deg is not None else [0.0] * n,
+            "M_deg": m_deg if m_deg is not None else [0.0] * n,
+            "epoch_jd": epoch_jd if epoch_jd is not None else [_EPOCH] * n,
+        },
+        schema={
+            "number": pl.Int32,
+            "designation": pl.Utf8,
+            "a_au": pl.Float64,
+            "e": pl.Float64,
+            "i_deg": pl.Float64,
+            "Omega_deg": pl.Float64,
+            "omega_deg": pl.Float64,
+            "M_deg": pl.Float64,
+            "epoch_jd": pl.Float64,
+        },
+    )
+
+
+@pytest.fixture()
+def three_asteroids() -> pl.DataFrame:
+    """Standard three-asteroid test set: (0,1) close, (0,2)/(1,2) far."""
+    return _make_elements(
+        a=[2.5, 2.5, 3.5],
+        m_deg=[0.0, 0.01, 0.0],
+        numbers=[1, 2, 3],
+        designations=["Ceres", "Near", "Far"],
+    )
+
+
+@pytest.fixture()
+def single_step_grid() -> np.ndarray:
+    """One-point time grid at the epoch."""
+    return np.array([_EPOCH])
+
+
+# ===========================================================================
+# prefilter.py
+# ===========================================================================
+
+
+def test_prefilter_compatible_pair(three_asteroids: pl.DataFrame) -> None:
+    pairs = compatible_pairs(three_asteroids, semimajor_diff_max_au=0.5)
+    # Only (0,1) should survive
+    assert len(pairs) == 1
+    assert tuple(pairs[0]) == (0, 1)
+
+
+def test_prefilter_filters_by_semimajor(three_asteroids: pl.DataFrame) -> None:
+    pairs = compatible_pairs(three_asteroids, semimajor_diff_max_au=0.5)
+    pair_tuples = {tuple(p) for p in pairs}
+    assert (0, 2) not in pair_tuples
+    assert (1, 2) not in pair_tuples
+
+
+def test_prefilter_filters_by_inclination() -> None:
+    elems = _make_elements(
+        a=[2.5, 2.5],
+        i_deg=[0.0, 35.0],
+    )
+    pairs = compatible_pairs(elems, inclination_diff_max_deg=30.0)
+    assert len(pairs) == 0
+
+
+def test_prefilter_passes_within_inclination_limit() -> None:
+    elems = _make_elements(
+        a=[2.5, 2.5],
+        i_deg=[0.0, 29.0],
+    )
+    pairs = compatible_pairs(elems, inclination_diff_max_deg=30.0)
+    assert len(pairs) == 1
+
+
+def test_prefilter_dtype_is_int32(three_asteroids: pl.DataFrame) -> None:
+    pairs = compatible_pairs(three_asteroids)
+    assert pairs.dtype == np.int32
+
+
+def test_prefilter_no_pairs_for_single_asteroid() -> None:
+    elems = _make_elements(a=[2.5])
+    pairs = compatible_pairs(elems)
+    assert pairs.shape == (0, 2)
+
+
+def test_prefilter_no_pairs_for_empty_elements() -> None:
+    elems = pl.DataFrame(
+        schema={
+            "number": pl.Int32,
+            "designation": pl.Utf8,
+            "a_au": pl.Float64,
+            "e": pl.Float64,
+            "i_deg": pl.Float64,
+            "Omega_deg": pl.Float64,
+            "omega_deg": pl.Float64,
+            "M_deg": pl.Float64,
+            "epoch_jd": pl.Float64,
+        }
+    )
+    pairs = compatible_pairs(elems)
+    assert pairs.shape == (0, 2)
+
+
+# ===========================================================================
+# refine.py — _quadratic_min
+# ===========================================================================
+
+
+def test_quadratic_min_known_parabola() -> None:
+    # d(t) = (t - 5)²  →  minimum at t=5, d=0
+    t_min, d_min = _quadratic_min(4.0, 5.0, 6.0, 1.0, 0.0, 1.0)
+    assert abs(t_min - 5.0) < 1e-10
+    assert abs(d_min) < 1e-10
+
+
+def test_quadratic_min_shifted_vertex() -> None:
+    # d(t) = (t - 5.3)²,  t = [4, 5, 6]
+    # d0 = 1.69,  d1 = 0.09,  d2 = 0.49
+    d0, d1, d2 = (4.0 - 5.3) ** 2, (5.0 - 5.3) ** 2, (6.0 - 5.3) ** 2
+    t_min, d_min = _quadratic_min(4.0, 5.0, 6.0, d0, d1, d2)
+    assert abs(t_min - 5.3) < 1e-6
+    assert abs(d_min - 0.0) < 1e-10
+
+
+def test_quadratic_min_downward_parabola_returns_argmin() -> None:
+    # Downward parabola: d(t) = -(t-5)² + 10 — minimum on boundary
+    t_min, d_min = _quadratic_min(4.0, 5.0, 6.0, 9.0, 10.0, 9.0)
+    # denom = 9 - 20 + 9 = -2 < 0  → fall back to argmin (d=9 at t=4 or t=6)
+    assert d_min == 9.0
+    assert t_min in (4.0, 6.0)
+
+
+def test_quadratic_min_clamped_to_interval() -> None:
+    # Vertex would fall outside [t0, t2]; must be clamped
+    t_min, d_min = _quadratic_min(0.0, 1.0, 2.0, 0.1, 1.0, 2.0)
+    assert 0.0 <= t_min <= 2.0
+
+
+# ===========================================================================
+# kdtree_scan.py
+# ===========================================================================
+
+
+def test_kdtree_scan_finds_close_pair(
+    three_asteroids: pl.DataFrame,
+    single_step_grid: np.ndarray,
+) -> None:
+    pairs = compatible_pairs(three_asteroids)
+    results = scan_time_grid(three_asteroids, single_step_grid, pairs, _THRESHOLD)
+    # (0,1) should be found
+    assert len(results) == 1
+    idx_i, idx_j, _t, dist = results[0]
+    assert (idx_i, idx_j) == (0, 1)
+    assert dist < _THRESHOLD
+
+
+def test_kdtree_scan_distance_is_accurate(
+    three_asteroids: pl.DataFrame,
+    single_step_grid: np.ndarray,
+) -> None:
+    """Reported distance should match the analytical arc-length estimate."""
+    pairs = compatible_pairs(three_asteroids)
+    results = scan_time_grid(three_asteroids, single_step_grid, pairs, _THRESHOLD)
+    _, _, _, dist = results[0]
+    # arc ≈ 2.5 AU × 0.01° × π/180
+    expected = 2.5 * 0.01 * np.pi / 180.0
+    assert abs(dist - expected) < 1e-6
+
+
+def test_kdtree_scan_respects_pairs_filter(
+    three_asteroids: pl.DataFrame,
+    single_step_grid: np.ndarray,
+) -> None:
+    """(0,1) is close but not in the pairs list → must NOT appear in results."""
+    empty_pairs = np.empty((0, 2), dtype=np.int32)
+    results = scan_time_grid(three_asteroids, single_step_grid, empty_pairs, _THRESHOLD)
+    assert results == []
+
+
+def test_kdtree_scan_no_encounters() -> None:
+    """All pairs too far apart — scan returns empty."""
+    elems = _make_elements(a=[2.5, 3.5], m_deg=[0.0, 0.0])
+    pairs = np.array([[0, 1]], dtype=np.int32)
+    grid = np.array([_EPOCH])
+    results = scan_time_grid(elems, grid, pairs, threshold_au=0.001)
+    assert results == []
+
+
+def test_kdtree_scan_empty_pairs_returns_empty(
+    three_asteroids: pl.DataFrame,
+    single_step_grid: np.ndarray,
+) -> None:
+    results = scan_time_grid(
+        three_asteroids, single_step_grid, np.empty((0, 2), dtype=np.int32), 1.0
+    )
+    assert results == []
+
+
+# ===========================================================================
+# refine.py — refine_candidates
+# ===========================================================================
+
+
+def test_refine_finds_minimum(
+    three_asteroids: pl.DataFrame,
+) -> None:
+    candidates = [(0, 1, _EPOCH, 5e-4)]
+    result = refine_candidates(
+        three_asteroids,
+        candidates,
+        threshold_au=_THRESHOLD,
+        fine_step_seconds=60.0,
+        window_hours=1.0,
+    )
+    assert len(result) == 1
+    assert result["dist_au"][0] < _THRESHOLD
+    assert result["rel_vel_au_day"][0] >= 0.0  # non-negative
+
+
+def test_refine_excludes_above_threshold(
+    three_asteroids: pl.DataFrame,
+) -> None:
+    """Candidate whose refined distance exceeds threshold is dropped."""
+    candidates = [(0, 2, _EPOCH, 0.9)]  # (0,2) far apart — will refine to > threshold
+    result = refine_candidates(
+        three_asteroids,
+        candidates,
+        threshold_au=_THRESHOLD,
+        fine_step_seconds=60.0,
+        window_hours=1.0,
+    )
+    assert len(result) == 0
+
+
+def test_refine_empty_candidates_returns_empty_df(
+    three_asteroids: pl.DataFrame,
+) -> None:
+    result = refine_candidates(three_asteroids, [], threshold_au=_THRESHOLD)
+    assert len(result) == 0
+    assert set(result.columns) == {
+        "number_1",
+        "number_2",
+        "designation_1",
+        "designation_2",
+        "jd_tdb",
+        "dist_au",
+        "rel_vel_au_day",
+    }
+
+
+def test_refine_output_schema(three_asteroids: pl.DataFrame) -> None:
+    candidates = [(0, 1, _EPOCH, 5e-4)]
+    result = refine_candidates(three_asteroids, candidates, threshold_au=_THRESHOLD)
+    assert result.schema == {
+        "number_1": pl.Int32,
+        "number_2": pl.Int32,
+        "designation_1": pl.Utf8,
+        "designation_2": pl.Utf8,
+        "jd_tdb": pl.Float64,
+        "dist_au": pl.Float64,
+        "rel_vel_au_day": pl.Float64,
+    }
+
+
+# ===========================================================================
+# pipeline.py — end-to-end
+# ===========================================================================
+
+
+def test_pipeline_end_to_end(
+    three_asteroids: pl.DataFrame,
+    single_step_grid: np.ndarray,
+) -> None:
+    """Full pipeline returns exactly one encounter for the synthetic set."""
+    result = detect_encounters(
+        three_asteroids,
+        single_step_grid,
+        threshold_au=_THRESHOLD,
+    )
+    assert len(result) == 1
+    row = result.row(0, named=True)
+    assert row["number_1"] == 1  # asteroid idx=0 has number=1
+    assert row["number_2"] == 2  # asteroid idx=1 has number=2
+    assert row["dist_au"] < _THRESHOLD
+
+
+def test_pipeline_no_compatible_pairs_returns_empty() -> None:
+    """When all pairs are filtered out the catalog is empty."""
+    elems = _make_elements(a=[2.5, 4.0], m_deg=[0.0, 0.0])
+    grid = np.array([_EPOCH])
+    result = detect_encounters(elems, grid, threshold_au=_THRESHOLD, semimajor_diff_max_au=0.5)
+    assert len(result) == 0
+
+
+def test_pipeline_output_sorted_by_dist(three_asteroids: pl.DataFrame) -> None:
+    """Output must be sorted by dist_au ascending."""
+    grid = np.array([_EPOCH])
+    result = detect_encounters(three_asteroids, grid, threshold_au=_THRESHOLD)
+    dists = result["dist_au"].to_list()
+    assert dists == sorted(dists)
+
+
+def test_pipeline_output_schema(
+    three_asteroids: pl.DataFrame, single_step_grid: np.ndarray
+) -> None:
+    result = detect_encounters(three_asteroids, single_step_grid, threshold_au=_THRESHOLD)
+    assert result.schema == {
+        "number_1": pl.Int32,
+        "number_2": pl.Int32,
+        "designation_1": pl.Utf8,
+        "designation_2": pl.Utf8,
+        "jd_tdb": pl.Float64,
+        "dist_au": pl.Float64,
+        "rel_vel_au_day": pl.Float64,
+    }
+
+
+def test_pipeline_no_duplicate_pairs(three_asteroids: pl.DataFrame) -> None:
+    """Each (number_1, number_2) pair appears at most once."""
+    grid = make_time_grid(_EPOCH, _EPOCH + 0.5, step_hours=6.0)
+    result = detect_encounters(three_asteroids, grid, threshold_au=_THRESHOLD)
+    pairs = list(zip(result["number_1"].to_list(), result["number_2"].to_list()))
+    assert len(pairs) == len(set(pairs))
+
+
+def test_pipeline_prefilter_disabled(
+    three_asteroids: pl.DataFrame, single_step_grid: np.ndarray
+) -> None:
+    """With prefilter disabled the encounter is still detected."""
+    result = detect_encounters(
+        three_asteroids,
+        single_step_grid,
+        threshold_au=_THRESHOLD,
+        prefilter_enabled=False,
+    )
+    assert len(result) >= 1
+    assert result["dist_au"][0] < _THRESHOLD
+
+
+def test_pipeline_refinement_disabled(
+    three_asteroids: pl.DataFrame, single_step_grid: np.ndarray
+) -> None:
+    """With refinement disabled the coarse epoch and distance are returned."""
+    result = detect_encounters(
+        three_asteroids,
+        single_step_grid,
+        threshold_au=_THRESHOLD,
+        refinement_enabled=False,
+    )
+    assert len(result) == 1
+    assert result["dist_au"][0] < _THRESHOLD
+    # rel_vel is NaN when refinement is skipped
+    assert np.isnan(result["rel_vel_au_day"][0])
+
+
+def test_pipeline_designation_preserved(
+    three_asteroids: pl.DataFrame, single_step_grid: np.ndarray
+) -> None:
+    result = detect_encounters(three_asteroids, single_step_grid, threshold_au=_THRESHOLD)
+    assert result["designation_1"][0] == "Ceres"
+    assert result["designation_2"][0] == "Near"
