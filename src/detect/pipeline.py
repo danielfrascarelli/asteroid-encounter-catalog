@@ -17,6 +17,10 @@ from src.detect.refine import refine_candidates
 
 logger = logging.getLogger(__name__)
 
+# Above this N, np.triu_indices materialises O(N²) pairs (>35 GB at N=94k).
+# Skip prefilter and rely on the KD-tree spatial query alone.
+_PREFILTER_MAX_N = 5_000
+
 _SCHEMA = {
     "number_1": pl.Int32,
     "number_2": pl.Int32,
@@ -88,10 +92,6 @@ def detect_encounters(
     )
 
     # --- Step 1: prefilter ---
-    # For large N, np.triu_indices(N) materialises O(N²) pairs (>35 GB at N=94k).
-    # The KD-tree spatial query at 0.01 AU already provides tight filtering, so
-    # skip pair precomputation and let scan_time_grid use query_pairs directly.
-    _PREFILTER_MAX_N = 5_000
     pairs: np.ndarray | None
 
     if prefilter_enabled:

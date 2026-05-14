@@ -36,6 +36,7 @@ def _scan_chunk(
     args: tuple[np.ndarray, float, int],
 ) -> list[tuple[int, int, float, float]]:
     chunk, threshold_au, leaf_size = args
+    assert _G_ELEMENTS is not None
     return scan_time_grid(_G_ELEMENTS, chunk, _G_PAIRS, threshold_au, leaf_size)
 
 
@@ -121,7 +122,12 @@ def scan_parallel(
     # competing for N CPUs, causing most cores to idle on context-switch overhead.
     # Must be set before Pool creation: forkserver spawns a fresh interpreter that
     # inherits the parent's env, so workers see these values before importing numpy.
-    for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_MAX_THREADS"):
+    for _var in (
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "NUMEXPR_MAX_THREADS",
+    ):
         os.environ.setdefault(_var, "1")
 
     # "forkserver" avoids the deadlock risk from forking a multi-threaded

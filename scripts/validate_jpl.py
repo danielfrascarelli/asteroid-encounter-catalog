@@ -1,4 +1,5 @@
 """Validate top encounters against JPL Horizons barycentric positions."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -33,9 +34,11 @@ for i, row in enumerate(top5.iter_rows(named=True), 1):
         jpl_dist = float(np.linalg.norm(p1 - p2))
         err = abs(jpl_dist - row["dist_au"])
         label = "({}) — ({})".format(row["number_1"], row["number_2"])
-        print("{:<3} {:<44} {:<14.6f} {:<14.6f} {:<12.6f}".format(
-            i, label, row["dist_au"], jpl_dist, err
-        ))
+        print(
+            "{:<3} {:<44} {:<14.6f} {:<14.6f} {:<12.6f}".format(
+                i, label, row["dist_au"], jpl_dist, err
+            )
+        )
     except Exception as e:
         label = "({}) — ({})".format(row["number_1"], row["number_2"])
-        print("{:<3} {:<44} ERROR: {}".format(i, label, e))
+        print(f"{i:<3} {label:<44} ERROR: {e}")

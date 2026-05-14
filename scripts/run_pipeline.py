@@ -138,14 +138,14 @@ def _apply_subset(df: pl.DataFrame, cfg) -> pl.DataFrame:
 def _verify_major_bodies(results: pl.DataFrame) -> None:
     """Log which required bodies appear in the catalog."""
     for n in _REQUIRED_BODIES:
-        hits = results.filter(
-            (pl.col("number_1") == n) | (pl.col("number_2") == n)
-        )
+        hits = results.filter((pl.col("number_1") == n) | (pl.col("number_2") == n))
         if len(hits) == 0:
             logger.warning("Gate check FAILED: (%d) has no encounters in catalog.", n)
         else:
             closest = hits["dist_au"].min()
-            logger.info("Gate check OK: (%d) — %d encounters, closest %.6f AU", n, len(hits), closest)
+            logger.info(
+                "Gate check OK: (%d) — %d encounters, closest %.6f AU", n, len(hits), closest
+            )
 
 
 def main() -> int:
@@ -236,7 +236,7 @@ def main() -> int:
     out_path = out_dir / f"{cfg.output.filename}.{cfg.output.format}"
 
     if cfg.output.format == "parquet":
-        results.write_parquet(out_path, compression=cfg.output.compression)
+        results.write_parquet(out_path, compression=cfg.output.compression)  # type: ignore[arg-type]
     else:
         results.write_csv(out_path)
 
