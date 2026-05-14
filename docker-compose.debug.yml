@@ -1,0 +1,24 @@
+# Debug overlay for the pipeline service.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.debug.yml \
+#     run --rm pipeline -m scripts.download_gaia_sso --config config.yaml
+#
+# Then attach VS Code with the "Docker: Attach to pipeline" launch config.
+# The process waits (--wait-for-client) until VS Code connects.
+
+services:
+  pipeline:
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./src:/app/src          # live source — local files == container files
+      - ./scripts:/app/scripts
+    entrypoint:
+      - python
+      - -Xfrozen_modules=off
+      - -m
+      - debugpy
+      - --listen
+      - "0.0.0.0:5678"
+      - --wait-for-client
