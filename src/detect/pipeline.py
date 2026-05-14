@@ -11,6 +11,7 @@ import numpy as np
 import polars as pl
 
 from src.detect.kdtree_scan import scan_time_grid
+from src.detect.parallel import scan_parallel
 from src.detect.prefilter import compatible_pairs
 from src.detect.refine import refine_candidates
 
@@ -39,6 +40,8 @@ def detect_encounters(
     window_hours: float = 2.0,
     prefilter_enabled: bool = True,
     refinement_enabled: bool = True,
+    n_workers: int | str = 1,
+    chunk_size_days: float = 30.0,
 ) -> pl.DataFrame:
     """Detect close asteroid encounters over a time grid.
 
@@ -115,7 +118,15 @@ def detect_encounters(
         return pl.DataFrame(schema=_SCHEMA)
 
     # --- Step 2: KD-tree coarse scan ---
-    candidates = scan_time_grid(elements, time_grid, pairs, threshold_au, leaf_size)
+    from src.detect.parallel import resolve_n_workers
+
+    nw = resolve_n_workers(n_workers)
+    if nw > 1:
+        candidates = scan_parallel(
+            elements, time_grid, pairs, threshold_au, leaf_size, n_workers, chunk_size_days
+        )
+    else:
+        candidates = scan_time_grid(elements, time_grid, pairs, threshold_au, leaf_size)
     logger.info("%d coarse candidates after KD-tree scan", len(candidates))
 
     if not candidates:

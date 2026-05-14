@@ -19,6 +19,7 @@ import logging
 import numpy as np
 import polars as pl
 from scipy.spatial import cKDTree
+from tqdm import tqdm
 
 from src.propagate.grid import propagate_grid
 
@@ -66,7 +67,9 @@ def scan_time_grid(
 
     best: dict[tuple[int, int], tuple[float, float]] = {}
 
-    for step_idx, (t_jd, pos) in enumerate(propagate_grid(elements, time_grid)):
+    for step_idx, (t_jd, pos) in enumerate(
+        tqdm(propagate_grid(elements, time_grid), total=len(time_grid), desc="KD-tree scan", unit="step", leave=False)
+    ):
         tree = cKDTree(pos, leafsize=leaf_size)
         raw: np.ndarray = tree.query_pairs(threshold_au, output_type="ndarray")
 
