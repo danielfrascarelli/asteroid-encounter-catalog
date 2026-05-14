@@ -59,6 +59,12 @@ sources:
       - y_gaia
       - z_gaia
 
+  gaia_orbits:
+    archive_url: "https://gea.esac.esa.int/tap-server/tap"
+    batch_size: 5000                  # number_mp values per TAP job
+    n_workers: "auto"                 # "auto" = min(cpu_count, 8)
+    max_retries: 3
+
   jpl_horizons:
     api_url: "https://ssd.jpl.nasa.gov/api/horizons.api"
     rate_limit_seconds: 1.0          # Mínimo entre queries (cortesía)
