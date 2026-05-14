@@ -40,9 +40,7 @@ def test_solve_kepler_vectorized_e() -> None:
     m_vals = np.array([np.pi / 4, np.pi / 2, np.pi])
     e_vals = np.array([0.1, 0.3, 0.5])
     ecc_vals = solve_kepler(m_vals, e_vals)
-    np.testing.assert_allclose(
-        m_vals - (ecc_vals - e_vals * np.sin(ecc_vals)), 0.0, atol=1e-10
-    )
+    np.testing.assert_allclose(m_vals - (ecc_vals - e_vals * np.sin(ecc_vals)), 0.0, atol=1e-10)
 
 
 # ---------------------------------------------------------------------------
@@ -91,9 +89,7 @@ def test_radius_within_periapsis_apoapsis() -> None:
 def test_inclination_produces_nonzero_z() -> None:
     # i=90°, ω=0, Ω=0, M0=π/2 → argument of latitude = π/2 → |z| ≈ a
     a = 2.0
-    pos = kepler_to_cartesian(
-        a, 0.0, np.pi / 2.0, 0.0, 0.0, np.pi / 2.0, 2451545.0, 2451545.0
-    )
+    pos = kepler_to_cartesian(a, 0.0, np.pi / 2.0, 0.0, 0.0, np.pi / 2.0, 2451545.0, 2451545.0)
     np.testing.assert_allclose(abs(pos[0, 2]), a, atol=1e-10)
 
 
@@ -113,7 +109,8 @@ def test_vectorized_many_radii_within_bounds() -> None:
     a = rng.uniform(1.5, 3.5, n_bodies)
     e = rng.uniform(0.0, 0.3, n_bodies)
     pos = kepler_to_cartesian(
-        a, e,
+        a,
+        e,
         rng.uniform(0, 0.5, n_bodies),
         rng.uniform(0, 2 * np.pi, n_bodies),
         rng.uniform(0, 2 * np.pi, n_bodies),
@@ -171,8 +168,13 @@ def test_propagate_df_matches_scalar_call() -> None:
     t = 2456863.5
     pos_df = propagate_df(df, t)
     pos_scalar = kepler_to_cartesian(
-        2.7691652, 0.0758458,
-        10.5935 * _DEG, 80.3099 * _DEG, 73.5975 * _DEG, 95.9892 * _DEG,
-        2454200.5, t,
+        2.7691652,
+        0.0758458,
+        10.5935 * _DEG,
+        80.3099 * _DEG,
+        73.5975 * _DEG,
+        95.9892 * _DEG,
+        2454200.5,
+        t,
     )
     np.testing.assert_allclose(pos_df[0], pos_scalar[0], atol=1e-12)

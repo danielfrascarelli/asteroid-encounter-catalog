@@ -60,7 +60,7 @@ def unpack_epoch(packed: str) -> float:
     month = _MONTH[packed[3]]
     day = _DAY[packed[4]]
     t = Time(f"{year:04d}-{month:02d}-{day:02d}", format="iso", scale="tt")
-    return t.tdb.jd
+    return float(t.tdb.jd)
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +189,11 @@ def parse_mpcorb(
         },
     )
 
-    logger.info("Loaded %d objects from MPCORB (filters: numbered=%s, a=[%.2f, %.2f])",
-                len(df), only_numbered, semimajor_min_au, semimajor_max_au)
+    logger.info(
+        "Loaded %d objects from MPCORB (filters: numbered=%s, a=[%.2f, %.2f])",
+        len(df),
+        only_numbered,
+        semimajor_min_au,
+        semimajor_max_au,
+    )
     return df

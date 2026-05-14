@@ -65,22 +65,21 @@ VESTA_A = 2.3615491
 HEADER = (
     "Des'n     H     G   Epoch     M        Peri.      Node       Incl."
     "     e            n           a        Reference #Obs #Opp    Arc"
-    "    rms  Perts   Computer\n"
-    + "-" * 160
-    + "\n"
+    "    rms  Perts   Computer\n" + "-" * 160 + "\n"
 )
 
 LINES = {
-    "ceres": mpcorb_line(1, CERES_A, "(1) Ceres", H=3.34, G=0.12,
-                         omega=73.597, Omega=80.306, i=10.587, e=0.0785),
-    "pallas": mpcorb_line(2, PALLAS_A, "(2) Pallas", H=4.13, G=0.11,
-                          omega=310.052, Omega=173.085, i=34.838, e=0.2299),
-    "vesta": mpcorb_line(4, VESTA_A, "(4) Vesta", H=3.20, G=0.32,
-                         omega=151.199, Omega=103.851, i=7.140, e=0.0887),
+    "ceres": mpcorb_line(
+        1, CERES_A, "(1) Ceres", H=3.34, G=0.12, omega=73.597, Omega=80.306, i=10.587, e=0.0785
+    ),
+    "pallas": mpcorb_line(
+        2, PALLAS_A, "(2) Pallas", H=4.13, G=0.11, omega=310.052, Omega=173.085, i=34.838, e=0.2299
+    ),
+    "vesta": mpcorb_line(
+        4, VESTA_A, "(4) Vesta", H=3.20, G=0.32, omega=151.199, Omega=103.851, i=7.140, e=0.0887
+    ),
     # Provisional designation (should be filtered by only_numbered=True)
-    "provisional": mpcorb_line("J98S00A", 2.50, "2014 AA1",
-                               H=15.0, G=0.15, e=0.15, i=5.0),
+    "provisional": mpcorb_line("J98S00A", 2.50, "2014 AA1", H=15.0, G=0.15, e=0.15, i=5.0),
     # Out-of-range semimajor axis (beyond main belt)
-    "trojan": mpcorb_line(588, 5.2038, "(588) Achilles",
-                          H=8.67, G=0.15, e=0.148, i=10.33),
+    "trojan": mpcorb_line(588, 5.2038, "(588) Achilles", H=8.67, G=0.15, e=0.148, i=10.33),
 }

@@ -213,9 +213,21 @@ def _require(d: dict[str, Any], *keys: str) -> None:
 
 def _build(raw: dict[str, Any]) -> PipelineConfig:
     """Construct a PipelineConfig from a raw merged dict, failing fast on missing keys."""
-    _require(raw, "run", "paths", "sources", "subset", "time_window",
-             "propagation", "detection", "characterize", "parallel",
-             "output", "logging", "validation")
+    _require(
+        raw,
+        "run",
+        "paths",
+        "sources",
+        "subset",
+        "time_window",
+        "propagation",
+        "detection",
+        "characterize",
+        "parallel",
+        "output",
+        "logging",
+        "validation",
+    )
 
     r = raw["run"]
     _require(r, "name", "description", "seed")
@@ -247,8 +259,13 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
     _require(det["refinement"], "enabled", "fine_time_step_seconds", "window_hours")
 
     char = raw["characterize"]
-    _require(char, "compute_relative_velocity", "compute_phase_angle",
-             "estimate_diameters", "default_albedo")
+    _require(
+        char,
+        "compute_relative_velocity",
+        "compute_phase_angle",
+        "estimate_diameters",
+        "default_albedo",
+    )
 
     par = raw["parallel"]
     _require(par, "enabled", "n_workers", "backend", "chunk_size_days")

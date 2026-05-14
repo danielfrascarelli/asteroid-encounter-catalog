@@ -82,8 +82,17 @@ def test_parse_returns_dataframe(mpcorb_file: Path) -> None:
 def test_parse_expected_columns(mpcorb_file: Path) -> None:
     df = parse_mpcorb(mpcorb_file)
     expected = {
-        "number", "designation", "H", "G", "epoch_jd",
-        "M_deg", "omega_deg", "Omega_deg", "i_deg", "e", "a_au",
+        "number",
+        "designation",
+        "H",
+        "G",
+        "epoch_jd",
+        "M_deg",
+        "omega_deg",
+        "Omega_deg",
+        "i_deg",
+        "e",
+        "a_au",
     }
     assert expected.issubset(set(df.columns))
 
