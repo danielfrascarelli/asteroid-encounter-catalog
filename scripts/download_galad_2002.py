@@ -328,8 +328,7 @@ def download_galad_2002(config_path: str = "config.yaml") -> Path:
         "n_rows_per_table": per_table_counts,
         "size_bytes": dest.stat().st_size,
         "reference": (
-            "Galád A., Gray B. (2002) "
-            "A&A 391, 1115 — DOI: 10.1051/0004-6361:20020880"
+            "Galád A., Gray B. (2002) " "A&A 391, 1115 — DOI: 10.1051/0004-6361:20020880"
         ),
     }
     meta_path.write_text(json.dumps(metadata, indent=2))

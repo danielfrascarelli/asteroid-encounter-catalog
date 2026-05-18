@@ -178,9 +178,7 @@ def load_or_compute_trajectory(
 
     if npy_path.is_file() and _validate_manifest(manifest_path, expected_shape):
         size_gb = npy_path.stat().st_size / 1e9
-        logger.info(
-            "Cache HIT: %s (%.2f GB) — memory-mapping", npy_path, size_gb
-        )
+        logger.info("Cache HIT: %s (%.2f GB) — memory-mapping", npy_path, size_gb)
         return np.memmap(npy_path, dtype=np.float32, mode="r", shape=expected_shape)
 
     logger.info("Cache MISS: computing trajectory → %s", npy_path)

@@ -105,8 +105,7 @@ def main() -> int:
         "--tolerance-days",
         type=float,
         default=31.0,
-        help="Date-match window around the Galád epoch for day-precision entries. "
-        "Default: 31.",
+        help="Date-match window around the Galád epoch for day-precision entries. " "Default: 31.",
     )
     parser.add_argument(
         "--year-tolerance-days",
@@ -238,8 +237,14 @@ def main() -> int:
     logger.info("")
     logger.info("=== Summary ===")
     logger.info("Galád events in Gaia window:          %d", len(galad))
-    logger.info("  with day-precision dates:           %d", galad.filter(pl.col("date_precision") == "day").height)
-    logger.info("  with year-only dates:               %d", galad.filter(pl.col("date_precision") == "year").height)
+    logger.info(
+        "  with day-precision dates:           %d",
+        galad.filter(pl.col("date_precision") == "day").height,
+    )
+    logger.info(
+        "  with year-only dates:               %d",
+        galad.filter(pl.col("date_precision") == "year").height,
+    )
     logger.info("Expected events (r ≤ %.4f AU):     %d", impact_thresh, n_exp)
     logger.info("Matched in our catalog:               %d (%.1f%%)", n_hit, rate)
     logger.info("Missed:                               %d", len(missed))
@@ -284,12 +289,8 @@ def main() -> int:
         "galad_p_km_s": pl.Float64,
         "source_table": pl.Utf8,
     }
-    pl.DataFrame(matched, schema=matches_schema).write_csv(
-        report_dir / "galad_2002_matches.csv"
-    )
-    pl.DataFrame(missed, schema=misses_schema).write_csv(
-        report_dir / "galad_2002_misses.csv"
-    )
+    pl.DataFrame(matched, schema=matches_schema).write_csv(report_dir / "galad_2002_matches.csv")
+    pl.DataFrame(missed, schema=misses_schema).write_csv(report_dir / "galad_2002_misses.csv")
     logger.info("Match/miss CSVs written to %s/", report_dir)
 
     return 0

@@ -41,7 +41,7 @@ class MpcorbSnapshot:
 
     path: Path
     snapshot_date: str  # ISO date (YYYY-MM-DD) when the snapshot was captured
-    epoch_jd: float     # JD TDB of the osculating epoch of records inside
+    epoch_jd: float  # JD TDB of the osculating epoch of records inside
 
 
 def sha256(path: Path) -> str:

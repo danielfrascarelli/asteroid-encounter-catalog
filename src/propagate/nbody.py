@@ -42,9 +42,9 @@ from collections.abc import Iterator
 
 import numpy as np
 import polars as pl
+from astropy import units as u
 from astropy.coordinates import get_body_barycentric_posvel, solar_system_ephemeris
 from astropy.time import Time
-from astropy import units as u
 
 from src.propagate.kepler import kepler_to_cartesian
 
@@ -105,12 +105,10 @@ _MAJOR_ASTEROIDS: dict[str, tuple[int, float]] = {
 
 def _icrs_to_ecliptic(vec: np.ndarray) -> np.ndarray:
     """Rotate an ICRS-equatorial 3-vector to ecliptic J2000."""
-    return _ICRS_TO_ECL @ vec
+    return np.asarray(_ICRS_TO_ECL @ vec)
 
 
-def _planet_state_at(
-    body: str, epoch_jd_tdb: float
-) -> tuple[np.ndarray, np.ndarray]:
+def _planet_state_at(body: str, epoch_jd_tdb: float) -> tuple[np.ndarray, np.ndarray]:
     """Return (pos_AU, vel_AU_per_day) of *body* in barycentric ecliptic J2000.
 
     Uses astropy's built-in low-precision JPL ephemeris (no network, no files
@@ -370,9 +368,7 @@ def propagate_grid_nbody(
                 vz=float(v_bary[2]),
             )
             major_ast_indices.append(row_idx)
-            logger.info(
-                "  Added massive perturber (%d) %s  GM=%.2e Msun", number, name, gm
-            )
+            logger.info("  Added massive perturber (%d) %s  GM=%.2e Msun", number, name, gm)
 
     # ---------------------------------------------------------------------
     # Add asteroids as massless test particles, in their elements-DF order
@@ -382,12 +378,8 @@ def propagate_grid_nbody(
     # *cannot* reuse sun_pos_bary directly because rebound shifts to the
     # centre-of-momentum frame after adding the first massive particle in some
     # configurations; using the live particle state guarantees consistency.
-    p_sun_now = np.array(
-        [sim.particles[0].x, sim.particles[0].y, sim.particles[0].z]
-    )
-    v_sun_now = np.array(
-        [sim.particles[0].vx, sim.particles[0].vy, sim.particles[0].vz]
-    )
+    p_sun_now = np.array([sim.particles[0].x, sim.particles[0].y, sim.particles[0].z])
+    v_sun_now = np.array([sim.particles[0].vx, sim.particles[0].vy, sim.particles[0].vz])
 
     for k in range(n_ast):
         if include_major_asteroids and k in major_ast_indices:
@@ -450,9 +442,7 @@ def propagate_grid_nbody(
     sim.serialize_particle_data(xyz=init_xyz, vxvyvz=init_vxvyvz)
 
     def _snapshot(idx: int) -> None:
-        sun_p = np.array(
-            [sim.particles[0].x, sim.particles[0].y, sim.particles[0].z]
-        )
+        sun_p = np.array([sim.particles[0].x, sim.particles[0].y, sim.particles[0].z])
         all_pos = np.empty((sim.N, 3), dtype=np.float64)
         sim.serialize_particle_data(xyz=all_pos)
         helio = all_pos - sun_p
@@ -469,9 +459,7 @@ def propagate_grid_nbody(
     if fwd_steps.size > 0:
         if integrator == "whfast":
             sim.dt = dt_days
-        for step_idx in tqdm(
-            fwd_steps, desc="N-body integrate (fwd)", unit="step", leave=False
-        ):
+        for step_idx in tqdm(fwd_steps, desc="N-body integrate (fwd)", unit="step", leave=False):
             t_sim = float(time_grid[step_idx]) - epoch_jd
             if t_sim > sim.t:
                 sim.integrate(t_sim)
