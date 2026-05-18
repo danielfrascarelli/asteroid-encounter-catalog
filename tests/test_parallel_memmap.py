@@ -43,9 +43,7 @@ def _make_elements(n: int) -> pl.DataFrame:
     )
 
 
-def _propagate_grid_inmemory(
-    elements: pl.DataFrame, time_grid: np.ndarray
-) -> np.ndarray:
+def _propagate_grid_inmemory(elements: pl.DataFrame, time_grid: np.ndarray) -> np.ndarray:
     """Naive in-memory propagation: yields (T, N, 3) float32 trajectory."""
     from src.propagate.kepler import propagate_df
 
@@ -92,9 +90,7 @@ def test_scan_parallel_memmap_matches_streaming(tmp_path: Path) -> None:
     mm[:] = positions_inmem
     mm.flush()
     del mm
-    positions_mm = np.memmap(
-        npy_path, dtype=np.float32, mode="r", shape=positions_inmem.shape
-    )
+    positions_mm = np.memmap(npy_path, dtype=np.float32, mode="r", shape=positions_inmem.shape)
     result_memmap = scan_parallel(
         elements,
         time_grid,
