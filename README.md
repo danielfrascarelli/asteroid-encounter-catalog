@@ -183,23 +183,54 @@ Pallas tiene inclinación i = 34.9° (la mayor entre los asteroides masivos), lo
 
 ## ✅ Validación
 
-El pipeline se valida contra encuentros conocidos en la literatura:
+El pipeline se valida en tres niveles:
 
-- Encuentros con asteroides masivos (Ceres, Vesta, Pallas, Hygiea) en el período Gaia.
-- Pares reportados por Goffin (2014) y Fuentes-Muñoz et al. (2024).
-- Validación contra JPL Horizons: encuentro más cercano confirmado con posición baricéntrica.
-
-Los tests de regresión verifican que estos casos aparezcan en cada corrida:
+### 1. Tests de regresión (CI)
 
 ```bash
-docker compose run --rm test pytest tests/test_validation.py -v
+docker compose run --rm test pytest tests/ -v   # 198 tests, todos pasan
 ```
 
-Validación cruzada con literatura:
+### 2. Cross-match contra catálogos publicados
+
+Dos catálogos independientes de encuentros conocidos se descargan automáticamente:
+
+- **Fienga et al. (2003)** [A&A 406, 751] — predicciones N-body 2003–2022, VizieR `J/A+A/406/751`.
+- **Galád & Gray (2002)** [A&A 391, 1115] — candidatos para determinación de masas, parseados del HTML del artículo.
+
+Para correr:
 
 ```bash
-docker compose run --rm pipeline python -m scripts.validate_literature
+docker compose run --rm pipeline python -m scripts.download_fienga_2003
+docker compose run --rm pipeline python -m scripts.download_galad_2002
+
+# Después del pipeline:
+docker compose run --rm pipeline python -m scripts.validate_fienga_2003
+docker compose run --rm pipeline python -m scripts.validate_galad_2002
 ```
+
+Resultados a 0.05 AU sobre el catálogo Kepler de 4M encuentros: **100% match** (4/4 Fienga + 4/4 Galád en la ventana Gaia).
+
+### 3. Spot-check contra JPL Horizons (ground truth)
+
+Cada par matcheado se vuelve a consultar contra JPL Horizons (DE440 + N-body completo) en una ventana fina alrededor de la fecha:
+
+```bash
+docker compose run --rm pipeline python -m scripts.validate_jpl_horizons
+```
+
+Resultados: MAE(nuestro − JPL) = 0.0002 AU; MAE(literatura − JPL) = 0.00004 AU. JPL agrees con la literatura, confirmando ambos catálogos como referencias confiables.
+
+### 4. Multi-snapshot MPCORB (precisión histórica)
+
+La propagación Kepler 2-cuerpos acumula error si la época de los elementos orbitales está lejos de la ventana temporal de interés. Para mitigar:
+
+```bash
+# Descarga un snapshot histórico del Wayback Machine al año pedido
+docker compose run --rm pipeline python -m scripts.download_mpcorb_historical --year 2015 --month 6
+```
+
+El pipeline auto-detecta los snapshots disponibles en `data/raw/mpcorb_archive/` y selecciona el de época más cercana al centro de la ventana. Para la ventana Gaia (2014–2017), un snapshot 2015 reduce el error de ~0.03 AU (MPCORB actual ≈ 2026) a < 0.001 AU.
 
 ## 🛠️ Desarrollo
 

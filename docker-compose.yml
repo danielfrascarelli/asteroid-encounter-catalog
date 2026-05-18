@@ -37,3 +37,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./config.yaml:/app/config.yaml:ro
+      # Mount source + tests so edits show up without rebuild
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+      - ./tests:/app/tests

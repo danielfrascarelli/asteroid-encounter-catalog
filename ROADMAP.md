@@ -4,6 +4,27 @@
 
 ---
 
+## Estado actual (2026-05-18)
+
+**Fases 1–7 originales completas.** Pipeline end-to-end operativo: ingesta MPCORB + Gaia DR3 → propagación → detección KD-tree → caracterización → catálogo Parquet → dashboard Streamlit. Última corrida sobre **98.775 asteroides numerados (a∈[1.5, 4.0] AU)** en la ventana Gaia DR3 (2014-07-25 → 2017-05-28) a umbral **0.05 AU** produce **4.036.495 encuentros** en ~23 min (Kepler, 28 workers).
+
+**Mejoras post-MVP implementadas:**
+
+- **Multi-snapshot MPCORB indexado por época** ([src/ingest/mpcorb_archive.py](src/ingest/mpcorb_archive.py), [scripts/download_mpcorb_historical.py](scripts/download_mpcorb_historical.py)): descarga snapshots históricos vía Wayback Machine, auto-selecciona el de época más cercana al centro de la ventana temporal. Reduce error de Kepler de ~0.03 AU (época 2026 → 2017) a <0.001 AU (época 2015 → 2017).
+- **Validación contra literatura**:
+  - [scripts/validate_fienga_2003.py](scripts/validate_fienga_2003.py) — Fienga et al. (2003), VizieR `J/A+A/406/751`. 100% match (1/1 a 0.01 AU, 4/4 a 0.05 AU).
+  - [scripts/validate_galad_2002.py](scripts/validate_galad_2002.py) — Galád & Gray (2002), parseado del HTML del paper (no está en VizieR). 100% match (4/4 a 0.05 AU).
+  - [scripts/validate_jpl_horizons.py](scripts/validate_jpl_horizons.py) — Cross-check 3-way (nuestro vs literatura vs JPL Horizons). MAE(ours−JPL)=0.0002 AU, MAE(lit−JPL)=0.00004 AU.
+- **Propagación N-body** ([src/propagate/nbody.py](src/propagate/nbody.py)): REBOUND con WHFast, Sol+Júpiter+Saturno como cuerpos masivos, asteroides como test particles. Opcional: Ceres/Vesta/Pallas/Hygiea como perturbadores (`config.propagation.rebound.include_major_asteroids`). Integra 100k asteroides × 25k pasos en ~9 min.
+- **Cache de trayectorias** ([src/propagate/cache.py](src/propagate/cache.py)): persiste `(T, N, 3)` float32 en `np.memmap` (29.5 GB para 100k×25k), cache hit en <1 s. La integración streamea directo al disco para evitar OOM.
+
+**Bugs conocidos:**
+- `src/detect/parallel.py` se cuelga cuando: (a) `pairs` del prefilter es grande (subset chico ⇒ pickle de pares × 28 workers); (b) `positions=memmap` con N=100k+ a umbral 0.05 AU (sospecha: page-fault thrashing al leer el cache de 30 GB en 28 procesos). Workaround: `n_workers=1`. Fix pendiente.
+
+**Para detalle completo de cada fase, ver secciones siguientes.**
+
+---
+
 ## Fase 1 — Infraestructura y datos
 
 **Objetivo**: Tener el entorno operativo, los datos en disco y las conversiones de tiempo correctas.
