@@ -33,7 +33,7 @@ _THRESHOLD_AU = 0.05  # wider than pipeline default to catch near-misses
 _PAIR = [740, 7999]
 
 
-def main() -> None:
+def main() -> int:
     orbits_path = Path("data/raw/gaia_orbits.parquet")
     all_orbits = load_gaia_orbits(orbits_path)
 
@@ -93,6 +93,8 @@ def main() -> None:
                 t.utc.iso,
             )
 
+    return 0
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

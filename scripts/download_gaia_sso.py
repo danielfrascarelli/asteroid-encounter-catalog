@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 from pathlib import Path
 
 from src.ingest.gaia_sso import download_gaia_sso
@@ -26,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="Download Gaia DR3 SSO observations")
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     args = parser.parse_args()
@@ -45,6 +44,8 @@ def main() -> None:
         max_retries=cfg.sources.gaia_sso.max_retries,
     )
 
+    return 0
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

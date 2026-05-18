@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -123,7 +122,7 @@ def download_fienga_2003(config_path: str = "config.yaml") -> Path:
     return dest
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Download Fienga et al. (2003) encounter catalog from VizieR"
     )
@@ -131,6 +130,8 @@ def main() -> None:
     args = parser.parse_args()
     download_fienga_2003(args.config)
 
+    return 0
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

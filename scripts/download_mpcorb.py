@@ -12,7 +12,6 @@ import gzip
 import hashlib
 import json
 import logging
-import sys
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
@@ -71,12 +70,14 @@ def download_mpcorb(config_path: str = "config.yaml") -> Path:
     return dest
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="Download MPCORB.DAT from MPC")
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     args = parser.parse_args()
     download_mpcorb(args.config)
 
+    return 0
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
