@@ -23,10 +23,10 @@ def _make_elements(n: int) -> pl.DataFrame:
     a = 2.7 + rng.normal(0.0, 0.001, size=n)
     e = np.zeros(n)
     i_deg = np.zeros(n)
-    Omega_deg = np.zeros(n)
+    omega_asc_deg = np.zeros(n)
     omega_deg = np.zeros(n)
     # Spread the mean anomaly so some pairs come close at different times.
-    M_deg = rng.uniform(0.0, 360.0, size=n)
+    mean_anom_deg = rng.uniform(0.0, 360.0, size=n)
     return pl.DataFrame(
         {
             "number": np.arange(1, n + 1, dtype=np.int32),
@@ -34,9 +34,9 @@ def _make_elements(n: int) -> pl.DataFrame:
             "a_au": a,
             "e": e,
             "i_deg": i_deg,
-            "Omega_deg": Omega_deg,
+            "Omega_deg": omega_asc_deg,
             "omega_deg": omega_deg,
-            "M_deg": M_deg,
+            "M_deg": mean_anom_deg,
             "epoch_jd": np.full(n, 2457200.5),
         },
         schema_overrides={"number": pl.Int32, "designation": pl.Utf8},
