@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 _REQUIRED_BODIES = [1, 2, 4, 10]
 _BODY_NAMES = {1: "Ceres", 2: "Pallas", 4: "Vesta", 10: "Hygiea"}
-_SUPPLEMENT_EPOCH_JD = 2457200.5
 
 
 def _supplement_elements(elements: pl.DataFrame, mpcorb: pl.DataFrame) -> pl.DataFrame:

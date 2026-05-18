@@ -55,52 +55,17 @@ def _refine_chunk(chunk: list[tuple[int, int, float, float]]) -> list[dict]:
     """Refine one chunk of Kepler-path candidates in a worker process."""
     rows: list[dict] = []
     for idx_i, idx_j, t_coarse, d_coarse in chunk:
-        row_i = _WORKER_ELEM_ROWS[idx_i]
-        row_j = _WORKER_ELEM_ROWS[idx_j]
-
-        t_start = t_coarse - _WORKER_HALF_WIN
-        t_end = t_coarse + _WORKER_HALF_WIN
-        t_fine = np.arange(t_start, t_end + _WORKER_FINE_STEP * 0.5, _WORKER_FINE_STEP)
-
-        if len(t_fine) < 3:
-            t_min = t_coarse
-            d_min = d_coarse
-        else:
-            pos_i, pos_j = _propagate_pair(row_i, row_j, t_fine)
-            dists = np.linalg.norm(pos_i - pos_j, axis=1)
-            k = int(np.argmin(dists))
-            if 0 < k < len(t_fine) - 1:
-                t_min, d_min = _quadratic_min(
-                    float(t_fine[k - 1]),
-                    float(t_fine[k]),
-                    float(t_fine[k + 1]),
-                    float(dists[k - 1]),
-                    float(dists[k]),
-                    float(dists[k + 1]),
-                )
-            else:
-                t_min = float(t_fine[k])
-                d_min = float(dists[k])
-
-        if d_min > _WORKER_THRESHOLD:
-            continue
-
-        dt = _WORKER_FINE_STEP
-        t_vel = np.array([t_min - dt, t_min + dt])
-        pos_i_vel, pos_j_vel = _propagate_pair(row_i, row_j, t_vel)
-        rel_vel_vec = (pos_i_vel[1] - pos_i_vel[0] - (pos_j_vel[1] - pos_j_vel[0])) / (2.0 * dt)
-
-        rows.append(
-            {
-                "number_1": row_i["number"],
-                "number_2": row_j["number"],
-                "designation_1": row_i["designation"],
-                "designation_2": row_j["designation"],
-                "jd_tdb": t_min,
-                "dist_au": d_min,
-                "rel_vel_au_day": float(np.linalg.norm(rel_vel_vec)),
-            }
+        result = _refine_one_kepler(
+            _WORKER_ELEM_ROWS[idx_i],
+            _WORKER_ELEM_ROWS[idx_j],
+            t_coarse,
+            d_coarse,
+            _WORKER_THRESHOLD,
+            _WORKER_FINE_STEP,
+            _WORKER_HALF_WIN,
         )
+        if result is not None:
+            rows.append(result)
     return rows
 
 
@@ -183,6 +148,59 @@ def _propagate_pair(
         )
 
     return _pos(row_i), _pos(row_j)
+
+
+def _refine_one_kepler(
+    row_i: dict,
+    row_j: dict,
+    t_coarse: float,
+    d_coarse: float,
+    threshold_au: float,
+    fine_step_days: float,
+    half_window_days: float,
+) -> dict | None:
+    """Refine a single Kepler-path candidate; returns None if distance exceeds threshold."""
+    t_fine = np.arange(
+        t_coarse - half_window_days,
+        t_coarse + half_window_days + fine_step_days * 0.5,
+        fine_step_days,
+    )
+    if len(t_fine) < 3:
+        t_min = t_coarse
+        d_min = d_coarse
+    else:
+        pos_i, pos_j = _propagate_pair(row_i, row_j, t_fine)
+        dists = np.linalg.norm(pos_i - pos_j, axis=1)
+        k = int(np.argmin(dists))
+        if 0 < k < len(t_fine) - 1:
+            t_min, d_min = _quadratic_min(
+                float(t_fine[k - 1]),
+                float(t_fine[k]),
+                float(t_fine[k + 1]),
+                float(dists[k - 1]),
+                float(dists[k]),
+                float(dists[k + 1]),
+            )
+        else:
+            t_min = float(t_fine[k])
+            d_min = float(dists[k])
+
+    if d_min > threshold_au:
+        return None
+
+    dt = fine_step_days
+    t_vel = np.array([t_min - dt, t_min + dt])
+    pos_i_vel, pos_j_vel = _propagate_pair(row_i, row_j, t_vel)
+    rel_vel_vec = (pos_i_vel[1] - pos_i_vel[0] - (pos_j_vel[1] - pos_j_vel[0])) / (2.0 * dt)
+    return {
+        "number_1": row_i["number"],
+        "number_2": row_j["number"],
+        "designation_1": row_i["designation"],
+        "designation_2": row_j["designation"],
+        "jd_tdb": t_min,
+        "dist_au": d_min,
+        "rel_vel_au_day": float(np.linalg.norm(rel_vel_vec)),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -305,41 +323,13 @@ def refine_candidates(
                 rel_vel_vec = (p_i[2] - p_i[0] - (p_j[2] - p_j[0])) / (2.0 * dt_v)
                 rel_vel_au_day = float(np.linalg.norm(rel_vel_vec))
             else:
-                t_start = t_coarse - half_window_days
-                t_end = t_coarse + half_window_days
-                t_fine = np.arange(t_start, t_end + fine_step_days * 0.5, fine_step_days)
-
-                if len(t_fine) < 3:
-                    t_min = t_coarse
-                    d_min = d_coarse
-                else:
-                    pos_i, pos_j = _propagate_pair(row_i, row_j, t_fine)
-                    dists = np.linalg.norm(pos_i - pos_j, axis=1)
-                    k = int(np.argmin(dists))
-
-                    if 0 < k < len(t_fine) - 1:
-                        t_min, d_min = _quadratic_min(
-                            float(t_fine[k - 1]),
-                            float(t_fine[k]),
-                            float(t_fine[k + 1]),
-                            float(dists[k - 1]),
-                            float(dists[k]),
-                            float(dists[k + 1]),
-                        )
-                    else:
-                        t_min = float(t_fine[k])
-                        d_min = float(dists[k])
-
-                if d_min > threshold_au:
-                    continue
-
-                dt = fine_step_days
-                t_vel = np.array([t_min - dt, t_min + dt])
-                pos_i_vel, pos_j_vel = _propagate_pair(row_i, row_j, t_vel)
-                rel_vel_vec = (pos_i_vel[1] - pos_i_vel[0] - (pos_j_vel[1] - pos_j_vel[0])) / (
-                    2.0 * dt
+                result = _refine_one_kepler(
+                    row_i, row_j, t_coarse, d_coarse, threshold_au, fine_step_days, half_window_days
                 )
-                rel_vel_au_day = float(np.linalg.norm(rel_vel_vec))
+                if result is None:
+                    continue
+                rows.append(result)
+                continue
 
             rows.append(
                 {

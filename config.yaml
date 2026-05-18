@@ -78,6 +78,13 @@ sources:
     vizier_catalog: "J/A+A/406/751"
     output_filename: "fienga_2003_encounters.parquet"
 
+  goffin_2014:
+    # Encuentros usados para determinación de masas de asteroides.
+    # Goffin E. (2014) "New determination of asteroid masses" A&A 565, A56.
+    # DOI: 10.1051/0004-6361/201322766 — VizieR catalog: J/A+A/565/A56
+    vizier_catalog: "J/A+A/565/A56"
+    output_filename: "goffin_2014_encounters.parquet"
+
   galad_2002:
     # Catálogo de encuentros asteroide-asteroide candidatos para determinación
     # de masas. Galád A., Gray B. (2002) A&A 391, 1115.

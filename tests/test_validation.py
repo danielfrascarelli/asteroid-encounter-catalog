@@ -262,3 +262,59 @@ class TestRealSidecar:
         deps = data["dependencies"]
         for pkg in ("astropy", "polars", "numpy"):
             assert pkg in deps
+
+
+# ---------------------------------------------------------------------------
+# Goffin 2014 fixture tests (no network access required)
+# ---------------------------------------------------------------------------
+
+
+class TestGoffinLoadAndFilter:
+    """Unit tests for validate_goffin_2014._load_goffin using synthetic data."""
+
+    def _make_goffin_parquet(self, tmp_path: Path) -> Path:
+        """Write a minimal synthetic Goffin-like parquet file."""
+        import datetime
+
+        df = pl.DataFrame(
+            {
+                "Pert": pl.Series([1, 4, 2, 10, 532], dtype=pl.Int32),
+                "Targ": pl.Series([100, 200, 300, 400, 500], dtype=pl.Int32),
+                "Date": [
+                    "2015-03-01",  # inside Gaia window
+                    "2016-06-15",  # inside
+                    "2013-01-01",  # before window
+                    "2018-01-01",  # after window
+                    "2014-08-01",  # inside
+                ],
+                "Dist": [0.005, 0.012, 0.003, 0.008, 0.007],
+                "Vrel": [2.1, 3.5, 1.8, 4.2, 2.9],
+            }
+        )
+        path = tmp_path / "goffin_2014_encounters.parquet"
+        df.write_parquet(path)
+        return path
+
+    def test_loads_and_filters_to_gaia_window(self, tmp_path: Path) -> None:
+        from scripts.validate_goffin_2014 import _load_goffin
+
+        path = self._make_goffin_parquet(tmp_path)
+        df, col_map = _load_goffin(path, "2014-07-25", "2017-05-28")
+        # Rows outside the Gaia window (2013-01-01, 2018-01-01) must be dropped
+        assert len(df) == 3
+
+    def test_col_map_has_required_keys(self, tmp_path: Path) -> None:
+        from scripts.validate_goffin_2014 import _load_goffin
+
+        path = self._make_goffin_parquet(tmp_path)
+        _df, col_map = _load_goffin(path, "2014-07-25", "2017-05-28")
+        for key in ("perturber", "target", "epoch", "dist"):
+            assert key in col_map
+
+    def test_dist_column_values_preserved(self, tmp_path: Path) -> None:
+        from scripts.validate_goffin_2014 import _load_goffin
+
+        path = self._make_goffin_parquet(tmp_path)
+        df, col_map = _load_goffin(path, "2014-07-25", "2017-05-28")
+        dists = df[col_map["dist"]].to_list()
+        assert all(d > 0.0 for d in dists)
