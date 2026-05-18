@@ -156,6 +156,7 @@ def detect_encounters(
             window_hours,
             positions=positions,
             time_grid=time_grid,
+            n_workers=nw,
         )
     else:
         rows = [

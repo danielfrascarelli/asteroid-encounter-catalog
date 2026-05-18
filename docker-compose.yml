@@ -9,8 +9,14 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./config.yaml:/app/config.yaml:ro
-      # config.local.yaml opcional; si no existe Docker simplemente lo ignora
+      # config.local.yaml opcional para overrides locales (gitignored).
+      # Si no existe, créalo antes de correr: cp config.yaml config.local.yaml
       - ./config.local.yaml:/app/config.local.yaml:ro
+      # Para usar otras variantes de config (ej. config_005au.yaml), añadirlas
+      # aquí (el archivo debe existir antes) o pasarlas en el comando:
+      #   docker compose run --rm \
+      #     -v ./config_005au.yaml:/app/config_005au.yaml:ro \
+      #     pipeline python -m scripts.run_pipeline --config config_005au.yaml
       # Montar código fuente para que cambios sean visibles sin rebuild
       - ./src:/app/src
       - ./scripts:/app/scripts
