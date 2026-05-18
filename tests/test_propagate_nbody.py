@@ -39,7 +39,7 @@ def _elements(n: int = 2) -> pl.DataFrame:
 def test_output_shape_and_dtype() -> None:
     """Returns (T, N, 3) float32."""
     t_grid = np.linspace(_EPOCH_JD, _EPOCH_JD + 10.0, 7)
-    out = propagate_grid_nbody(_elements(3), t_grid, include_planets=["sun"])
+    out = propagate_grid_nbody(_elements(3), t_grid, include_planets=["sun"], integrator="ias15")
     assert out.shape == (7, 3, 3)
     assert out.dtype == np.float32
 
@@ -48,7 +48,9 @@ def test_out_parameter_writes_in_place() -> None:
     """out= is populated and returned; no copy is made."""
     t_grid = np.linspace(_EPOCH_JD, _EPOCH_JD + 5.0, 4)
     buf = np.zeros((4, 2, 3), dtype=np.float32)
-    result = propagate_grid_nbody(_elements(2), t_grid, include_planets=["sun"], out=buf)
+    result = propagate_grid_nbody(
+        _elements(2), t_grid, include_planets=["sun"], integrator="ias15", out=buf
+    )
     assert result is buf
     # Positions must be non-zero (asteroids are in the belt, not at the origin)
     assert np.any(buf != 0.0)
@@ -87,7 +89,9 @@ def test_out_shape_mismatch_raises() -> None:
     t_grid = np.linspace(_EPOCH_JD, _EPOCH_JD + 5.0, 3)
     wrong = np.empty((5, 2, 3), dtype=np.float32)  # T=5 but grid has T=3
     with pytest.raises(ValueError, match="shape"):
-        propagate_grid_nbody(_elements(2), t_grid, include_planets=["sun"], out=wrong)
+        propagate_grid_nbody(
+            _elements(2), t_grid, include_planets=["sun"], integrator="ias15", out=wrong
+        )
 
 
 # ---------------------------------------------------------------------------
