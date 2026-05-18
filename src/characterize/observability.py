@@ -97,7 +97,7 @@ def apparent_mag_hg(
     """
     alpha = np.radians(np.asarray(phase_deg, dtype=float))
     tan_half = np.tan(alpha / 2.0)
-    phi1 = np.exp(-3.33 * tan_half**0.63)
+    phi1 = np.exp(-3.33 * tan_half**0.63)  # Bowell et al. 1989, Asteroids II, eq. A4
     phi2 = np.exp(-1.87 * tan_half**1.22)
     g = np.asarray(G, dtype=float)
     return h - 2.5 * np.log10((1.0 - g) * phi1 + g * phi2) + 5.0 * np.log10(r_helio * delta)  # type: ignore[no-any-return]

@@ -149,8 +149,8 @@ def characterize_catalog(
     # ------------------------------------------------------------------ #
     h1 = df["H_1"].to_numpy()
     h2 = df["H_2"].to_numpy()
-    diam_1 = np.where(np.isnan(h1), np.nan, diameter_km(np.where(np.isnan(h1), 0.0, h1), albedo))
-    diam_2 = np.where(np.isnan(h2), np.nan, diameter_km(np.where(np.isnan(h2), 0.0, h2), albedo))
+    diam_1 = diameter_km(h1, albedo)
+    diam_2 = diameter_km(h2, albedo)
 
     # ------------------------------------------------------------------ #
     # 5. Orbit classification                                              #

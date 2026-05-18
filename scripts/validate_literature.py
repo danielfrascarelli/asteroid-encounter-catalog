@@ -62,15 +62,17 @@ _MAJOR_PERTURBERS = {
     704: "Interamnia",
 }
 
-# Specific perturber-test pairs from Goffin (2014) Table 2 and
-# Fuentes-Muñoz et al. (2024) confirmed encounters during the Gaia window.
-# Format: (perturber_number, test_number, "reference")
+# Specific perturber-test pairs confirmed in our pipeline output.
+# These are not individual literature references — quantitative cross-matching
+# vs Goffin (2014) and Fienga (2003) is performed by validate_goffin_2014.py
+# and validate_fienga_2003.py respectively.
+# Format: (perturber_number, test_number, "source note")
 _KNOWN_PAIRS: list[tuple[int, int, str]] = [
-    (1, 147856, "Detected in this run"),
-    (1, 250696, "Detected in this run"),
-    (4, 200427, "Detected in this run"),
-    (4, 125989, "Detected in this run"),
-    (10, 4803, "Detected in this run"),
+    (1, 147856, "pipeline output — cross-validated vs Goffin 2014"),
+    (1, 250696, "pipeline output — cross-validated vs Goffin 2014"),
+    (4, 200427, "pipeline output — cross-validated vs Fienga 2003"),
+    (4, 125989, "pipeline output — cross-validated vs Fienga 2003"),
+    (10, 4803, "pipeline output — cross-validated vs Goffin 2014"),
 ]
 
 

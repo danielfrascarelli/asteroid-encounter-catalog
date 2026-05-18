@@ -42,6 +42,7 @@ _REQUIRED_BODIES = [1, 2, 4, 10]  # Ceres, Pallas, Vesta, Hygiea
 
 
 def _apply_subset(df: pl.DataFrame, cfg) -> pl.DataFrame:
+    """Truncate elements DataFrame to cfg.subset.max_asteroids if set."""
     if cfg.subset.max_asteroids is not None:
         df = df.head(cfg.subset.max_asteroids)
     return df

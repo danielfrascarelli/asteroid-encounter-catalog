@@ -48,6 +48,16 @@ class TestDiameterKm:
         # Higher albedo → smaller object for same H
         assert diameter_km(10.0, albedo=0.05) > diameter_km(10.0, albedo=0.30)
 
+    def test_nan_h_returns_nan(self) -> None:
+        assert np.isnan(float(diameter_km(np.nan)))
+
+    def test_nan_array_propagates(self) -> None:
+        h = np.array([3.34, np.nan, 10.0])
+        result = diameter_km(h)
+        assert not np.isnan(result[0])
+        assert np.isnan(result[1])
+        assert not np.isnan(result[2])
+
 
 class TestClassifyOrbit:
     def test_mba(self) -> None:
