@@ -274,8 +274,6 @@ class TestGoffinLoadAndFilter:
 
     def _make_goffin_parquet(self, tmp_path: Path) -> Path:
         """Write a minimal synthetic Goffin-like parquet file."""
-        import datetime
-
         df = pl.DataFrame(
             {
                 "Pert": pl.Series([1, 4, 2, 10, 532], dtype=pl.Int32),
