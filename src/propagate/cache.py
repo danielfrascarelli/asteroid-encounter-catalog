@@ -184,17 +184,16 @@ def load_or_compute_trajectory(
     logger.info("Cache MISS: computing trajectory → %s", npy_path)
     from src.propagate.nbody import propagate_grid_nbody
 
-    trajectory = propagate_grid_nbody(elements, time_grid, **rebound_kwargs)
-    if trajectory.dtype != np.float32:
-        trajectory = trajectory.astype(np.float32)
-
-    # Write to a temp file then atomic-rename so a crash mid-write can't leave
-    # a half-baked cache that future runs would accept on shape alone.
+    # Stream the integration directly into a disk-backed memmap to avoid
+    # holding the full (T, N, 3) array in RAM — at 100k asteroids × 25k
+    # steps × float32 that array is ~30 GB and triggers OOM kills.  The
+    # memmap is allocated to its full size up-front (sparse on most
+    # filesystems) and written to step by step inside the integrator.
     tmp = npy_path.with_suffix(".npy.tmp")
-    memmap = np.memmap(tmp, dtype=np.float32, mode="w+", shape=expected_shape)
-    memmap[:] = trajectory
-    memmap.flush()
-    del memmap
+    out_mm = np.memmap(tmp, dtype=np.float32, mode="w+", shape=expected_shape)
+    propagate_grid_nbody(elements, time_grid, out=out_mm, **rebound_kwargs)
+    out_mm.flush()
+    del out_mm
     tmp.replace(npy_path)
 
     manifest_path.write_text(

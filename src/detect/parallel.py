@@ -16,6 +16,8 @@ from __future__ import annotations
 import logging
 import multiprocessing as mp
 import os
+import tempfile
+from pathlib import Path
 
 import numpy as np
 import polars as pl
@@ -34,12 +36,30 @@ _G_POSITIONS: np.ndarray | None = None
 def _init_worker(
     elements: pl.DataFrame,
     pairs: np.ndarray | None,
+    pairs_path: str | None,
     positions: np.ndarray | None,
+    positions_memmap: tuple[str, tuple[int, int, int], str] | None,
 ) -> None:
+    """Initialise per-worker globals.
+
+    Large objects (``pairs`` array, ``positions`` trajectory) are passed by
+    path when their pickle size would otherwise overwhelm the multiprocessing
+    queue.  ``pairs_path`` points to an ``.npy`` file with the prefilter pair
+    indices; ``positions_memmap`` is the ``(filename, shape, dtype)`` triple
+    used to re-open a disk-backed trajectory.  Workers re-load these locally
+    — the OS shares the underlying pages across processes via the page cache.
+    """
     global _G_ELEMENTS, _G_PAIRS, _G_POSITIONS
     _G_ELEMENTS = elements
-    _G_PAIRS = pairs
-    _G_POSITIONS = positions
+    if pairs_path is not None:
+        _G_PAIRS = np.load(pairs_path, mmap_mode="r")
+    else:
+        _G_PAIRS = pairs
+    if positions_memmap is not None:
+        filename, shape, dtype_str = positions_memmap
+        _G_POSITIONS = np.memmap(filename, dtype=np.dtype(dtype_str), mode="r", shape=shape)
+    else:
+        _G_POSITIONS = positions
 
 
 def _scan_chunk(
@@ -143,13 +163,54 @@ def scan_parallel(
         for chunk_times, chunk_indices in chunks
     ]
 
+    # Memmap-backed trajectories (cache hits) are passed as (filename, shape,
+    # dtype) so each worker re-opens its own read-only map. Pickling the array
+    # itself via initargs forces a full copy per worker — fatal at ~30 GB for
+    # 100k asteroids × 25k steps.
+    positions_memmap: tuple[str, tuple[int, int, int], str] | None = None
+    positions_inmem: np.ndarray | None = None
+    if positions is not None:
+        if isinstance(positions, np.memmap) and positions.filename:
+            positions_memmap = (
+                str(positions.filename),
+                tuple(positions.shape),  # type: ignore[assignment]
+                positions.dtype.str,
+            )
+        else:
+            positions_inmem = positions
+
+    if positions is None:
+        mode = "streaming"
+    elif positions_memmap is not None:
+        mode = f"memmap:{Path(positions_memmap[0]).name}"
+    else:
+        mode = "in-memory"
+
+    # The prefilter pair list can grow to tens of MB at moderate N (e.g. 2 000
+    # asteroids → ~1.3 M pairs). Passing such an array through Pool initargs
+    # pickles it once per worker and has been observed to deadlock the
+    # forkserver. Spill to a tempfile and let each worker mmap it instead.
+    pairs_path: str | None = None
+    pairs_inmem: np.ndarray | None = pairs
+    pairs_tmp_dir: tempfile.TemporaryDirectory[str] | None = None
+    if pairs is not None and pairs.nbytes > 1_000_000:  # >1 MB → spill
+        pairs_tmp_dir = tempfile.TemporaryDirectory(prefix="gaia_pairs_")
+        pairs_path = str(Path(pairs_tmp_dir.name) / "pairs.npy")
+        np.save(pairs_path, pairs)
+        pairs_inmem = None
+        logger.info(
+            "Pairs array (%.1f MB) spilled to tempfile %s for worker sharing",
+            pairs.nbytes / 1e6,
+            pairs_path,
+        )
+
     logger.info(
         "Parallel scan: %d workers | %d chunks (~%.0f days each) | %d total steps | positions=%s",
         nw,
         len(chunks),
         chunk_size_days,
         len(time_grid),
-        "supplied" if positions is not None else "streaming",
+        mode,
     )
 
     # Limit numpy/BLAS/OpenMP to 1 thread per worker to prevent oversubscription.
@@ -172,7 +233,7 @@ def scan_parallel(
     with ctx.Pool(
         processes=nw,
         initializer=_init_worker,
-        initargs=(elements, pairs, positions),
+        initargs=(elements, pairs_inmem, pairs_path, positions_inmem, positions_memmap),
     ) as pool:
         all_results: list[list[tuple[int, int, float, float]]] = []
         with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
@@ -182,4 +243,6 @@ def scan_parallel(
 
     candidates = _merge_candidates(all_results)
     logger.info("Parallel scan complete: %d candidate pairs", len(candidates))
+    if pairs_tmp_dir is not None:
+        pairs_tmp_dir.cleanup()
     return candidates

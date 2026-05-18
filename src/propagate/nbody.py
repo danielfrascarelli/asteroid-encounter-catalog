@@ -232,6 +232,7 @@ def propagate_grid_nbody(
     integrator: str = "whfast",
     dt_days: float = 1.0,
     epoch_jd: float | None = None,
+    out: np.ndarray | None = None,
 ) -> np.ndarray:
     """Integrate *elements* across *time_grid* with planetary perturbers.
 
@@ -432,7 +433,14 @@ def propagate_grid_nbody(
     if integrator == "whfast":
         sim.ri_whfast.safe_mode = 1
 
-    out = np.empty((n_steps, n_ast, 3), dtype=np.float32)
+    if out is None:
+        out = np.empty((n_steps, n_ast, 3), dtype=np.float32)
+    else:
+        expected = (n_steps, n_ast, 3)
+        if out.shape != expected:
+            raise ValueError(f"out has shape {out.shape}, expected {expected}")
+        if out.dtype != np.float32:
+            raise ValueError(f"out has dtype {out.dtype}, expected float32")
 
     # Snapshot the initial state so we can re-run the simulation backward
     # without rebuilding it from scratch.  REBOUND stores particle state by

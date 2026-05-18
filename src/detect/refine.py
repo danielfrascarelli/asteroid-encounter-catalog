@@ -119,6 +119,8 @@ def refine_candidates(
     threshold_au: float,
     fine_step_seconds: float = 60.0,
     window_hours: float = 2.0,
+    positions: np.ndarray | None = None,
+    time_grid: np.ndarray | None = None,
 ) -> pl.DataFrame:
     """Refine coarse KD-tree candidates to find true minimum-distance epochs.
 
@@ -161,6 +163,16 @@ def refine_candidates(
     fine_step_days = fine_step_seconds / _SECONDS_PER_DAY
     half_window_days = window_hours / 24.0
 
+    # When a pre-computed N-body trajectory is supplied (rebound + cache), use
+    # it for the per-candidate minimum instead of re-propagating with Kepler.
+    # Falling back to Kepler here would overwrite N-body distances with 2-body
+    # values, undoing the entire point of running rebound.
+    use_cache = positions is not None and time_grid is not None
+    cache_step_days = 0.0
+    if use_cache:
+        assert time_grid is not None  # mypy guard
+        cache_step_days = float(time_grid[1] - time_grid[0]) if len(time_grid) > 1 else 0.0
+
     # Pre-materialise element rows for fast per-row access
     elem_rows = [{col: elements[col][k] for col in elements.columns} for k in range(len(elements))]
 
@@ -170,41 +182,66 @@ def refine_candidates(
         row_i = elem_rows[idx_i]
         row_j = elem_rows[idx_j]
 
-        t_start = t_coarse - half_window_days
-        t_end = t_coarse + half_window_days
-        t_fine = np.arange(t_start, t_end + fine_step_days * 0.5, fine_step_days)
+        if use_cache:
+            # Cache-based refinement: use the coarse cache step's three samples
+            # surrounding t_coarse and fit a parabola.  Trajectory at 1-hour
+            # resolution is plenty for the sub-mAU accuracy of N-body anyway.
+            assert positions is not None and time_grid is not None  # mypy guard
+            k0 = int(np.searchsorted(time_grid, t_coarse))
+            k0 = max(1, min(len(time_grid) - 2, k0))
+            t0, t1, t2 = (
+                float(time_grid[k0 - 1]),
+                float(time_grid[k0]),
+                float(time_grid[k0 + 1]),
+            )
+            p_i = positions[k0 - 1 : k0 + 2, idx_i]
+            p_j = positions[k0 - 1 : k0 + 2, idx_j]
+            d3 = np.linalg.norm(p_i - p_j, axis=1)
+            t_min, d_min = _quadratic_min(t0, t1, t2, float(d3[0]), float(d3[1]), float(d3[2]))
 
-        if len(t_fine) < 3:
-            # Window too narrow for interpolation — use coarse values
-            t_min = t_coarse
-            d_min = _d_coarse
+            if d_min > threshold_au:
+                continue
+
+            # Relative velocity from central finite difference on cache slices.
+            dt_v = cache_step_days
+            rel_vel_vec = (p_i[2] - p_i[0] - (p_j[2] - p_j[0])) / (2.0 * dt_v)
+            rel_vel_au_day = float(np.linalg.norm(rel_vel_vec))
         else:
-            pos_i, pos_j = _propagate_pair(row_i, row_j, t_fine)
-            dists = np.linalg.norm(pos_i - pos_j, axis=1)
-            k = int(np.argmin(dists))
+            t_start = t_coarse - half_window_days
+            t_end = t_coarse + half_window_days
+            t_fine = np.arange(t_start, t_end + fine_step_days * 0.5, fine_step_days)
 
-            if 0 < k < len(t_fine) - 1:
-                t_min, d_min = _quadratic_min(
-                    float(t_fine[k - 1]),
-                    float(t_fine[k]),
-                    float(t_fine[k + 1]),
-                    float(dists[k - 1]),
-                    float(dists[k]),
-                    float(dists[k + 1]),
-                )
+            if len(t_fine) < 3:
+                # Window too narrow for interpolation — use coarse values
+                t_min = t_coarse
+                d_min = _d_coarse
             else:
-                t_min = float(t_fine[k])
-                d_min = float(dists[k])
+                pos_i, pos_j = _propagate_pair(row_i, row_j, t_fine)
+                dists = np.linalg.norm(pos_i - pos_j, axis=1)
+                k = int(np.argmin(dists))
 
-        if d_min > threshold_au:
-            continue
+                if 0 < k < len(t_fine) - 1:
+                    t_min, d_min = _quadratic_min(
+                        float(t_fine[k - 1]),
+                        float(t_fine[k]),
+                        float(t_fine[k + 1]),
+                        float(dists[k - 1]),
+                        float(dists[k]),
+                        float(dists[k + 1]),
+                    )
+                else:
+                    t_min = float(t_fine[k])
+                    d_min = float(dists[k])
 
-        # Relative velocity: centred finite differences at t_min
-        dt = fine_step_days
-        t_vel = np.array([t_min - dt, t_min + dt])
-        pos_i_vel, pos_j_vel = _propagate_pair(row_i, row_j, t_vel)
-        rel_vel_vec = (pos_i_vel[1] - pos_i_vel[0] - (pos_j_vel[1] - pos_j_vel[0])) / (2.0 * dt)
-        rel_vel_au_day = float(np.linalg.norm(rel_vel_vec))
+            if d_min > threshold_au:
+                continue
+
+            # Relative velocity: centred finite differences at t_min
+            dt = fine_step_days
+            t_vel = np.array([t_min - dt, t_min + dt])
+            pos_i_vel, pos_j_vel = _propagate_pair(row_i, row_j, t_vel)
+            rel_vel_vec = (pos_i_vel[1] - pos_i_vel[0] - (pos_j_vel[1] - pos_j_vel[0])) / (2.0 * dt)
+            rel_vel_au_day = float(np.linalg.norm(rel_vel_vec))
 
         rows.append(
             {

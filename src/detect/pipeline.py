@@ -149,7 +149,13 @@ def detect_encounters(
     # --- Step 3: refinement ---
     if refinement_enabled:
         result = refine_candidates(
-            elements, candidates, threshold_au, fine_step_seconds, window_hours
+            elements,
+            candidates,
+            threshold_au,
+            fine_step_seconds,
+            window_hours,
+            positions=positions,
+            time_grid=time_grid,
         )
     else:
         rows = [
