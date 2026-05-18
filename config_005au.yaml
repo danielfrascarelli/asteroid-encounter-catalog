@@ -142,7 +142,7 @@ propagation:
 # Detección de encuentros
 # -----------------------------------------------------------------------------
 detection:
-  threshold_au: 0.01                 # Umbral de distancia (clave!)
+  threshold_au: 0.05                 # Umbral de distancia (clave!)
   prefilter:
     enabled: true                    # Filtrar pares incompatibles antes del KD-tree
     semimajor_diff_max_au: 0.5       # Pares con |Δa| mayor a esto se descartan
@@ -182,7 +182,7 @@ parallel:
 # -----------------------------------------------------------------------------
 output:
   format: "parquet"                  # "parquet" (recomendado) o "csv"
-  filename: "encounters_catalog"     # Sin extensión
+  filename: "encounters_catalog_005au"     # Sin extensión
   compression: "zstd"                # Solo aplicable a parquet
   include_metadata: true             # Adjuntar config y versiones en un sidecar
 

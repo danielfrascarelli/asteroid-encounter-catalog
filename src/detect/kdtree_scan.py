@@ -32,6 +32,7 @@ def scan_time_grid(
     pairs: np.ndarray | None,
     threshold_au: float,
     leaf_size: int = 30,
+    positions: np.ndarray | None = None,
 ) -> list[tuple[int, int, float, float]]:
     """Scan *time_grid* for compatible pairs closer than *threshold_au*.
 
@@ -48,6 +49,10 @@ def scan_time_grid(
         Distance threshold in AU.
     leaf_size:
         ``cKDTree`` leaf_size parameter.
+    positions:
+        Optional ``(T, N, 3)`` array of pre-computed positions (e.g. from the
+        N-body propagator).  When supplied, *elements* is unused for
+        propagation; positions are simply indexed step-by-step.
 
     Returns
     -------
@@ -69,7 +74,7 @@ def scan_time_grid(
 
     for step_idx, (t_jd, pos) in enumerate(
         tqdm(
-            propagate_grid(elements, time_grid),
+            propagate_grid(elements, time_grid, positions=positions),
             total=len(time_grid),
             desc="KD-tree scan",
             unit="step",

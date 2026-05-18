@@ -65,11 +65,25 @@ class JplHorizonsSourceConfig:
 
 
 @dataclass
+class Fienga2003SourceConfig:
+    vizier_catalog: str
+    output_filename: str
+
+
+@dataclass
+class Galad2002SourceConfig:
+    source_url: str
+    output_filename: str
+
+
+@dataclass
 class SourcesConfig:
     mpcorb: MpcorbSourceConfig
     gaia_sso: GaiaSSOSourceConfig
     gaia_orbits: GaiaOrbitsSourceConfig
     jpl_horizons: JplHorizonsSourceConfig
+    fienga_2003: Fienga2003SourceConfig
+    galad_2002: Galad2002SourceConfig
 
 
 @dataclass
@@ -245,11 +259,21 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
     _require(p, "data_root", "raw", "cache", "output", "logs")
 
     s = raw["sources"]
-    _require(s, "mpcorb", "gaia_sso", "gaia_orbits", "jpl_horizons")
+    _require(
+        s,
+        "mpcorb",
+        "gaia_sso",
+        "gaia_orbits",
+        "jpl_horizons",
+        "fienga_2003",
+        "galad_2002",
+    )
     _require(s["mpcorb"], "url", "local_filename", "refresh_days")
     _require(s["gaia_sso"], "table", "archive_url", "columns")
     _require(s["gaia_orbits"], "archive_url")
     _require(s["jpl_horizons"], "api_url", "rate_limit_seconds")
+    _require(s["fienga_2003"], "vizier_catalog", "output_filename")
+    _require(s["galad_2002"], "source_url", "output_filename")
 
     sub = raw["subset"]
     _require(sub, "only_numbered", "max_asteroids", "exclude_neas", "semimajor_axis_au")
@@ -297,6 +321,8 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
             gaia_sso=GaiaSSOSourceConfig(**s["gaia_sso"]),
             gaia_orbits=GaiaOrbitsSourceConfig(**s["gaia_orbits"]),
             jpl_horizons=JplHorizonsSourceConfig(**s["jpl_horizons"]),
+            fienga_2003=Fienga2003SourceConfig(**s["fienga_2003"]),
+            galad_2002=Galad2002SourceConfig(**s["galad_2002"]),
         ),
         subset=SubsetConfig(
             only_numbered=sub["only_numbered"],

@@ -46,6 +46,7 @@ def detect_encounters(
     refinement_enabled: bool = True,
     n_workers: int | str = 1,
     chunk_size_days: float = 30.0,
+    positions: np.ndarray | None = None,
 ) -> pl.DataFrame:
     """Detect close asteroid encounters over a time grid.
 
@@ -74,6 +75,10 @@ def detect_encounters(
         Set to ``False`` to scan all N*(N-1)/2 pairs (for small test sets).
     refinement_enabled:
         Set to ``False`` to skip quadratic refinement (uses coarse results).
+    positions:
+        Optional ``(T, N, 3)`` pre-computed positions (e.g. from the N-body
+        propagator or cache).  When supplied the coarse scan reads positions
+        directly instead of re-propagating from Kepler elements.
 
     Returns
     -------
@@ -123,10 +128,19 @@ def detect_encounters(
     nw = resolve_n_workers(n_workers)
     if nw > 1:
         candidates = scan_parallel(
-            elements, time_grid, pairs, threshold_au, leaf_size, n_workers, chunk_size_days
+            elements,
+            time_grid,
+            pairs,
+            threshold_au,
+            leaf_size,
+            n_workers,
+            chunk_size_days,
+            positions=positions,
         )
     else:
-        candidates = scan_time_grid(elements, time_grid, pairs, threshold_au, leaf_size)
+        candidates = scan_time_grid(
+            elements, time_grid, pairs, threshold_au, leaf_size, positions=positions
+        )
     logger.info("%d coarse candidates after KD-tree scan", len(candidates))
 
     if not candidates:

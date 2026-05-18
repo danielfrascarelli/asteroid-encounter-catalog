@@ -1,10 +1,9 @@
-"""Full encounter-detection pipeline using Gaia DR3 orbital elements.
+"""Full encounter-detection pipeline using MPCORB orbital elements.
 
-Loads gaiadr3.sso_orbits, applies subset filters from config, supplements with
-JPL Horizons elements for major bodies absent from Gaia DR3 (too bright to be
-observed by Gaia: Ceres, Vesta, Pallas, Hygiea), builds the temporal grid over
-the Gaia DR3 observation window, runs the detection (prefilter → KD-tree scan →
-refinement), and writes the encounter catalog.
+Loads all asteroids from MPCORB.DAT (not limited to those observed by Gaia),
+applies subset filters from config, builds the temporal grid over the Gaia DR3
+observation window, runs the detection (prefilter → KD-tree scan → refinement),
+and writes the encounter catalog.
 
 For N > 5 000 asteroids the orbital pair prefilter is skipped automatically;
 the cKDTree spatial query at the configured threshold_au provides equivalent
@@ -27,8 +26,9 @@ import polars as pl
 from astropy.time import Time
 
 from src.detect.pipeline import detect_encounters
-from src.ingest.gaia_orbits import load_gaia_orbits
-from src.propagate.grid import make_time_grid
+from src.ingest.mpcorb import parse_mpcorb
+from src.ingest.mpcorb_archive import discover_snapshots, select_for_window
+from src.propagate.grid import make_time_grid, propagate_full_grid
 from src.utils.config import load_config
 
 logging.basicConfig(
@@ -37,101 +37,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Bodies that MUST appear in the catalog (too bright for Gaia → not in sso_orbits).
-# Queried from JPL Horizons at an epoch within the Gaia DR3 window.
+# Bodies whose presence in the output catalog is verified as a gate check.
 _REQUIRED_BODIES = [1, 2, 4, 10]  # Ceres, Pallas, Vesta, Hygiea
-_BODY_NAMES = {1: "Ceres", 2: "Pallas", 4: "Vesta", 10: "Hygiea"}
-_SUPPLEMENT_EPOCH_JD = 2457200.5  # 2015-07-01 TDB — mid-Gaia window
-
-
-def _fetch_horizons_elements(numbers: list[int], epoch_jd: float) -> pl.DataFrame | None:
-    """Query JPL Horizons for heliocentric osculating elements at *epoch_jd*.
-
-    Returns a DataFrame with the same schema as gaia_orbits, or None on failure.
-    """
-    try:
-        from astroquery.jplhorizons import Horizons
-    except ImportError:
-        logger.warning("astroquery not available — skipping Horizons supplement")
-        return None
-
-    rows = []
-    for num in numbers:
-        try:
-            name = _BODY_NAMES.get(num, str(num))
-            h = Horizons(id=name, id_type="smallbody", epochs=epoch_jd)
-            el = h.elements()
-            rows.append(
-                {
-                    "number": int(num),
-                    "designation": str(el["targetname"][0]).split("(")[0].strip(),
-                    "a_au": float(el["a"][0]),
-                    "e": float(el["e"][0]),
-                    "i_deg": float(el["incl"][0]),
-                    "Omega_deg": float(el["Omega"][0]),
-                    "omega_deg": float(el["w"][0]),
-                    "M_deg": float(el["M"][0]),
-                    "epoch_jd": float(el["datetime_jd"][0]),
-                }
-            )
-            logger.info(
-                "Horizons supplement: (%d) %s  a=%.4f AU  epoch=%s",
-                num,
-                rows[-1]["designation"],
-                rows[-1]["a_au"],
-                Time(rows[-1]["epoch_jd"], format="jd", scale="tdb").utc.iso[:10],
-            )
-        except Exception as exc:
-            logger.warning("Failed to fetch Horizons elements for (%d): %s", num, exc)
-
-    if not rows:
-        return None
-    return pl.DataFrame(rows).cast(
-        {
-            "number": pl.Int32,
-            "a_au": pl.Float64,
-            "e": pl.Float64,
-            "i_deg": pl.Float64,
-            "Omega_deg": pl.Float64,
-            "omega_deg": pl.Float64,
-            "M_deg": pl.Float64,
-            "epoch_jd": pl.Float64,
-        }
-    )
-
-
-def _supplement_major_bodies(elements: pl.DataFrame) -> pl.DataFrame:
-    """Add required bodies missing from *elements* via JPL Horizons."""
-    present = set(elements["number"].to_list())
-    missing = [n for n in _REQUIRED_BODIES if n not in present]
-    if not missing:
-        return elements
-
-    logger.info(
-        "Bodies absent from gaia_orbits (not observed by Gaia — too bright): %s. "
-        "Fetching elements from JPL Horizons at epoch JD %.1f…",
-        missing,
-        _SUPPLEMENT_EPOCH_JD,
-    )
-    supplement = _fetch_horizons_elements(missing, _SUPPLEMENT_EPOCH_JD)
-    if supplement is None or len(supplement) == 0:
-        logger.warning("Could not supplement major bodies — they will be absent from the catalog.")
-        return elements
-
-    # Keep only columns present in elements (drop any extras from Horizons)
-    cols = elements.columns
-    supplement = supplement.select([c for c in cols if c in supplement.columns])
-    return pl.concat([supplement, elements])
 
 
 def _apply_subset(df: pl.DataFrame, cfg) -> pl.DataFrame:
-    sub = cfg.subset
-    df = df.filter(
-        (pl.col("a_au") >= sub.semimajor_axis_au.min)
-        & (pl.col("a_au") <= sub.semimajor_axis_au.max)
-    )
-    if sub.max_asteroids is not None:
-        df = df.head(sub.max_asteroids)
+    if cfg.subset.max_asteroids is not None:
+        df = df.head(cfg.subset.max_asteroids)
     return df
 
 
@@ -155,18 +67,54 @@ def main() -> int:
 
     cfg = load_config(args.config)
 
+    # --- Time window (needed to pick the right MPCORB snapshot) ---
+    tw = cfg.time_window
+    t_start = Time(tw.start, scale=tw.scale).tdb.jd
+    t_end = Time(tw.end, scale=tw.scale).tdb.jd
+
+    # --- Select MPCORB snapshot whose epoch is closest to the window centre ---
+    snapshots = discover_snapshots(Path(cfg.paths.raw))
+    if not snapshots:
+        logger.error(
+            "No MPCORB snapshots found under %s. Run scripts.download_mpcorb or "
+            "scripts.download_mpcorb_historical first.",
+            cfg.paths.raw,
+        )
+        return 1
+    snap = select_for_window(snapshots, t_start, t_end)
+    centre_jd = 0.5 * (t_start + t_end)
+    centre_iso = Time(centre_jd, format="jd", scale="tdb").utc.iso[:10]
+    snap_epoch_iso = Time(snap.epoch_jd, format="jd", scale="tdb").utc.iso[:10]
+    offset_years = (snap.epoch_jd - centre_jd) / 365.25
+    logger.info(
+        "Window centre %s → selected snapshot %s (epoch %s, |Δt|=%.2f yr)",
+        centre_iso,
+        snap.path.name,
+        snap_epoch_iso,
+        abs(offset_years),
+    )
+    if len(snapshots) > 1:
+        for s in snapshots:
+            mark = " ← selected" if s.path == snap.path else ""
+            logger.info(
+                "  available: %-48s epoch=%s%s",
+                s.path.name,
+                Time(s.epoch_jd, format="jd", scale="tdb").utc.iso[:10],
+                mark,
+            )
+
     # --- Load ---
-    orbits_path = Path(cfg.paths.raw) / "gaia_orbits.parquet"
-    logger.info("Loading orbital elements from %s", orbits_path)
-    elements = load_gaia_orbits(orbits_path)
-    logger.info("Loaded %d asteroids (Gaia DR3 sso_orbits)", len(elements))
-
-    # --- Supplement major bodies absent from Gaia DR3 ---
-    elements = _supplement_major_bodies(elements)
-
-    # --- Subset ---
-    elements = _apply_subset(elements, cfg)
     sub = cfg.subset
+    elements = parse_mpcorb(
+        snap.path,
+        only_numbered=sub.only_numbered,
+        semimajor_min_au=sub.semimajor_axis_au.min,
+        semimajor_max_au=sub.semimajor_axis_au.max,
+    )
+    logger.info("Loaded %d asteroids from MPCORB", len(elements))
+
+    # --- Subset: max_asteroids cap ---
+    elements = _apply_subset(elements, cfg)
     logger.info(
         "After subset filter: %d asteroids  (a=[%.2f, %.2f] AU%s)",
         len(elements),
@@ -180,9 +128,6 @@ def main() -> int:
         return 1
 
     # --- Time grid ---
-    tw = cfg.time_window
-    t_start = Time(tw.start, scale=tw.scale).tdb.jd
-    t_end = Time(tw.end, scale=tw.scale).tdb.jd
     grid = make_time_grid(t_start, t_end, step_hours=cfg.propagation.time_step_hours)
     logger.info(
         "Time grid: %s → %s  (%d steps, Δt=%.1fh)",
@@ -191,6 +136,48 @@ def main() -> int:
         len(grid),
         cfg.propagation.time_step_hours,
     )
+
+    # --- Propagation (N-body branch precomputes the trajectory) ---
+    positions = None
+    if cfg.propagation.method.lower() == "rebound":
+        logger.info(
+            "Propagation method: rebound  (integrator=%s, planets=%s, major_asteroids=%s)",
+            cfg.propagation.rebound.integrator,
+            cfg.propagation.rebound.include_planets,
+            cfg.propagation.rebound.include_major_asteroids,
+        )
+        rebound_kwargs = {
+            "include_planets": cfg.propagation.rebound.include_planets,
+            "include_major_asteroids": cfg.propagation.rebound.include_major_asteroids,
+            "integrator": cfg.propagation.rebound.integrator,
+            "dt_days": cfg.propagation.time_step_hours / 24.0,
+        }
+        cache_dir = cfg.paths.cache if cfg.propagation.cache_results else None
+        cache_key = None
+        if cache_dir is not None:
+            from src.propagate.cache import build_cache_key
+
+            cache_key = build_cache_key(
+                snapshot_sha=snap.path,
+                time_grid=grid,
+                method="rebound",
+                rebound_kwargs=rebound_kwargs,
+                n_asteroids=len(elements),
+            )
+        t_prop = time.monotonic()
+        positions = propagate_full_grid(
+            elements,
+            grid,
+            method="rebound",
+            rebound_kwargs=rebound_kwargs,
+            cache_dir=cache_dir,
+            cache_key=cache_key,
+        )
+        logger.info(
+            "Propagation done in %.1fs — trajectory shape %s",
+            time.monotonic() - t_prop,
+            positions.shape if positions is not None else None,
+        )
 
     # --- Detection ---
     det = cfg.detection
@@ -217,6 +204,7 @@ def main() -> int:
         refinement_enabled=det.refinement.enabled,
         n_workers=n_workers,
         chunk_size_days=par.chunk_size_days,
+        positions=positions,
     )
 
     elapsed = time.monotonic() - t0

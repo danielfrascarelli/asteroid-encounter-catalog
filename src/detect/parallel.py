@@ -4,6 +4,10 @@ Each chunk is an independent slice of the time grid; workers find the best
 (minimum-distance) epoch per pair within their slice.  Results are merged
 across chunks before the refinement step.
 
+When pre-computed positions are supplied (N-body branch, or a cached
+trajectory), workers receive only chunk-relative slices instead of
+re-propagating — this is the path used by Phases 1–3.
+
 Public entry point: :func:`scan_parallel`.
 """
 
@@ -24,27 +28,49 @@ logger = logging.getLogger(__name__)
 # Per-worker globals — set once by the pool initializer, never mutated.
 _G_ELEMENTS: pl.DataFrame | None = None
 _G_PAIRS: np.ndarray | None = None
+_G_POSITIONS: np.ndarray | None = None
 
 
-def _init_worker(elements: pl.DataFrame, pairs: np.ndarray | None) -> None:
-    global _G_ELEMENTS, _G_PAIRS
+def _init_worker(
+    elements: pl.DataFrame,
+    pairs: np.ndarray | None,
+    positions: np.ndarray | None,
+) -> None:
+    global _G_ELEMENTS, _G_PAIRS, _G_POSITIONS
     _G_ELEMENTS = elements
     _G_PAIRS = pairs
+    _G_POSITIONS = positions
 
 
 def _scan_chunk(
-    args: tuple[np.ndarray, float, int],
+    args: tuple[np.ndarray, np.ndarray, float, int],
 ) -> list[tuple[int, int, float, float]]:
-    chunk, threshold_au, leaf_size = args
+    chunk_times, chunk_indices, threshold_au, leaf_size = args
     assert _G_ELEMENTS is not None
-    return scan_time_grid(_G_ELEMENTS, chunk, _G_PAIRS, threshold_au, leaf_size)
+    positions_chunk: np.ndarray | None = None
+    if _G_POSITIONS is not None:
+        positions_chunk = _G_POSITIONS[chunk_indices[0] : chunk_indices[-1] + 1]
+    return scan_time_grid(
+        _G_ELEMENTS,
+        chunk_times,
+        _G_PAIRS,
+        threshold_au,
+        leaf_size,
+        positions=positions_chunk,
+    )
 
 
-def _make_chunks(time_grid: np.ndarray, chunk_size_days: float) -> list[np.ndarray]:
-    """Split *time_grid* into contiguous sub-arrays of ~*chunk_size_days*."""
+def _make_chunks(
+    time_grid: np.ndarray, chunk_size_days: float
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Split *time_grid* into contiguous (chunk_times, chunk_indices) pairs."""
     step_days = float(time_grid[1] - time_grid[0]) if len(time_grid) > 1 else 1.0
     steps_per_chunk = max(1, int(round(chunk_size_days / step_days)))
-    return [time_grid[i : i + steps_per_chunk] for i in range(0, len(time_grid), steps_per_chunk)]
+    chunks: list[tuple[np.ndarray, np.ndarray]] = []
+    for i in range(0, len(time_grid), steps_per_chunk):
+        end = min(i + steps_per_chunk, len(time_grid))
+        chunks.append((time_grid[i:end], np.arange(i, end, dtype=np.int64)))
+    return chunks
 
 
 def _merge_candidates(
@@ -75,6 +101,7 @@ def scan_parallel(
     leaf_size: int = 30,
     n_workers: int | str = "auto",
     chunk_size_days: float = 30.0,
+    positions: np.ndarray | None = None,
 ) -> list[tuple[int, int, float, float]]:
     """Parallel drop-in replacement for :func:`~src.detect.kdtree_scan.scan_time_grid`.
 
@@ -99,6 +126,10 @@ def scan_parallel(
         Number of worker processes.  ``"auto"`` uses ``os.cpu_count()``.
     chunk_size_days:
         Approximate length of each time chunk in days.
+    positions:
+        Optional pre-computed ``(T, N, 3)`` positions array (e.g. N-body output
+        or a memmapped cache).  When supplied, workers consume the
+        corresponding chunk slice instead of re-propagating.
 
     Returns
     -------
@@ -107,14 +138,18 @@ def scan_parallel(
     """
     nw = resolve_n_workers(n_workers)
     chunks = _make_chunks(time_grid, chunk_size_days)
-    tasks = [(chunk, threshold_au, leaf_size) for chunk in chunks]
+    tasks = [
+        (chunk_times, chunk_indices, threshold_au, leaf_size)
+        for chunk_times, chunk_indices in chunks
+    ]
 
     logger.info(
-        "Parallel scan: %d workers | %d chunks (~%.0f days each) | %d total steps",
+        "Parallel scan: %d workers | %d chunks (~%.0f days each) | %d total steps | positions=%s",
         nw,
         len(chunks),
         chunk_size_days,
         len(time_grid),
+        "supplied" if positions is not None else "streaming",
     )
 
     # Limit numpy/BLAS/OpenMP to 1 thread per worker to prevent oversubscription.
@@ -137,7 +172,7 @@ def scan_parallel(
     with ctx.Pool(
         processes=nw,
         initializer=_init_worker,
-        initargs=(elements, pairs),
+        initargs=(elements, pairs, positions),
     ) as pool:
         all_results: list[list[tuple[int, int, float, float]]] = []
         with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:

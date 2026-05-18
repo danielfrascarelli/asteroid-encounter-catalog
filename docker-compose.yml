@@ -11,6 +11,9 @@ services:
       - ./config.yaml:/app/config.yaml:ro
       # config.local.yaml opcional; si no existe Docker simplemente lo ignora
       - ./config.local.yaml:/app/config.local.yaml:ro
+      # Montar código fuente para que cambios sean visibles sin rebuild
+      - ./src:/app/src
+      - ./scripts:/app/scripts
     # Sin command: usa el CMD del Dockerfile (run_pipeline con config.yaml)
     # Sobreescribir en CLI: docker compose run --rm pipeline python -m scripts.X
 
