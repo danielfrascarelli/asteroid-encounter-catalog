@@ -18,8 +18,10 @@
 - **Propagación N-body** ([src/propagate/nbody.py](src/propagate/nbody.py)): REBOUND con WHFast, Sol+Júpiter+Saturno como cuerpos masivos, asteroides como test particles. Opcional: Ceres/Vesta/Pallas/Hygiea como perturbadores (`config.propagation.rebound.include_major_asteroids`). Integra 100k asteroides × 25k pasos en ~9 min.
 - **Cache de trayectorias** ([src/propagate/cache.py](src/propagate/cache.py)): persiste `(T, N, 3)` float32 en `np.memmap` (29.5 GB para 100k×25k), cache hit en <1 s. La integración streamea directo al disco para evitar OOM.
 
-**Bugs conocidos:**
-- `src/detect/parallel.py` se cuelga cuando: (a) `pairs` del prefilter es grande (subset chico ⇒ pickle de pares × 28 workers); (b) `positions=memmap` con N=100k+ a umbral 0.05 AU (sospecha: page-fault thrashing al leer el cache de 30 GB en 28 procesos). Workaround: `n_workers=1`. Fix pendiente.
+**Bugs conocidos:** ninguno conocido en `main`.
+
+*Resueltos en PR #23 (2026-05-18)*:
+- `src/detect/parallel.py`: (a) pairs del prefilter grandes → volcado a tempfile + memmap en workers en lugar de pickle; (b) `positions=memmap` con N=100k+ → compartido vía filename+shape, sin serializar el array de 30 GB.
 
 **Para detalle completo de cada fase, ver secciones siguientes.**
 
