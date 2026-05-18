@@ -228,7 +228,8 @@ def _fetch_html(url: str, timeout: float = 60.0) -> str:
     """Fetch *url* with a browser-like User-Agent and return decoded HTML."""
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read().decode("utf-8", errors="replace")
+        decoded: str = resp.read().decode("utf-8", errors="replace")
+    return decoded
 
 
 def download_galad_2002(config_path: str = "config.yaml") -> Path:
