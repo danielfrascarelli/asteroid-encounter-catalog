@@ -2,22 +2,24 @@
 
 ## 🎯 Resultado nuevo y principal
 
-**7 de 10 candidatos del top muestran detección estadísticamente significativa
+**36 de 41 candidatos (88%) muestran detección estadísticamente significativa
 (|t| ≥ 3σ) de la perturbación gravitacional en datos de Gaia DR3.**
 
-Detalles completos en [encounter_analysis/DETECTIONS.md](encounter_analysis/DETECTIONS.md).
+Significaciones: 14 con t > 10σ, 19 con 5σ < t < 10σ, 3 con 3σ < t < 5σ.
 
-Las 7 detecciones:
+Top 5:
+- (389) Industria + 2002_tb296: **+41.8σ**
+- (303) Josephina + 2000_rc70: **+28.2σ**
+- (19) Fortuna + Messenger: **-25.5σ**
 - (511) Davida + 2003_sm90: **+25.3σ**
-- (113) Amalthea + 2001_vr121: **-15.1σ**
-- (165) Loreley + 1996_tf50: **-14.3σ**
-- (57) Mnemosyne + 2008_ef40: **+9.6σ**
-- (124) Alkeste + 2000_qs165: **+5.1σ**
-- (241) Germania + 2000_jc23: **-4.6σ**
-- (111) Ate + 2000_nt3: **+3.0σ**
+- (124) Alkeste + 2002_jm40: **+22.9σ**
 
-El método (`scripts/detect_deflections.py`) está validado y se puede aplicar
-sistemáticamente a los 41 candidatos.
+Tabla completa de 36 detecciones + 5 no-detecciones en
+[encounter_analysis/DETECTIONS.md](encounter_analysis/DETECTIONS.md).
+
+`scripts/detect_deflections.py --top 41` reproduce el resultado entero en ~7 min.
+`scripts/estimate_masses.py` convierte las shifts en masas implícitas (factor 100-10000×
+off — usar solo como guía; las masas publicables requieren fit conjunto N-body).
 
 ---
 
