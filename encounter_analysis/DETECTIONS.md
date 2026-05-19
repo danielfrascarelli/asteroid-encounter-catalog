@@ -116,17 +116,42 @@ del target en Horizons tiene drift sistemático contra Gaia.
 - El catálogo de **24 perturbers genuinamente novedosos** (no en Fienga 2003 ni
   Galád 2002) es válido como **lista de candidatos** para mass determination.
 
-### Test apropiado para una próxima iteración
+### Test apropiado: modelo step vs drift (✅ IMPLEMENTADO)
 
-El test que SÍ aislaría la perturbación es un **fit con/sin step**:
-- Model A: residuales = drift lineal en tiempo
-- Model B: residuales = drift lineal + step de discontinuidad en t = t_encounter
-- Comparar χ² o BIC entre los dos modelos
-- Si B mejora significativamente, el step es real → perturbación detectada
+El test correcto es comparar:
+- Model A: `residual(t) = a + b·t` (drift lineal)
+- Model B: `residual(t) = a + b·t + c·H(t > t_encounter)` (drift + step impulsivo)
 
-Implementación estimada: 1-2 horas, scipy.optimize.least_squares con cada modelo.
-Output esperado para los 41: separación clara entre "perturbación detectada"
-y "solo drift".
+Si ΔBIC = BIC_A − BIC_B > 6, hay evidencia FUERTE para que el step sea real
+(es decir, perturbación específica al encuentro).
+
+Implementado en `scripts/step_model_test.py`. **Resultado sobre los 41 candidatos**:
+
+- **26 / 41 con ΔBIC > 6** (evidencia fuerte) ← detecciones específicas al encuentro
+- **10 / 41 con 2 < ΔBIC ≤ 6** (evidencia marginal)
+- 5 / 41 sin evidencia (no detection)
+
+Top candidatos por ΔBIC:
+
+| Perturber | Target | ΔBIC_RA | step_RA (mas) | ΔBIC_Dec | step_Dec (mas) |
+|-----------|--------|---------|---------------|----------|-----------------|
+| (241) Germania | 2000_jc23 | **129** | +2452 | 48 | -512 |
+| (389) Industria | 2002_tb296 | **123** | +1664 | 4 | +90 |
+| (110) Lydia | 1999_tb136 | **94** | -3130 | 67 | -1357 |
+| (511) Davida | 2003_sm90 | 33 | +654 | **92** | -817 |
+| (618) Elfriede | 2001_nz5 | **91** | -3167 | -3 | +310 |
+| (113) Amalthea | 2001_vr121 | **85** | -4108 | 1 | +364 |
+| (236) Honoria | 1327_t-2 | **83** | +1529 | 73 | -825 |
+| (19) Fortuna | Danielmiller | 60 | -1128 | **70** | -526 |
+| (19) Fortuna | Oguri | **70** | -940 | 50 | -737 |
+| (312) Pierretta | 2003_sm245 | **69** | -4623 | 47 | -2454 |
+| (19) Fortuna | 2000_ad1 | 4 | +916 | **61** | +894 |
+
+Note: (19) Fortuna + 2000_ad1 era "no detection" con el t-test (t=-0.90) pero aquí
+muestra ΔBIC_Dec = 61, step de +894 mas — el t-test la perdió porque la perturbación
+salió en Dec, no en RA.
+
+Este test es más sensible Y más específico al encuentro que el t-test original.
 
 ---
 
