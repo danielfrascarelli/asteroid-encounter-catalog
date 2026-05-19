@@ -1,6 +1,6 @@
 # Plan: Análisis de Encuentros Novedosos — Categoría A y B
 
-> Archivo temporal de planificación. Implementar después de completar las tareas de mantenimiento pendientes (README, docs, HTTP 429 fix).
+> ✅ Implementado. Scripts en `scripts/validate_novel_a.py` y `scripts/analyze_mass_candidates.py`.
 
 ---
 
@@ -42,6 +42,23 @@ Input: `data/output/relevant_novel_encounters.csv`
 
 2. Criterio de éxito: MAE(nuestro − JPL) < 0.005 AU para los 7 encuentros
 
+### Resultados ✅ (2026-05-19)
+
+| Perturber | Target | Nuestro (AU) | JPL (AU) | Δ (AU) | δ esperada (μas) |
+|-----------|--------|-------------|----------|--------|-----------------|
+| Vesta | 2001_uy75 | 0.006954 | 0.006952 | +1.8e-6 | 1,129,425 |
+| Vesta | 1997_ce20 | 0.009304 | 0.009310 | −6.6e-6 | 451,426 |
+| Ceres | 2005_uh343 | 0.004601 | 0.004008 | +5.9e-4 | 1,742,683 |
+| Vesta | 2000_sa336 | 0.004118 | 0.004011 | +1.1e-4 | 367,039 |
+| Vesta | 2001_su160 | 0.006096 | 0.006240 | −1.4e-4 | 324,803 |
+| Vesta | 2000_am232 | 0.007174 | 0.006806 | +3.7e-4 | 283,348 |
+| Ceres | 2005_qf142 | 0.008688 | 0.007662 | +1.0e-3 | 453,078 |
+
+**MAE(nuestro − JPL) = 3.21e-4 AU** ← bien por debajo del umbral 0.005 AU ✅
+
+Todos los 7 encuentros tienen señales de deflexión >> 100 μas (rango: 283k–1.7M μas).
+Estos encuentros con Ceres/Vesta son detectables trivialmente — sirven como benchmark de precisión.
+
 ---
 
 ## Categoría B — Encuentros con masas desconocidas (candidatos a determinación de masa)
@@ -81,6 +98,28 @@ Input: `data/output/relevant_novel_encounters.csv`
 4. Criterio de éxito: tabla ordenada con columnas
    `perturber, target, date, dist_au, mass_est_kg, deflection_muas, gaia_has_target, viable`
 
+### Resultados ✅ (2026-05-19, top 20, sin JPL)
+
+| Rank | Perturber | Target | dist (AU) | δ (μas) | viable |
+|------|-----------|--------|-----------|---------|--------|
+| 1 | (57) Mnemosyne | 2008_ef40 | 0.00244 | 22,712 | ✅ |
+| 2 | (68) Leto | 2002_vy95 | 0.00522 | 11,999 | ✅ |
+| 3 | (18) Melpomene | 2002_tq275 | 0.00535 | 7,139 | ✅ |
+| 4 | (165) Loreley | 1996_tf50 | 0.00254 | 6,633 | ✅ |
+| 5 | (26) Proserpina | 2010_xj25 | 0.00505 | 6,482 | ✅ |
+| 6 | (511) Davida | 2002_tf | 0.00599 | 6,082 | ✅ |
+| 7 | (42) Isis | 1998_mf36 | 0.00501 | 5,863 | ✅ |
+| 8 | (68) Leto | 2000_sr27 | 0.00739 | 5,583 | ✅ |
+| 9 | (110) Lydia | 2000_aj60 | 0.00430 | 5,357 | ✅ |
+| **10** | **(111) Ate** | **2000_nt3** | **0.000472** | **4,906** | **✅ ← más cercano** |
+| 11–20 | ... | ... | ... | 2,728–4,505 | ✅ |
+
+**Todos los 20 candidatos tienen δ > 2700 μas (27× el umbral Gaia de 100 μas).**
+
+Nota: `gaia_has_target = False` para todos porque el archivo `data/raw/gaia_sso.parquet` local
+solo contiene 1103 asteroides (subconjunto del catálogo DR3 completo de ~156k). Este resultado
+no es definitivo — requiere verificar contra el catálogo DR3 completo en el Gaia Archive.
+
 ---
 
 ## Infraestructura a reutilizar
@@ -92,12 +131,12 @@ Input: `data/output/relevant_novel_encounters.csv`
 | Observabilidad Gaia | `src/characterize/observability.py` → `is_gaia_observable()` |
 | Datos de entrada | `data/output/relevant_novel_encounters.csv` |
 
-## Archivos a crear
+## Archivos creados ✅
 
 - `scripts/validate_novel_a.py`
 - `scripts/analyze_mass_candidates.py`
-- `data/output/cat_a_jpl_validation.csv`
-- `data/output/mass_candidates.csv`
+- `data/output/cat_a_jpl_validation.csv` (generado)
+- `data/output/mass_candidates.csv` (generado)
 
 ## Verificación final
 
