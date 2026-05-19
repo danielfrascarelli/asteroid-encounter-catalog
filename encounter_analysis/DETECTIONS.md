@@ -1,7 +1,14 @@
 # Detecciones de Perturbación — Resultados Completos del Catálogo
 
-> **Resultado científico principal: 36 de 41 candidatos (88%) muestran detección
-> de perturbación gravitacional con |t| ≥ 3σ en Gaia DR3.**
+> **Resultado honesto tras 4 niveles de tests:**
+> - Welch t-test: 36/41 (≥ 3σ) — incluye falsos positivos por drift orbital
+> - Step-model ΔBIC > 6: 26/41 — más conservador pero no específico
+> - Null test (date offsets): ~10-20 con excess real sobre fechas falsas
+> - **Specificity test (BIC en grilla de offsets): 0/41 con max-specificity > 2**
+>
+> El catálogo de 41 candidatos y de 24 perturbers genuinamente novedosos es
+> robusto. Las "detecciones" de perturbación NO son extraíbles de este pipeline
+> sin un análisis más sofisticado (joint orbit-fit + N-body, pendiente).
 >
 > Última corrida: 2026-05-19.
 
