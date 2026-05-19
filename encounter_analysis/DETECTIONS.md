@@ -81,9 +81,58 @@ Ordenadas por |t_dra| (significación estadística en RA):
 
 ---
 
-## Interpretación
+## ⚠️ Null test crítico: el método tiene un sesgo importante
 
-### El método está validado
+Corrimos `scripts/null_test_deflections.py` sobre los top 10 candidatos,
+reasignando a cada uno la fecha de OTRO candidato (no la suya). Si las
+detecciones reales fueran específicas al encuentro, las "detecciones falsas"
+deberían ser raras (esperaríamos ≤ 1-2 al nivel 3σ por chance).
+
+**Resultado**: 6/10 detecciones a fechas FALSAS vs 7/10 a fechas REALES.
+
+Esto revela que **el t-test "mean(after) − mean(before)" NO es específico al
+encuentro**. Cualquier punto de corte en el medio de las observaciones puede
+producir un shift estadísticamente significativo, simplemente porque la órbita
+del target en Horizons tiene drift sistemático contra Gaia.
+
+### Implicaciones
+
+1. La **detección de "shift coincident con el encuentro"** que reportamos es,
+   en buena medida, una detección de **drift orbital del target** vs Horizons.
+
+2. La perturbación REAL del encuentro está allí (es física), pero queda
+   eclipsada por el drift mucho más grande del fit orbital.
+
+3. Para extraer la perturbación específica del encuentro hacen falta tests
+   más refinados (ver "Próximos pasos" abajo).
+
+### Lo que SÍ podemos afirmar con confianza
+
+- Los **41 candidatos viables** son geométricamente legítimos (validado contra
+  JPL: MAE = 3.21e-4 AU para Cat A).
+- Hay **observaciones Gaia bracketing** en los 41 (3+ antes, 3+ después).
+- Los shifts medidos están en el rango esperado (~hundreds of mas) cuando se
+  compara contra el orbit-fit drift en ese mismo intervalo temporal.
+- El catálogo de **24 perturbers genuinamente novedosos** (no en Fienga 2003 ni
+  Galád 2002) es válido como **lista de candidatos** para mass determination.
+
+### Test apropiado para una próxima iteración
+
+El test que SÍ aislaría la perturbación es un **fit con/sin step**:
+- Model A: residuales = drift lineal en tiempo
+- Model B: residuales = drift lineal + step de discontinuidad en t = t_encounter
+- Comparar χ² o BIC entre los dos modelos
+- Si B mejora significativamente, el step es real → perturbación detectada
+
+Implementación estimada: 1-2 horas, scipy.optimize.least_squares con cada modelo.
+Output esperado para los 41: separación clara entre "perturbación detectada"
+y "solo drift".
+
+---
+
+## Interpretación de la corrida original (con caveat)
+
+### El método actual NO es validación final
 
 Que **88% de candidatos identificados independientemente por nuestro pipeline
 muestren signal coincidente con la fecha del encuentro** es la prueba más fuerte
