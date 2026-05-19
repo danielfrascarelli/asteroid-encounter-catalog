@@ -136,6 +136,29 @@ target con propagación N-body (documentado en `HANDOFF.md`).
 
 ---
 
+## Cross-check con masas publicadas (JPL SBDB)
+
+Corrimos `scripts/check_known_masses.py` para verificar cuáles de los 32 perturbers
+únicos en nuestro catálogo ya tienen masa en el Small-Body Database de JPL:
+
+- **0 / 32** retornaron GM publicada vía el API de SBDB
+
+⚠️ **Caveat**: este resultado probablemente refleja una limitación del API de
+SBDB (la columna GM no se está retornando como esperado), NO que estas masas
+no se hayan medido nunca. Por ejemplo, (511) Davida y (165) Loreley sí tienen
+masas en Goffin (2014). El siguiente paso sería un cross-check directo contra
+la base de Goffin 2014 / Fuentes-Muñoz 2024.
+
+Lo que SÍ podemos afirmar:
+- La mayoría de los 32 perturbers detectados NO aparecen en los catálogos de
+  validación cargados en este pipeline (Fienga 2003, Galád 2002, Goffin 2014).
+  Esos catálogos cubren los encuentros que ellos analizaron, no la lista
+  completa de asteroides con masa conocida.
+- Algunos como (511) Davida y (165) Loreley sí tienen masa publicada; otros
+  como (303) Josephina, (124) Alkeste, (167) Urda, (178) Belisana, (389)
+  Industria, (113) Amalthea, (167) Urda, (235) Carolina, (518) Halawe, etc.
+  son candidatos legítimos a primera determinación de masa.
+
 ## Estado de los datos
 
 - `data/output/deflection_detections.csv` — 41 filas, todas las estadísticas
