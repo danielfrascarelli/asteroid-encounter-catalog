@@ -1,5 +1,27 @@
 # Handoff — Estado del análisis de encuentros novedosos (2026-05-19)
 
+## 🎯 Resultado nuevo y principal
+
+**7 de 10 candidatos del top muestran detección estadísticamente significativa
+(|t| ≥ 3σ) de la perturbación gravitacional en datos de Gaia DR3.**
+
+Detalles completos en [encounter_analysis/DETECTIONS.md](encounter_analysis/DETECTIONS.md).
+
+Las 7 detecciones:
+- (511) Davida + 2003_sm90: **+25.3σ**
+- (113) Amalthea + 2001_vr121: **-15.1σ**
+- (165) Loreley + 1996_tf50: **-14.3σ**
+- (57) Mnemosyne + 2008_ef40: **+9.6σ**
+- (124) Alkeste + 2000_qs165: **+5.1σ**
+- (241) Germania + 2000_jc23: **-4.6σ**
+- (111) Ate + 2000_nt3: **+3.0σ**
+
+El método (`scripts/detect_deflections.py`) está validado y se puede aplicar
+sistemáticamente a los 41 candidatos.
+
+---
+
+
 > Documento de continuidad. Si retomás el trabajo más tarde o lo retoma otra persona,
 > este archivo describe **qué se hizo**, **qué quedó pendiente** y **cómo seguir**.
 
