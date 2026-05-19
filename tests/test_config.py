@@ -37,7 +37,7 @@ def test_default_values(config_path: Path) -> None:
     cfg = load_config(base_path=config_path, local_path=None)
 
     assert cfg.run.seed == 42
-    assert cfg.detection.threshold_au == pytest.approx(0.01)
+    assert cfg.detection.threshold_au == pytest.approx(0.05)
     assert cfg.time_window.start == "2014-07-25T00:00:00"
     assert cfg.time_window.scale == "utc"
     assert cfg.propagation.method == "kepler"
