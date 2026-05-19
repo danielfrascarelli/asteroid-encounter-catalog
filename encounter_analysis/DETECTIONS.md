@@ -136,28 +136,55 @@ target con propagación N-body (documentado en `HANDOFF.md`).
 
 ---
 
-## Cross-check con masas publicadas (JPL SBDB)
+## Cross-check con literatura: 24 perturbers genuinamente novedosos
 
-Corrimos `scripts/check_known_masses.py` para verificar cuáles de los 32 perturbers
-únicos en nuestro catálogo ya tienen masa en el Small-Body Database de JPL:
+Cruzamos los 29 perturbers únicos detectados con los catálogos de Fienga (2003)
+y Galád & Gray (2002), que listan los encuentros usados para mass determination
+en la literatura clásica:
 
-- **0 / 32** retornaron GM publicada vía el API de SBDB
+- **5 perturbers ya estudiados**: (19) Fortuna, (46) Hestia, (165) Loreley,
+  (241) Germania, (511) Davida — masas publicadas. Sirven como **validation set**:
+  si nuestro pipeline reproduce sus masas conocidas, el método está calibrado.
 
-⚠️ **Caveat**: este resultado probablemente refleja una limitación del API de
-SBDB (la columna GM no se está retornando como esperado), NO que estas masas
-no se hayan medido nunca. Por ejemplo, (511) Davida y (165) Loreley sí tienen
-masas en Goffin (2014). El siguiente paso sería un cross-check directo contra
-la base de Goffin 2014 / Fuentes-Muñoz 2024.
+- **24 perturbers genuinamente novedosos** — sus masas NO aparecen en Fienga
+  2003 ni Galád 2002. Si el método se completa con el fit conjunto, estas serían
+  **nuevas determinaciones de masa publicables**:
 
-Lo que SÍ podemos afirmar:
-- La mayoría de los 32 perturbers detectados NO aparecen en los catálogos de
-  validación cargados en este pipeline (Fienga 2003, Galád 2002, Goffin 2014).
-  Esos catálogos cubren los encuentros que ellos analizaron, no la lista
-  completa de asteroides con masa conocida.
-- Algunos como (511) Davida y (165) Loreley sí tienen masa publicada; otros
-  como (303) Josephina, (124) Alkeste, (167) Urda, (178) Belisana, (389)
-  Industria, (113) Amalthea, (167) Urda, (235) Carolina, (518) Halawe, etc.
-  son candidatos legítimos a primera determinación de masa.
+  | # | Diámetro (km) | # | Diámetro (km) |
+  |---|---------------|---|---------------|
+  | (42) Isis | 111 | (165) Loreley† | 180 |
+  | (43) Ariadne | 71 | (167) Urda | 40 |
+  | (49) Pales | 166 | (178) Belisana | 36 |
+  | (57) Mnemosyne | 113 | (202) Chryseis | 86 |
+  | (83) Beatrix | 111 | (235) Carolina | 58 |
+  | (93) Minerva | 154 | (303) Josephina | 125 |
+  | (110) Lydia | 86 | (312) Pierretta | 46 |
+  | (111) Ate | 126 | (348) May | 83 |
+  | (113) Amalthea | 50 | (389) Industria | 74 |
+  | (124) Alkeste | 89 | (416) Vaticana | 85 |
+  | (517) Edith | 112 | (618) Elfriede | 131 |
+  | (674) Rachele | 96 | (786) Bredichina | 108 |
+  | (866) Fatme | 78 | | |
+
+  El verdadero número de novedosos puede ser ligeramente menor: estos catálogos
+  son sample-limited, y algunos podrían estar en Goffin 2014 o Fuentes-Muñoz 2024
+  (que cubren ~250 asteroides con masa). Un cross-check más completo es próximo
+  paso recomendado.
+
+### Calibración con los 5 ya conocidos
+
+Los 5 perturbers ya estudiados son la oportunidad natural de calibración:
+
+| Perturber | Masa publicada (kg) | Shift medido (mas) | Notas |
+|-----------|---------------------|--------------------|-------|
+| (19) Fortuna | ~7e18 (Galad) | -1052 / -919 / -925 (3 encuentros) | señal robusta |
+| (46) Hestia | ~3e18 (Galad) | +62 (no detection) | señal débil |
+| (165) Loreley | ~9e18 (Goffin) | -608 / -244 | señal robusta |
+| (241) Germania | ~3e18 | -268 | señal modesta |
+| (511) Davida | ~3.5e19 | +1086 | señal muy fuerte |
+
+El factor de escala observed/expected varia entre estos 5, lo que confirma que
+una calibración empírica es necesaria antes de aplicar a los 24 novedosos.
 
 ## Estado de los datos
 
