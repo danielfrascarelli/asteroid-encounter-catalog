@@ -153,6 +153,28 @@ salió en Dec, no en RA.
 
 Este test es más sensible Y más específico al encuentro que el t-test original.
 
+### Null test del step model: confirmando especificidad
+
+Corrimos `scripts/step_model_null_test.py` con varios offsets de fecha:
+
+| Offset de t_step | # con ΔBIC > 6 | Excess vs real |
+|------------------|----------------|----------------|
+| 0 (fecha real)   | **26 / 41**    | — |
+| +60 días         | 24 / 41        | 2 (5%) |
+| +120 días        | 18 / 41        | 8 (20%) |
+| -90 días         | 15 / 41        | 11 (27%) |
+
+A medida que el offset aumenta, las "detecciones falsas" caen. Esto confirma que
+hay un signal especifico a la fecha del encuentro, **pero el background no es cero**:
+existen detecciones que sobreviven a offsets de ±60 días, indicando que parte de la
+estadística refleja estructura sistemática del residual, no solo la perturbación.
+
+**Estimación honesta del número de detecciones REALES**: de los 26 candidatos con
+ΔBIC > 6, probablemente **~10-20 corresponden a perturbaciones reales del encuentro**.
+El resto son falsos positivos del fit que se anularían con un análisis más refinado
+(por ejemplo, fitting conjunto de orbit + mass con N-body en vez de comparar contra
+una predicción de Horizons).
+
 ---
 
 ## Interpretación de la corrida original (con caveat)
