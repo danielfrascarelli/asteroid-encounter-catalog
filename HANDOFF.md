@@ -2,24 +2,45 @@
 
 ## 🎯 Resultado nuevo y principal
 
-**36 de 41 candidatos (88%) muestran detección estadísticamente significativa
-(|t| ≥ 3σ) de la perturbación gravitacional en datos de Gaia DR3.**
+Pipeline construido y validado para detección de perturbaciones gravitacionales
+asteroidales en Gaia DR3:
 
-Significaciones: 14 con t > 10σ, 19 con 5σ < t < 10σ, 3 con 3σ < t < 5σ.
+| Etapa | Resultado |
+|-------|-----------|
+| Encuentros detectados | 4.036.495 |
+| Novedosos (no en literatura) | 119.545 |
+| Físicamente relevantes (4 filtros) | 379 |
+| Con observabilidad Gaia (3+ obs c/lado) | **41 candidatos viables** |
+| Step-model (ΔBIC > 6) | **26 con evidencia fuerte** |
+| Encounter-specific (post-null test) | **~10-20 detecciones reales** |
+| Perturbers genuinamente novedosos | **24** (no en Fienga/Galad) |
 
-Top 5:
-- (389) Industria + 2002_tb296: **+41.8σ**
-- (303) Josephina + 2000_rc70: **+28.2σ**
-- (19) Fortuna + Messenger: **-25.5σ**
-- (511) Davida + 2003_sm90: **+25.3σ**
-- (124) Alkeste + 2002_jm40: **+22.9σ**
+**El método funciona end-to-end** y produce un catálogo concreto de candidatos
+a determinación de masa, validado contra JPL (MAE 3.21e-4 AU) y filtrado vía
+tests estadísticos (Welch t-test → step-model BIC → null test).
 
-Tabla completa de 36 detecciones + 5 no-detecciones en
-[encounter_analysis/DETECTIONS.md](encounter_analysis/DETECTIONS.md).
+Las **24 perturbers novedosos** (con encuentros en Gaia DR3, observabilidad y
+señal candidata) son la salida científica principal. Para convertirlos en
+masas publicadas hace falta el fit conjunto orbit + mass (próximo paso en
+HANDOFF.md).
 
-`scripts/detect_deflections.py --top 41` reproduce el resultado entero en ~7 min.
-`scripts/estimate_masses.py` convierte las shifts en masas implícitas (factor 100-10000×
-off — usar solo como guía; las masas publicables requieren fit conjunto N-body).
+Resultado completo en [encounter_analysis/DETECTIONS.md](encounter_analysis/DETECTIONS.md).
+
+### Scripts del análisis (todos en `scripts/`)
+
+```
+filter_candidates.py             → 379 candidatos físicamente relevantes
+analyze_mass_candidates.py       → ranking por deflexión esperada
+check_gaia_observations.py       → observabilidad Gaia → 41 viables
+detect_deflections.py            → t-test (no específico al encuentro, primer screening)
+step_model_test.py               → ΔBIC step vs drift → 26 con evidencia fuerte
+step_model_null_test.py          → null test con offsets → ~10-20 reales
+identify_novel_perturbers.py     → cross-check Fienga/Galad → 24 novedosos
+estimate_masses.py               → masas implícitas (factor ~100-1000× off, guía)
+check_known_masses.py            → consulta SBDB (API limitada)
+validate_novel_a.py              → benchmark Ceres/Vesta vs JPL
+demo_ate_*.py                    → 3 iteraciones del demo de una sola encounter
+```
 
 ---
 
