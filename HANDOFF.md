@@ -41,7 +41,8 @@ El objetivo científico: pesar asteroides cuya masa no se conoce todavía.
 - `scripts/validate_novel_a.py` — valida 7 encuentros con Ceres/Vesta contra JPL Horizons. **MAE = 3.21e-4 AU** ✅ (umbral 5e-3)
 - `scripts/analyze_mass_candidates.py` — rankea candidatos Cat B por deflexión esperada
 - `scripts/check_gaia_observations.py` — verifica que Gaia haya observado el target ±180 días del encuentro (TAP async, sin truncar)
-- `scripts/demo_ate_deflection.py` — demo end-to-end intentando detectar la perturbación de (111) Ate sobre 2000_nt3
+- `scripts/demo_ate_deflection.py` — demo end-to-end (Kepler 2-cuerpos): residuales ~875 arcsec, swamped
+- `scripts/demo_ate_vs_horizons.py` — demo mejorado (JPL Horizons como predictor): residuales 11 arcsec, shift 10σ en RA pero falta light-time + aberración para extraer la señal real de Ate
 
 ### Outputs generados en `data/output/`
 
@@ -49,7 +50,8 @@ El objetivo científico: pesar asteroides cuya masa no se conoce todavía.
 - `mass_candidates.csv` — 100 candidatos Cat B rankeados por deflexión
 - `gaia_observations_check.csv` — 100 candidatos con conteo de transits Gaia antes/después
 - `publishable_mass_candidates.csv` — **41 candidatos viables**, ordenados por δ
-- `ate_2000nt3_residuals.csv` — residuales de 76 observaciones de 2000_nt3 alrededor del encuentro de Ate
+- `ate_2000nt3_residuals.csv` — residuales con propagación Kepler 2-cuerpos (intento 1)
+- `ate_2000nt3_vs_horizons.csv` — residuales contra JPL Horizons (intento 2, mejor)
 
 ### Reportes
 
@@ -84,37 +86,76 @@ Ver lista completa en `data/output/publishable_mass_candidates.csv`.
 
 ### 1. Detección real de la perturbación (CRÍTICO para publicación)
 
-El script `demo_ate_deflection.py` intenta detectar la perturbación de (111) Ate
-sobre 2000_nt3 propagando la órbita MPCORB con Kepler 2-cuerpos y comparando contra
-las observaciones Gaia. **No funciona** por una razón esperada:
+Hicimos DOS intentos de detectar la perturbación de (111) Ate sobre 2000_nt3:
 
-- MPCORB.DAT snapshot disponible: 2012-09-18 (epoch_jd = 2456200.5)
-- Encuentro: 2016-06-08
-- Propagación Kepler 2-cuerpos sobre ~4 años acumula error de ~875 arcsec
-- Señal de Ate: ~5 mas
-- **Ratio señal/ruido: 5 mas / 875.000 mas ≈ 6e-6** → indetectable así
+#### Intento 1 — `scripts/demo_ate_deflection.py` (Kepler 2-cuerpos)
 
-La técnica clásica de mass determination resuelve esto con un **fit de órbita a las
-observaciones pre-encuentro**:
+Propaga la órbita MPCORB con Kepler puro y compara contra Gaia. **No detecta:**
+- MPCORB.DAT snapshot 2012-09-18, propagación 4 años Kepler → residuales ~875 arcsec
+- Señal de Ate esperada: ~5 mas
+- Ratio S/N: 6e-6, completamente swamped
 
-1. Tomar las primeras N observaciones de 2000_nt3 antes del encuentro (~30-90 días)
-2. Fitear una órbita Kepler a esas observaciones con `scipy.optimize.least_squares`
-   (6 parámetros: a, e, i, Ω, ω, M₀)
-3. Propagar esa órbita forward al instante de cada observación post-encuentro
-4. Los residuales (observado - predicho) deberían ser ~0 antes y ~deflexión-de-Ate después
+#### Intento 2 — `scripts/demo_ate_vs_horizons.py` (JPL Horizons como predictor)
 
-**Esfuerzo estimado**: 2-3 horas. Requiere coordinar:
-- `src/propagate/kepler.py` (ya existe)
-- `scipy.optimize.least_squares`
-- Las transformaciones de coordenadas en `demo_ate_deflection.py` (heliocéntrico
-  eclíptico → barycéntrico ICRS → línea de vista desde Gaia → RA/Dec)
-- Manejo de incertidumbre por observación (usar el error formal de Gaia si está)
+Reemplaza la propagación Kepler por queries directas a JPL Horizons (que sí incluye
+DE440 + planetas mayores + big-4 asteroides). **Mejora pero todavía no detecta:**
 
-**Alternativa más barata**: bajar un snapshot histórico MPCORB de 2015 (con
-`scripts.download_mpcorb_historical --year 2015 --month 6`) y reintentar el demo.
-La propagación sería de ~1 año en vez de 4 → error de Kepler ~30-50 mas, todavía
-arriba de la señal pero mucho mejor. Hoy intentamos ese download y dio HTTP 429
-(rate limit). El fix está implementado (PR #4) pero no probado.
+```
+BEFORE encounter (N=39)  ⟨ΔRA⟩=-11591.20 mas  ⟨ΔDec⟩=-2334.40 mas  σ(ΔRA)=156
+AFTER  encounter (N=37)  ⟨ΔRA⟩=-11192.76 mas  ⟨ΔDec⟩=-2247.97 mas  σ(ΔRA)=176
+Δ(after − before) on ΔRA = +398.44 ± 38.26 mas   t = +10.42σ
+Δ(after − before) on ΔDec = +86.42 ± 119.25 mas   t = +0.72σ
+```
+
+Residuales bajaron 80× (875 arcsec → 11 arcsec) y aparece un shift estadísticamente
+significativo (10σ en RA) en torno a la fecha del encuentro. PERO:
+
+- La magnitud (398 mas RA) es ~80× MÁS GRANDE de lo esperado para Ate (5 mas)
+- Probablemente domina **aberración estelar** (Gaia se mueve a ~30 km/s, aberration
+  ≈ 20 arcsec con ciclo anual)
+- Light-time correction (~25 min para 3 AU) tampoco está aplicada
+- El "shift" de 400 mas podría ser una fase del ciclo estacional de aberración
+
+**Estado**: el setup funciona end-to-end pero faltan las correcciones relativistas
+y geométricas finas para extraer la señal real.
+
+#### Para hacerlo funcionar (próxima sesión)
+
+1. Aplicar **light-time correction** iterativa:
+   ```python
+   t_retarded = t_obs - |r_target - r_gaia| / c
+   ```
+   Iterar 1-2 veces hasta converger.
+
+2. Aplicar **aberración estelar** usando la velocidad de Gaia:
+   ```python
+   theta_apparent = theta_true - (v_gaia × line_of_sight) / c
+   ```
+
+3. (Opcional pero recomendado) Hacer **orbit fit** a las observaciones
+   pre-encuentro y comparar con post-encuentro usando la órbita fitteada.
+   Esto separa la perturbación de Ate del background de otros perturbers.
+
+**Esfuerzo estimado**: 2-4 horas. Las correcciones light-time + aberración son
+fáciles de implementar pero requieren cuidado con las unidades y signos.
+
+#### Alternativa: propagación N-body local
+
+`src/propagate/nbody.py` (REBOUND) puede integrar la órbita del target con todos
+los planetas mayores + opcionalmente con Ate como perturbador adicional. Comparar
+los dos: with-Ate vs without-Ate. La diferencia entre ambos es la señal de Ate
+sin ambiguedad. Para usar:
+
+```python
+# config.local.yaml
+propagation:
+  method: rebound
+  rebound:
+    include_major_asteroids: true   # Ceres, Pallas, Vesta, Hygiea
+```
+
+Pero re-correr el pipeline entero es lento (~9 min para 100k asteroides).
+Para un solo target sería trivial — escribir un wrapper directo de REBOUND.
 
 ### 2. Cross-check contra masas anunciadas recientemente
 
