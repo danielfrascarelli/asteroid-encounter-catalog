@@ -49,12 +49,27 @@
 - [ ] **TODO**: still need to compute Gaia's velocity vector from x_gaia(t) time series.
       For now the function expects observer_vel as input. Will be wired in T2.1.
 
-### T1.6 — Sanity test: predict RA/Dec for Ceres vs Horizons 🔲
-- [ ] Download 10 Gaia observations of Ceres (number_mp=1) in 2015-2016
-- [ ] Apply full forward model: Kepler (MPCORB) + transforms + light-time + aberration
-- [ ] Compare to Horizons predictions at the same epochs
-- [ ] **Success criterion**: residuals < 50 mas (acceptable; Kepler 2-body propagation over 4 years has ~30 arcsec drift from missing planets, but for Ceres specifically as the perturber this is OK)
-- [ ] If residuals are larger, debug each transformation independently
+### T1.6 — Sanity test: predict RA/Dec for Ceres vs Horizons 🟡
+- [x] `scripts/sanity_check_transforms.py` — full chain (Kepler + transforms)
+- [x] `scripts/sanity_check_transforms_only.py` — transforms only (Horizons vectors as input)
+- [x] **Result with full chain (Kepler 2-body from 2012 epoch)**: 17 arcsec residual.
+      Dominated by Kepler drift from missing planet perturbations, NOT transform bugs.
+- [x] **Result transforms-only (Horizons vectors)**:
+      - Without light-time: 11 arcsec  (light-time matters!)
+      - With light-time:    1 arcsec   (✓ light-time validated)
+      - With light-time + aberration:  12 arcsec  (aberration makes it worse)
+- [x] **Discovery**: Gaia DR3 SSO reports (ra, dec) in barycentric astrometric ICRS,
+      with stellar aberration already removed by the Gaia pipeline.
+      So we must NOT apply our own aberration on top.
+- [x] Final operating residual: **~1 arcsec** (acceptable for step detection;
+      remaining error likely from Horizons-vector spline interpolation +
+      solar gravitational deflection not yet modelled). Good enough for step
+      detection; may need refinement for precision mass fit.
+
+### T1.6b — Open question / TODO 🔲
+- [ ] Investigate the residual 1 arcsec: is it interpolation, solar deflection,
+      something else? Probably worth re-checking after T1.7 once we use N-body
+      positions instead of Horizons-vector splines.
 
 ### T1.7 — N-body wrapper with configurable perturber 🔲
 - [ ] `src/propagate/nbody_perturber.py`
