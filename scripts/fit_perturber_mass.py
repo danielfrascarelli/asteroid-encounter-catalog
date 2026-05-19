@@ -82,6 +82,224 @@ def _mass_from_diameter(d_km: float, rho_kg_m3: float = 1500.0) -> float:
     return rho_kg_m3 * (4.0 / 3.0) * math.pi * radius_m ** 3
 
 
+def fit_orbit_only(
+    target_elements: dict,
+    perturber_elements: dict,
+    obs_jd_tdb: np.ndarray,
+    gaia_xyz: np.ndarray,
+    ra_obs: np.ndarray,
+    dec_obs: np.ndarray,
+) -> tuple[dict, dict]:
+    """Phase A of the two-phase fit: fit only the target's orbital elements.
+
+    Uses *pre-encounter* observations only. The perturber is treated as
+    massless (mass = 0) so it doesn't affect the trajectory, just provides
+    the structure the forward model expects.
+
+    Returns
+    -------
+    (fitted_elements, diag)
+        ``fitted_elements`` is a dict with the same MPCORB keys as the input
+        but updated to the best-fit values. ``diag`` has chi²_red, nfev, etc.
+    """
+    a0 = target_elements["a_au"]
+    e0 = target_elements["e"]
+    i0 = target_elements["i_deg"]
+    Omega0 = target_elements["Omega_deg"]  # noqa: N806
+    omega0 = target_elements["omega_deg"]
+    M0 = target_elements["M_deg"]  # noqa: N806
+
+    x0 = np.array([a0, e0, i0, Omega0, omega0, M0])
+    lo = np.array([a0 - 0.01, max(0.0, e0 - 0.01), max(0.0, i0 - 0.5),
+                   Omega0 - 5.0, omega0 - 5.0, M0 - 5.0])
+    hi = np.array([a0 + 0.01, min(0.999, e0 + 0.01), i0 + 0.5,
+                   Omega0 + 5.0, omega0 + 5.0, M0 + 5.0])
+
+    def residual_func(params: np.ndarray) -> np.ndarray:
+        tgt = dict(target_elements)
+        tgt["a_au"] = float(params[0])
+        tgt["e"] = float(params[1])
+        tgt["i_deg"] = float(params[2])
+        tgt["Omega_deg"] = float(params[3])
+        tgt["omega_deg"] = float(params[4])
+        tgt["M_deg"] = float(params[5])
+        ra_pred, dec_pred = forward_model(
+            tgt, perturber_elements, 0.0, obs_jd_tdb, gaia_xyz,  # mass=0
+        )
+        dra, ddec = residuals_mas(ra_obs, dec_obs, ra_pred, dec_pred)
+        return np.concatenate([dra, ddec])
+
+    logger.info(
+        "[Phase A] orbit-only fit: 6 params, %d pre-encounter obs (%d residuals)",
+        len(obs_jd_tdb), 2 * len(obs_jd_tdb),
+    )
+    res = least_squares(
+        residual_func, x0, method="trf", bounds=(lo, hi), max_nfev=100, verbose=2,
+    )
+    logger.info("[Phase A] done: nfev=%d cost=%.3e", res.nfev, res.cost)
+
+    fitted = dict(target_elements)
+    fitted["a_au"] = float(res.x[0])
+    fitted["e"] = float(res.x[1])
+    fitted["i_deg"] = float(res.x[2])
+    fitted["Omega_deg"] = float(res.x[3])
+    fitted["omega_deg"] = float(res.x[4])
+    fitted["M_deg"] = float(res.x[5])
+
+    chi2 = float(np.sum(res.fun ** 2))
+    n_data = len(res.fun)
+    chi2_red = chi2 / max(1, n_data - 6)
+    return fitted, {
+        "chi2": chi2,
+        "chi2_red": chi2_red,
+        "nfev": res.nfev,
+        "fitted_elements": fitted,
+        "residual_rms_mas": float(np.sqrt(chi2 / max(1, n_data))),
+    }
+
+
+def fit_mass_only(
+    target_elements: dict,
+    perturber_elements: dict,
+    obs_jd_tdb: np.ndarray,
+    gaia_xyz: np.ndarray,
+    ra_obs: np.ndarray,
+    dec_obs: np.ndarray,
+    initial_mass_kg: float,
+) -> dict:
+    """Phase B of the two-phase fit: fix the orbit, fit only log10_mass.
+
+    Uses *post-encounter* observations only. Orbit is fixed (presumably from
+    Phase A) so the only thing that can explain post-encounter residuals is
+    the perturber's gravity.
+    """
+    log_m0 = math.log10(initial_mass_kg)
+    x0 = np.array([log_m0])
+    lo = np.array([15.0])
+    hi = np.array([22.0])
+
+    def residual_func(params: np.ndarray) -> np.ndarray:
+        mass = float(10.0 ** params[0])
+        ra_pred, dec_pred = forward_model(
+            target_elements, perturber_elements, mass, obs_jd_tdb, gaia_xyz,
+        )
+        dra, ddec = residuals_mas(ra_obs, dec_obs, ra_pred, dec_pred)
+        return np.concatenate([dra, ddec])
+
+    logger.info(
+        "[Phase B] mass-only fit: 1 param, %d post-encounter obs (%d residuals)",
+        len(obs_jd_tdb), 2 * len(obs_jd_tdb),
+    )
+    res = least_squares(
+        residual_func, x0, method="trf", bounds=(lo, hi), max_nfev=100, verbose=2,
+    )
+    logger.info("[Phase B] done: nfev=%d cost=%.3e", res.nfev, res.cost)
+
+    log_m_fit = float(res.x[0])
+    chi2 = float(np.sum(res.fun ** 2))
+    n_data = len(res.fun)
+    chi2_red = chi2 / max(1, n_data - 1)
+    try:
+        cov = np.linalg.inv(res.jac.T @ res.jac) * chi2_red
+        log_m_sig = float(np.sqrt(cov[0, 0]))
+    except np.linalg.LinAlgError:
+        log_m_sig = float("nan")
+    mass_fit = 10.0 ** log_m_fit
+    mass_sig = mass_fit * log_m_sig * math.log(10.0)
+    return {
+        "mass_kg": mass_fit,
+        "mass_sigma_kg": mass_sig,
+        "log10_mass": log_m_fit,
+        "log10_mass_sigma": log_m_sig,
+        "chi2": chi2,
+        "chi2_red": chi2_red,
+        "n_data": n_data,
+        "nfev": res.nfev,
+        "residual_rms_mas": float(np.sqrt(chi2 / max(1, n_data))),
+        "post_residuals_mas": res.fun.tolist(),
+    }
+
+
+def fit_mass_two_phase(
+    target_elements: dict,
+    perturber_elements: dict,
+    obs_jd_tdb: np.ndarray,
+    gaia_xyz: np.ndarray,
+    ra_obs: np.ndarray,
+    dec_obs: np.ndarray,
+    encounter_jd_tdb: float,
+    initial_mass_kg: float,
+    blackout_days: float = 7.0,
+    min_obs_per_side: int = 6,
+) -> dict:
+    """Two-phase mass fit: orbit from pre-encounter, mass from post-encounter.
+
+    This separates the perturbation signal from any orbit-fit ambiguity: the
+    orbit is determined by pre-encounter data alone (where the perturber has
+    not yet acted), and the mass is then the *only* parameter free to
+    explain post-encounter residuals.
+    """
+    days_from_enc = obs_jd_tdb - encounter_jd_tdb
+    pre_mask = days_from_enc < -blackout_days
+    post_mask = days_from_enc > blackout_days
+    n_pre = int(pre_mask.sum())
+    n_post = int(post_mask.sum())
+    if n_pre < min_obs_per_side or n_post < min_obs_per_side:
+        raise ValueError(
+            f"Need ≥ {min_obs_per_side} obs each side; got pre={n_pre}, post={n_post}"
+        )
+    logger.info(
+        "Two-phase fit: %d pre + %d post observations (blackout ±%.1f d)",
+        n_pre, n_post, blackout_days,
+    )
+
+    # Phase A: orbit from pre-encounter
+    fitted_elements, phase_a = fit_orbit_only(
+        target_elements=target_elements,
+        perturber_elements=perturber_elements,
+        obs_jd_tdb=obs_jd_tdb[pre_mask],
+        gaia_xyz=gaia_xyz[pre_mask],
+        ra_obs=ra_obs[pre_mask],
+        dec_obs=dec_obs[pre_mask],
+    )
+    logger.info(
+        "[Phase A] residual RMS = %.1f mas (chi²_red=%.1f)",
+        phase_a["residual_rms_mas"], phase_a["chi2_red"],
+    )
+
+    # Phase B: mass from post-encounter, with orbit fixed
+    phase_b = fit_mass_only(
+        target_elements=fitted_elements,
+        perturber_elements=perturber_elements,
+        obs_jd_tdb=obs_jd_tdb[post_mask],
+        gaia_xyz=gaia_xyz[post_mask],
+        ra_obs=ra_obs[post_mask],
+        dec_obs=dec_obs[post_mask],
+        initial_mass_kg=initial_mass_kg,
+    )
+    logger.info(
+        "[Phase B] residual RMS = %.1f mas (chi²_red=%.1f)",
+        phase_b["residual_rms_mas"], phase_b["chi2_red"],
+    )
+
+    return {
+        "mass_kg": phase_b["mass_kg"],
+        "mass_sigma_kg": phase_b["mass_sigma_kg"],
+        "log10_mass": phase_b["log10_mass"],
+        "log10_mass_sigma": phase_b["log10_mass_sigma"],
+        "phase_a_chi2_red": phase_a["chi2_red"],
+        "phase_a_rms_mas": phase_a["residual_rms_mas"],
+        "phase_a_nfev": phase_a["nfev"],
+        "phase_b_chi2_red": phase_b["chi2_red"],
+        "phase_b_rms_mas": phase_b["residual_rms_mas"],
+        "phase_b_nfev": phase_b["nfev"],
+        "n_pre": n_pre,
+        "n_post": n_post,
+        "fitted_elements_phase_a": fitted_elements,
+        "post_residuals_mas": phase_b["post_residuals_mas"],
+    }
+
+
 def fit_mass(
     target_elements: dict,
     perturber_elements: dict,
@@ -222,6 +440,18 @@ def main() -> int:
         help="Fit orbital elements jointly with mass (default: mass-only).",
     )
     p.add_argument(
+        "--two-phase",
+        action="store_true",
+        help="Two-phase fit: orbit from pre-encounter, mass from post-encounter. "
+             "Mutually exclusive with --fit-orbit.",
+    )
+    p.add_argument(
+        "--blackout-days",
+        type=float,
+        default=7.0,
+        help="Half-width of blackout window around encounter (days).",
+    )
+    p.add_argument(
         "--mpcorb",
         type=Path,
         default=Path("data/raw/mpcorb_archive/MPCORB_20120918.DAT"),
@@ -284,68 +514,99 @@ def main() -> int:
         initial_mass = _mass_from_diameter(d_km)
     logger.info("Initial mass guess: %.2e kg", initial_mass)
 
-    fit = fit_mass(
-        target_el, perturber_el,
-        obs_jd_tdb=jd_tdb, gaia_xyz=gaia_xyz,
-        ra_obs=ra_obs, dec_obs=dec_obs,
-        initial_mass_kg=initial_mass,
-        fit_orbit=args.fit_orbit,
-    )
+    if args.two_phase and args.fit_orbit:
+        logger.error("--two-phase and --fit-orbit are mutually exclusive")
+        return 2
 
-    logger.info("")
-    logger.info("=== FIT RESULT ===")
-    logger.info(
-        "  fitted mass = %.3e ± %.2e kg  (%.2f log10)",
-        fit["mass_kg"], fit["mass_sigma_kg"], fit["log10_mass"],
-    )
-    logger.info("  chi2 = %.2e   chi2_red = %.2f", fit["chi2"], fit["chi2_red"])
-    logger.info("  n_obs = %d   n_params = %d   nfev = %d",
-                fit["n_data"] // 2, fit["n_params"], fit["nfev"])
+    if args.two_phase:
+        fit = fit_mass_two_phase(
+            target_el, perturber_el,
+            obs_jd_tdb=jd_tdb, gaia_xyz=gaia_xyz,
+            ra_obs=ra_obs, dec_obs=dec_obs,
+            encounter_jd_tdb=enc_jd_tdb,
+            initial_mass_kg=initial_mass,
+            blackout_days=args.blackout_days,
+        )
+        logger.info("")
+        logger.info("=== TWO-PHASE FIT RESULT ===")
+        logger.info(
+            "  fitted mass = %.3e ± %.2e kg  (%.2f log10)",
+            fit["mass_kg"], fit["mass_sigma_kg"], fit["log10_mass"],
+        )
+        logger.info(
+            "  Phase A (orbit, pre-encounter): %d obs, RMS=%.1f mas, chi²_red=%.1f",
+            fit["n_pre"], fit["phase_a_rms_mas"], fit["phase_a_chi2_red"],
+        )
+        logger.info(
+            "  Phase B (mass, post-encounter): %d obs, RMS=%.1f mas, chi²_red=%.1f",
+            fit["n_post"], fit["phase_b_rms_mas"], fit["phase_b_chi2_red"],
+        )
+        n_obs_for_save = fit["n_pre"] + fit["n_post"]
+        chi2_save = fit["phase_b_chi2_red"]
+        n_params_save = 1
+        nfev_save = fit["phase_a_nfev"] + fit["phase_b_nfev"]
+        fitted_params_save = fit["fitted_elements_phase_a"]
+        param_sigmas_save = None
+    else:
+        fit = fit_mass(
+            target_el, perturber_el,
+            obs_jd_tdb=jd_tdb, gaia_xyz=gaia_xyz,
+            ra_obs=ra_obs, dec_obs=dec_obs,
+            initial_mass_kg=initial_mass,
+            fit_orbit=args.fit_orbit,
+        )
+        logger.info("")
+        logger.info("=== FIT RESULT ===")
+        logger.info(
+            "  fitted mass = %.3e ± %.2e kg  (%.2f log10)",
+            fit["mass_kg"], fit["mass_sigma_kg"], fit["log10_mass"],
+        )
+        logger.info("  chi2 = %.2e   chi2_red = %.2f", fit["chi2"], fit["chi2_red"])
+        logger.info("  n_obs = %d   n_params = %d   nfev = %d",
+                    fit["n_data"] // 2, fit["n_params"], fit["nfev"])
+        n_obs_for_save = fit["n_data"] // 2
+        chi2_save = fit["chi2_red"]
+        n_params_save = fit["n_params"]
+        nfev_save = fit["nfev"]
+        fitted_params_save = fit["fitted_params"]
+        param_sigmas_save = fit["param_sigmas"]
 
     # Save
     out_dir = Path("data/output")
     out_dir.mkdir(parents=True, exist_ok=True)
     tag = f"{args.perturber:06d}_{args.target:06d}"
+    if args.two_phase:
+        tag = tag + "_2phase"
     summary_path = out_dir / f"fit_{tag}.json"
-    with summary_path.open("w") as fh:
-        json.dump(
-            {
-                "perturber": args.perturber,
-                "target": args.target,
-                "encounter_date": args.date,
-                "fitted_mass_kg": fit["mass_kg"],
-                "fitted_mass_sigma_kg": fit["mass_sigma_kg"],
-                "log10_mass": fit["log10_mass"],
-                "log10_mass_sigma": fit["log10_mass_sigma"],
-                "chi2": fit["chi2"],
-                "chi2_red": fit["chi2_red"],
-                "n_obs": fit["n_data"] // 2,
-                "n_params": fit["n_params"],
-                "nfev": fit["nfev"],
-                "fitted_params": fit["fitted_params"],
-                "param_sigmas": fit["param_sigmas"],
-                "fit_orbit": args.fit_orbit,
-            },
-            fh,
-            indent=2,
-        )
-    logger.info("Wrote summary → %s", summary_path)
+    summary = {
+        "perturber": args.perturber,
+        "target": args.target,
+        "encounter_date": args.date,
+        "fitted_mass_kg": fit["mass_kg"],
+        "fitted_mass_sigma_kg": fit["mass_sigma_kg"],
+        "log10_mass": fit["log10_mass"],
+        "log10_mass_sigma": fit["log10_mass_sigma"],
+        "n_obs": n_obs_for_save,
+        "n_params": n_params_save,
+        "chi2_red": chi2_save,
+        "nfev": nfev_save,
+        "method": "two_phase" if args.two_phase else ("joint_fit" if args.fit_orbit else "mass_only"),
+    }
+    if args.two_phase:
+        summary["phase_a_chi2_red"] = fit["phase_a_chi2_red"]
+        summary["phase_a_rms_mas"] = fit["phase_a_rms_mas"]
+        summary["phase_b_chi2_red"] = fit["phase_b_chi2_red"]
+        summary["phase_b_rms_mas"] = fit["phase_b_rms_mas"]
+        summary["n_pre"] = fit["n_pre"]
+        summary["n_post"] = fit["n_post"]
+        summary["fitted_elements_phase_a"] = fit["fitted_elements_phase_a"]
+    else:
+        summary["fitted_params"] = fitted_params_save
+        summary["param_sigmas"] = param_sigmas_save
 
-    # Save the per-obs residuals
-    dra = np.array(fit["residuals_mas"][: len(jd_tdb)])
-    ddec = np.array(fit["residuals_mas"][len(jd_tdb):])
-    days = jd_tdb - enc_jd_tdb
-    out_csv = out_dir / f"fit_{tag}_residuals.csv"
-    pl.DataFrame({
-        "jd_tdb": jd_tdb,
-        "days_from_encounter": days,
-        "ra_obs_deg": ra_obs,
-        "dec_obs_deg": dec_obs,
-        "dra_mas": dra,
-        "ddec_mas": ddec,
-        "g_mag": obs["g_mag"].to_numpy(),
-    }).write_csv(out_csv)
-    logger.info("Wrote residuals → %s", out_csv)
+    with summary_path.open("w") as fh:
+        json.dump(summary, fh, indent=2)
+    logger.info("Wrote summary → %s", summary_path)
 
     return 0
 
