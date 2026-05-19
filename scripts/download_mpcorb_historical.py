@@ -33,6 +33,8 @@ import argparse
 import json
 import logging
 import sys
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -66,8 +68,21 @@ def _query_wayback_closest(target_yyyymmdd: str) -> tuple[str, str]:
     """
     api = f"{WAYBACK_AVAILABILITY}?url={MPC_URL}&timestamp={target_yyyymmdd}"
     logger.info("Querying Wayback availability: %s", api)
-    with urllib.request.urlopen(api) as resp:  # noqa: S310
-        payload = json.loads(resp.read().decode("utf-8"))
+    req = urllib.request.Request(api, headers={"User-Agent": "gaia-asteroid-pipeline/1.0"})
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req) as resp:  # noqa: S310
+                payload = json.loads(resp.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 and attempt < 3:
+                wait = 2 ** (attempt + 1)
+                logger.warning("Wayback API rate-limited (429); retrying in %ds…", wait)
+                time.sleep(wait)
+            else:
+                raise
+    else:
+        raise RuntimeError("Wayback API rate-limited after 4 attempts")
 
     closest = payload.get("archived_snapshots", {}).get("closest")
     if not closest or not closest.get("available"):
