@@ -149,7 +149,7 @@ propagation:
 # Detección de encuentros
 # -----------------------------------------------------------------------------
 detection:
-  threshold_au: 0.01                 # Umbral de distancia (clave!)
+  threshold_au: 0.05                 # Umbral de distancia (clave!)
   prefilter:
     enabled: true                    # Filtrar pares incompatibles antes del KD-tree
     semimajor_diff_max_au: 0.5       # Pares con |Δa| mayor a esto se descartan

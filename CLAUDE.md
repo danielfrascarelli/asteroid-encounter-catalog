@@ -62,7 +62,7 @@ Los datos crudos viven en `data/raw/` y **no** se versionan (ver `.gitignore`).
 
 ## Decisiones de diseño clave
 
-### 1. Umbral de encuentro: 0.01 AU por defecto
+### 1. Umbral de encuentro: 0.05 AU por defecto
 Compromiso entre permisividad estadística (capturar suficientes eventos) y relevancia física (encuentros usables para futuras determinaciones de masa). Configurable vía `config.yaml`.
 
 ### 2. Propagación orbital: Kepler analítico → rebound
