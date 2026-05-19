@@ -20,6 +20,7 @@ services:
       # Montar código fuente para que cambios sean visibles sin rebuild
       - ./src:/app/src
       - ./scripts:/app/scripts
+      - ./encounter_analysis:/app/encounter_analysis
     # Sin command: usa el CMD del Dockerfile (run_pipeline con config.yaml)
     # Sobreescribir en CLI: docker compose run --rm pipeline python -m scripts.X
 
