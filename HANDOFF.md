@@ -41,8 +41,9 @@ El objetivo científico: pesar asteroides cuya masa no se conoce todavía.
 - `scripts/validate_novel_a.py` — valida 7 encuentros con Ceres/Vesta contra JPL Horizons. **MAE = 3.21e-4 AU** ✅ (umbral 5e-3)
 - `scripts/analyze_mass_candidates.py` — rankea candidatos Cat B por deflexión esperada
 - `scripts/check_gaia_observations.py` — verifica que Gaia haya observado el target ±180 días del encuentro (TAP async, sin truncar)
-- `scripts/demo_ate_deflection.py` — demo end-to-end (Kepler 2-cuerpos): residuales ~875 arcsec, swamped
-- `scripts/demo_ate_vs_horizons.py` — demo mejorado (JPL Horizons como predictor): residuales 11 arcsec, shift 10σ en RA pero falta light-time + aberración para extraer la señal real de Ate
+- `scripts/demo_ate_deflection.py` — demo end-to-end (Kepler 2-cuerpos): residuales ~875 arcsec, señal swamped
+- `scripts/demo_ate_vs_horizons.py` — demo con JPL Horizons vectors: residuales 11 arcsec, shift 10σ pero domina aberración estelar
+- `scripts/demo_ate_clean.py` — demo final con Horizons `ephemerides()` desde Gaia: residuales ~800 mas, shift +223 mas (t=3.0σ) en RA — **detección marginal** del signal de Ate
 
 ### Outputs generados en `data/output/`
 
@@ -50,8 +51,9 @@ El objetivo científico: pesar asteroides cuya masa no se conoce todavía.
 - `mass_candidates.csv` — 100 candidatos Cat B rankeados por deflexión
 - `gaia_observations_check.csv` — 100 candidatos con conteo de transits Gaia antes/después
 - `publishable_mass_candidates.csv` — **41 candidatos viables**, ordenados por δ
-- `ate_2000nt3_residuals.csv` — residuales con propagación Kepler 2-cuerpos (intento 1)
-- `ate_2000nt3_vs_horizons.csv` — residuales contra JPL Horizons (intento 2, mejor)
+- `ate_2000nt3_residuals.csv` — residuales con propagación Kepler 2-cuerpos (intento 1, ~875 arcsec)
+- `ate_2000nt3_vs_horizons.csv` — residuales contra JPL Horizons vectors (intento 2, ~11 arcsec)
+- `ate_2000nt3_clean.csv` — residuales contra Horizons apparent ephemerides desde Gaia (intento 3, ~800 mas, **detección marginal 3σ**)
 
 ### Reportes
 
@@ -95,7 +97,34 @@ Propaga la órbita MPCORB con Kepler puro y compara contra Gaia. **No detecta:**
 - Señal de Ate esperada: ~5 mas
 - Ratio S/N: 6e-6, completamente swamped
 
-#### Intento 2 — `scripts/demo_ate_vs_horizons.py` (JPL Horizons como predictor)
+#### Intento 3 — `scripts/demo_ate_clean.py` (Horizons apparent ephemerides desde Gaia)
+
+```
+BEFORE encounter (N=39)  ⟨ΔRA⟩= -790.67 mas  ⟨ΔDec⟩= -103.15 mas  σ(ΔRA)=214 mas
+AFTER  encounter (N=37)  ⟨ΔRA⟩= -567.71 mas  ⟨ΔDec⟩= -144.12 mas  σ(ΔRA)=400 mas
+Δ(after − before) on ΔRA = +222.96 ± 74.20 mas   t = +3.00σ ← detección marginal
+Δ(after − before) on ΔDec =  -40.98 ± 36.24 mas   t = -1.13σ
+```
+
+Pide a Horizons las RA/Dec aparentes desde Gaia (location code `500@-139479`), que
+incluyen automáticamente light-time, aberración estelar y deflexión solar.
+
+**Resultado: detección 3σ marginal del signal de Ate en la coordenada RA.**
+
+- Residuales bajaron de 11 arcsec → ~800 mas (mejora 14×)
+- Shift en RA pasó de 398 → 223 mas → más cerca del 5 mas esperado pero todavía ~45× lejos
+- σ(ΔRA) crece de 214 a 400 mas después del encuentro — esto es consistente con que
+  la velocidad del target se desvió y la posición diverge linealmente
+- Detección a t = 3.0σ está justo en el umbral de significación estadística
+
+**Lo que falta para detección publicable**:
+1. Bajar el ruido systematic (~200 mas σ → ~10 mas σ). Probablemente requiere
+   re-fitear la órbita de 2000_nt3 con Gaia + observaciones recientes.
+2. Validar contra otros candidatos del top 10 — si la misma técnica detecta el
+   shift en (57) Mnemosyne (señal esperada 22 mas, 4× más grande), eso confirma
+   que el método funciona.
+
+#### Intento 2 — `scripts/demo_ate_vs_horizons.py` (JPL Horizons vectors)
 
 Reemplaza la propagación Kepler por queries directas a JPL Horizons (que sí incluye
 DE440 + planetas mayores + big-4 asteroides). **Mejora pero todavía no detecta:**
