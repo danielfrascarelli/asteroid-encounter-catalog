@@ -29,8 +29,18 @@ logger = logging.getLogger(__name__)
 
 _GAIA_START = "2014-07-25T00:00:00"
 _GAIA_END = "2017-05-28T00:00:00"
-_THRESHOLD_AU = 0.05  # wider than pipeline default to catch near-misses
+_THRESHOLD_AU = 0.05
 _PAIR = [740, 7999]
+
+_DETECT_KWARGS: dict = dict(
+    semimajor_diff_max_au=0.5,
+    inclination_diff_max_deg=30.0,
+    leaf_size=30,
+    fine_step_seconds=60.0,
+    window_hours=2.0,
+    n_workers=1,
+    chunk_size_days=30.0,
+)
 
 
 def main() -> int:
@@ -72,6 +82,7 @@ def main() -> int:
         threshold_au=_THRESHOLD_AU,
         prefilter_enabled=False,  # only 2 asteroids, skip prefilter
         refinement_enabled=True,
+        **_DETECT_KWARGS,
     )
 
     if len(results) == 0:

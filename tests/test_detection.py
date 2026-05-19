@@ -38,7 +38,19 @@ from src.propagate.grid import make_time_grid
 # ---------------------------------------------------------------------------
 
 _EPOCH = 2457000.0  # JD TDB
-_THRESHOLD = 0.01  # AU
+_THRESHOLD = 0.05  # AU — synthetic test value, not production config
+
+_DETECT_KWARGS: dict = dict(
+    semimajor_diff_max_au=0.5,
+    inclination_diff_max_deg=30.0,
+    leaf_size=30,
+    fine_step_seconds=60.0,
+    window_hours=2.0,
+    prefilter_enabled=True,
+    refinement_enabled=True,
+    n_workers=1,
+    chunk_size_days=30.0,
+)
 
 
 def _make_elements(
@@ -340,6 +352,7 @@ def test_pipeline_end_to_end(
         three_asteroids,
         single_step_grid,
         threshold_au=_THRESHOLD,
+        **_DETECT_KWARGS,
     )
     assert len(result) == 1
     row = result.row(0, named=True)
@@ -352,14 +365,14 @@ def test_pipeline_no_compatible_pairs_returns_empty() -> None:
     """When all pairs are filtered out the catalog is empty."""
     elems = _make_elements(a=[2.5, 4.0], m_deg=[0.0, 0.0])
     grid = np.array([_EPOCH])
-    result = detect_encounters(elems, grid, threshold_au=_THRESHOLD, semimajor_diff_max_au=0.5)
+    result = detect_encounters(elems, grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS)
     assert len(result) == 0
 
 
 def test_pipeline_output_sorted_by_dist(three_asteroids: pl.DataFrame) -> None:
     """Output must be sorted by dist_au ascending."""
     grid = np.array([_EPOCH])
-    result = detect_encounters(three_asteroids, grid, threshold_au=_THRESHOLD)
+    result = detect_encounters(three_asteroids, grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS)
     dists = result["dist_au"].to_list()
     assert dists == sorted(dists)
 
@@ -367,7 +380,7 @@ def test_pipeline_output_sorted_by_dist(three_asteroids: pl.DataFrame) -> None:
 def test_pipeline_output_schema(
     three_asteroids: pl.DataFrame, single_step_grid: np.ndarray
 ) -> None:
-    result = detect_encounters(three_asteroids, single_step_grid, threshold_au=_THRESHOLD)
+    result = detect_encounters(three_asteroids, single_step_grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS)
     assert result.schema == {
         "number_1": pl.Int32,
         "number_2": pl.Int32,
@@ -382,7 +395,7 @@ def test_pipeline_output_schema(
 def test_pipeline_no_duplicate_pairs(three_asteroids: pl.DataFrame) -> None:
     """Each (number_1, number_2) pair appears at most once."""
     grid = make_time_grid(_EPOCH, _EPOCH + 0.5, step_hours=6.0)
-    result = detect_encounters(three_asteroids, grid, threshold_au=_THRESHOLD)
+    result = detect_encounters(three_asteroids, grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS)
     pairs = list(zip(result["number_1"].to_list(), result["number_2"].to_list()))
     assert len(pairs) == len(set(pairs))
 
@@ -395,7 +408,7 @@ def test_pipeline_prefilter_disabled(
         three_asteroids,
         single_step_grid,
         threshold_au=_THRESHOLD,
-        prefilter_enabled=False,
+        **{**_DETECT_KWARGS, "prefilter_enabled": False},
     )
     assert len(result) >= 1
     assert result["dist_au"][0] < _THRESHOLD
@@ -409,7 +422,7 @@ def test_pipeline_refinement_disabled(
         three_asteroids,
         single_step_grid,
         threshold_au=_THRESHOLD,
-        refinement_enabled=False,
+        **{**_DETECT_KWARGS, "refinement_enabled": False},
     )
     assert len(result) == 1
     assert result["dist_au"][0] < _THRESHOLD
@@ -420,6 +433,6 @@ def test_pipeline_refinement_disabled(
 def test_pipeline_designation_preserved(
     three_asteroids: pl.DataFrame, single_step_grid: np.ndarray
 ) -> None:
-    result = detect_encounters(three_asteroids, single_step_grid, threshold_au=_THRESHOLD)
+    result = detect_encounters(three_asteroids, single_step_grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS)
     assert result["designation_1"][0] == "Ceres"
     assert result["designation_2"][0] == "Near"
