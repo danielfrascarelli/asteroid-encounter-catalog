@@ -54,14 +54,15 @@ docker compose build
 ### Descarga de datos
 
 ```bash
-# MPCORB (~50 MB, varios minutos)
+# 1. MPCORB — elementos orbitales (actuales, ~90 MB comprimidos)
 docker compose run --rm pipeline python -m scripts.download_mpcorb
 
-# Observaciones Gaia SSO (~varios GB, puede tardar horas)
-# Los chunks se guardan en data/cache/gaia_sso_chunks/ — si se interrumpe,
-# el siguiente run retoma desde el último chunk completado.
-docker compose run --rm pipeline python -m scripts.download_gaia_sso --config config.yaml
+# 2. Snapshot histórico 2015 (recomendado: reduce error Kepler de ~30 mAU a <1 mAU)
+# El pipeline auto-selecciona el snapshot con época más cercana al centro de la ventana.
+docker compose run --rm pipeline python -m scripts.download_mpcorb_historical --year 2015 --month 6
 ```
+
+> **Nota**: `download_gaia_sso` no es requerido para el pipeline de detección. El pipeline lee únicamente MPCORB.
 
 ### Pipeline completo
 
@@ -98,7 +99,7 @@ Todos los parámetros del pipeline están en `config.yaml`. Los más importantes
 
 | Parámetro | Default | Descripción |
 |-----------|---------|-------------|
-| `detection.threshold_au` | `0.01` | Umbral de distancia para considerar "encuentro" |
+| `detection.threshold_au` | `0.05` | Umbral de distancia para considerar "encuentro" |
 | `detection.time_step_hours` | `1.0` | Resolución temporal de la grilla de propagación |
 | `subset.only_numbered` | `true` | Limitarse a asteroides con número MPC asignado |
 | `subset.max_asteroids` | `null` | Tope opcional para tests rápidos |
@@ -159,27 +160,26 @@ Ver `CLAUDE.md` para una descripción detallada de cada módulo.
 
 | Métrica | Valor |
 |---------|-------|
-| Asteroides procesados | ~99.999 numerados (MPCORB) |
+| Asteroides procesados | ~98.775 numerados (MPCORB) |
 | Ventana temporal | 2014-07-25 → 2017-05-28 (Gaia DR3) |
-| Umbral de detección | 0.01 AU |
-| **Encuentros detectados** | **119.546** |
-| Gaia-observables (elong > 45°, mag < 21) | 50.473 |
-| Encuentro más cercano | **0.000043 AU** (≈ 6.434 km) |
+| Umbral de detección | 0.05 AU |
+| **Encuentros detectados** | **4.036.495** |
+| Encuentro más cercano | **0.000025 AU** (≈ 3.695 km) |
 | Velocidad relativa (rango) | 0.032 – 25.23 km/s |
 | Diámetro cuerpo 1 (rango) | 1 – 795 km |
-| Cuerpos grandes confirmados | Ceres (2 enc.), Vesta (8 enc.), Hygiea (1 enc.) |
+| Cuerpos grandes confirmados | Ceres (74 enc.), Vesta (103 enc.), Hygiea (50 enc.) |
 
 ### Encuentros destacados
 
 | Rank | Cuerpo 1 | Cuerpo 2 | Distancia (AU) | Fecha | Vel (km/s) |
 |------|----------|----------|----------------|-------|------------|
-| 1 | 193507 | 343572 | 0.000043 | 2016-07-23 | 0.24 |
-| 2 | 63313 | 197297 | 0.000056 | 2015-02-10 | 0.65 |
-| 3 | 78160 | 176588 | 0.000061 | 2016-11-03 | 0.52 |
+| 1 | 31489 (1999 CN53) | 81987 (2000 QE133) | 0.000025 | 2015-12-21 | 4.17 |
+| 2 | 44115 (1998 HQ23) | 82579 (2001 OV86) | 0.000029 | 2017-01-27 | 3.64 |
+| 3 | 33255 (1998 HB32) | 69766 (1998 QZ19) | 0.000041 | 2015-10-17 | 3.96 |
 
 ### Nota sobre (2) Pallas
 
-Pallas tiene inclinación i = 34.9° (la mayor entre los asteroides masivos), lo que mantiene su órbita bien separada del plano del cinturón principal durante la ventana Gaia. No se detectaron encuentros < 0.01 AU con Pallas — este es un resultado físicamente correcto, no un bug del pipeline.
+Pallas tiene inclinación i = 34.9° (la mayor entre los asteroides masivos), lo que mantiene su órbita bien separada del plano del cinturón principal durante la ventana Gaia. A 0.05 AU se detectaron 9 encuentros con Pallas (el más cercano a 0.019 AU) — todos físicamente consistentes con su alta inclinación orbital.
 
 ## ✅ Validación
 

@@ -12,7 +12,7 @@
 
 - **Multi-snapshot MPCORB indexado por época** ([src/ingest/mpcorb_archive.py](src/ingest/mpcorb_archive.py), [scripts/download_mpcorb_historical.py](scripts/download_mpcorb_historical.py)): descarga snapshots históricos vía Wayback Machine, auto-selecciona el de época más cercana al centro de la ventana temporal. Reduce error de Kepler de ~0.03 AU (época 2026 → 2017) a <0.001 AU (época 2015 → 2017).
 - **Validación contra literatura**:
-  - [scripts/validate_fienga_2003.py](scripts/validate_fienga_2003.py) — Fienga et al. (2003), VizieR `J/A+A/406/751`. 100% match (1/1 a 0.01 AU, 4/4 a 0.05 AU).
+  - [scripts/validate_fienga_2003.py](scripts/validate_fienga_2003.py) — Fienga et al. (2003), VizieR `J/A+A/406/751`. 100% match (4/4 a 0.05 AU, threshold por defecto).
   - [scripts/validate_galad_2002.py](scripts/validate_galad_2002.py) — Galád & Gray (2002), parseado del HTML del paper (no está en VizieR). 100% match (4/4 a 0.05 AU).
   - [scripts/validate_jpl_horizons.py](scripts/validate_jpl_horizons.py) — Cross-check 3-way (nuestro vs literatura vs JPL Horizons). MAE(ours−JPL)=0.0002 AU, MAE(lit−JPL)=0.00004 AU.
 - **Propagación N-body** ([src/propagate/nbody.py](src/propagate/nbody.py)): REBOUND con WHFast, Sol+Júpiter+Saturno como cuerpos masivos, asteroides como test particles. Opcional: Ceres/Vesta/Pallas/Hygiea como perturbadores (`config.propagation.rebound.include_major_asteroids`). Integra 100k asteroides × 25k pasos en ~9 min.
@@ -81,18 +81,14 @@ docker compose up dashboard                             # Streamlit en localhost
 - [ ] Filtrar por `subset.only_numbered` y `subset.semimajor_axis_au` según config.
 - [ ] Test: verificar que (1) Ceres, (4) Vesta, (2) Pallas están presentes y sus `a` son correctos (±0.001 AU).
 
-#### 1.5 Descarga de Gaia SSO (`src/ingest/gaia_sso.py`)
-- [ ] Script `scripts/download_gaia_sso.py` que querea `gaiadr3.sso_observation` vía TAP.
-- [ ] Guardar en `data/raw/gaia_sso.parquet`.
-- [ ] Columnas mínimas según `config.sources.gaia_sso.columns`.
-- [ ] Verificar que `epoch` está en TCB y documentarlo en el schema del archivo.
-- [ ] Test básico: contar que hay observaciones para Ceres (`number_mp = 1`).
+#### 1.5 Descarga de Gaia SSO (`src/ingest/gaia_sso.py`) _(descoped)_
+> El pipeline de detección y caracterización usa únicamente MPCORB. `download_gaia_sso` existe como utilidad opcional (consulta astrométrica) pero no es un prerequisito para ningún paso del pipeline principal.
 
 ### Entregables
 - `Dockerfile` + `docker-compose.yml` funcionales.
 - `pyproject.toml` con dependencias completas.
 - `data/raw/MPCORB.DAT` + metadatos de descarga.
-- `data/raw/gaia_sso.parquet` con observaciones Gaia.
+- `data/raw/mpcorb_archive/MPCORB_<YYYYMMDD>.DAT` (snapshot histórico, recomendado).
 - `src/utils/time_utils.py` testeado.
 - `src/utils/config.py` funcional.
 
@@ -206,7 +202,7 @@ completo usando asteroides sintéticos construidos analíticamente.  No requiere
 
 **Validación sobre datos reales (subset de 1000 asteroides del cinturón principal):**
 ```bash
-# Asume que MPCORB.DAT y gaia_sso.parquet ya están en data/raw/
+# Asume que MPCORB.DAT ya está en data/raw/ (ver scripts.download_mpcorb)
 docker compose run --rm pipeline python - <<'EOF'
 import polars as pl
 from src.ingest.mpcorb import parse_mpcorb
@@ -223,7 +219,7 @@ t_start = Time("2014-07-25", scale="tdb").jd
 t_end   = Time("2016-07-25", scale="tdb").jd
 grid    = make_time_grid(t_start, t_end, step_hours=1.0)
 
-encounters = detect_encounters(elements, grid, threshold_au=0.01)
+encounters = detect_encounters(elements, grid, threshold_au=0.05)
 print(encounters.sort("dist_au").head(20))
 encounters.write_parquet("data/output/encounters_test_1000.parquet", compression="zstd")
 EOF
@@ -232,7 +228,7 @@ EOF
 **Qué verificar en el output:**
 - Al menos un encuentro encontrado dentro del periodo Gaia (era de ~3 años es suficiente).
 - `number_1 < number_2` para cada fila (garantizado por el prefilter de índices `triu`).
-- `dist_au` ≤ 0.01 para todas las filas.
+- `dist_au` ≤ 0.05 para todas las filas.
 - `rel_vel_au_day` > 0 (velocidades relativas físicamente plausibles: 0.001–0.1 AU/día).
 - Sin filas duplicadas: `len(encounters) == encounters.unique(["number_1", "number_2"]).len()`.
 
