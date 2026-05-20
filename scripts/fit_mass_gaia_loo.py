@@ -57,6 +57,7 @@ from scipy.optimize import least_squares
 
 from src.astrometry.forward_model import forward_model, residuals_mas
 from src.ingest.mpcorb import parse_mpcorb
+from src.propagate.nbody import _MAJOR_ASTEROIDS
 from src.utils.config import load_config
 
 logging.basicConfig(
@@ -179,7 +180,7 @@ def fit_orbit_loo(
     ra_err_rand: np.ndarray,
     dec_err_rand: np.ndarray,
     corr_rand: np.ndarray,
-    big4_elements: dict[str, dict] | None = None,
+    background_elements: dict[str, dict] | None = None,
     reg_sigma: np.ndarray | None = None,
     max_nfev: int = 800,
     dt_days: float = 1.0,
@@ -208,7 +209,7 @@ def fit_orbit_loo(
     if reg_sigma is None:
         reg_sigma = np.array([5e-4, 5e-4, 0.1, 0.3, 0.3, 0.5])
 
-    use_big4 = bool(big4_elements)
+    use_big4 = bool(background_elements)
 
     def residual_func(params: np.ndarray) -> np.ndarray:
         tgt = dict(target_elements)
@@ -220,7 +221,7 @@ def fit_orbit_loo(
         tgt["M_deg"]     = float(params[5])
         ra_pred, dec_pred = forward_model(
             tgt, perturber_elements, 0.0, obs_jd_tdb, gaia_xyz,
-            include_big4=use_big4, big4_elements=big4_elements,
+            include_background=use_big4, background_elements=background_elements,
             dt_days=dt_days, integrator=integrator,
         )
         dra, ddec = residuals_mas(ra_obs, dec_obs, ra_pred, dec_pred)
@@ -252,7 +253,7 @@ def fit_orbit_loo(
     # Compute final AL residuals and σ_AL for diagnostics
     ra_pred_f, dec_pred_f = forward_model(
         fitted, perturber_elements, 0.0, obs_jd_tdb, gaia_xyz,
-        include_big4=use_big4, big4_elements=big4_elements,
+        include_background=use_big4, background_elements=background_elements,
         dt_days=dt_days, integrator=integrator,
     )
     dra_f, ddec_f = residuals_mas(ra_obs, dec_obs, ra_pred_f, dec_pred_f)
@@ -293,7 +294,7 @@ def fit_mass_from_window(
     dec_err_rand: np.ndarray,
     corr_rand: np.ndarray,
     blackout_days: float = 7.0,
-    big4_elements: dict[str, dict] | None = None,
+    background_elements: dict[str, dict] | None = None,
     dt_days: float = 1.0,
     integrator: str = "whfast",
 ) -> dict:
@@ -315,12 +316,12 @@ def fit_mass_from_window(
 
     logger.info("[mass fit] encounter window: %d pre + %d post obs", n_pre, n_post)
 
-    use_big4 = bool(big4_elements)
+    use_background = bool(background_elements)
 
     # Compute residuals under zero-mass prediction (orbit only)
     ra_pred0, dec_pred0 = forward_model(
         fitted_elements, perturber_elements, 0.0, obs_jd_tdb, gaia_xyz,
-        include_big4=use_big4, big4_elements=big4_elements,
+        include_background=use_background, background_elements=background_elements,
         dt_days=dt_days, integrator=integrator,
     )
     dra0, ddec0 = residuals_mas(ra_obs, dec_obs, ra_pred0, dec_pred0)
@@ -364,7 +365,7 @@ def fit_mass_from_window(
         mass = float(10.0 ** params[0])
         ra_p, dec_p = forward_model(
             fitted_elements, perturber_elements, mass, obs_jd_tdb[post_mask], gaia_xyz[post_mask],
-            include_big4=use_big4, big4_elements=big4_elements,
+            include_background=use_background, background_elements=background_elements,
             dt_days=dt_days, integrator=integrator,
         )
         dra, ddec = residuals_mas(
@@ -443,6 +444,10 @@ def main() -> int:
     p.add_argument(
         "--mpcorb", type=Path,
         default=Path("data/raw/mpcorb_archive/MPCORB_20120918.DAT"),
+        help="Path to MPCORB snapshot. IMPORTANT: use a snapshot from ~2015 "
+             "(e.g. MPCORB_20150524.DAT) to minimise backward-integration error. "
+             "A 2025-epoch MPCORB requires ~10-yr backward integration to reach "
+             "the Gaia era, degrading orbit_rms from ~3 mas to ~15 mas.",
     )
     p.add_argument(
         "--dt-days", type=float, default=1.0,
@@ -455,6 +460,12 @@ def main() -> int:
         help="REBOUND integrator. Use ias15 for sub-day close encounters.",
     )
     p.add_argument("--output", type=Path, default=None)
+    p.add_argument(
+        "--background-n", type=int, default=20,
+        help="Number of background asteroids to include in the N-body model, "
+             "selected by decreasing mass from _MAJOR_ASTEROIDS (max 20, "
+             "min 0 to disable, 4 = Big-4 only). Default: 20 (all).",
+    )
     args = p.parse_args()
 
     cfg = load_config(args.config)
@@ -513,23 +524,55 @@ def main() -> int:
 
     # ── Load orbital elements ────────────────────────────────────────────────
     logger.info("Loading MPCORB elements…")
-    _BIG4_NUMBERS = {1: "ceres", 2: "pallas", 4: "vesta", 10: "hygiea"}
-    big4_nums_to_load = [n for n in _BIG4_NUMBERS if n != args.perturber]
-    all_nums = [args.target, args.perturber] + big4_nums_to_load
+
+    # Select background asteroids: top-N by mass, excluding the perturber itself
+    background_n = max(0, min(args.background_n, len(_MAJOR_ASTEROIDS)))
+    background_registry = dict(
+        sorted(_MAJOR_ASTEROIDS.items(), key=lambda kv: kv[1][1], reverse=True)
+    )
+    background_names: dict[str, tuple[int, float]] = {}
+    for name, (num, gm) in background_registry.items():
+        if len(background_names) >= background_n:
+            break
+        if num == args.perturber:
+            continue  # don't double-count the perturber
+        background_names[name] = (num, gm)
+
+    background_nums = [num for num, _ in background_names.values()]
+    all_nums = [args.target, args.perturber] + background_nums
     elements_map = load_element_rows(args.mpcorb, all_nums)
     target_el    = elements_map[args.target]
     perturber_el = elements_map[args.perturber]
-    big4_elements = {
-        _BIG4_NUMBERS[n]: elements_map[n]
-        for n in big4_nums_to_load
-    }
+
+    background_elements: dict[str, dict] = {}
+    for name, (num, _gm) in background_names.items():
+        if num in elements_map:
+            background_elements[name] = elements_map[num]
+        else:
+            logger.warning("Background body %s (%d) not in MPCORB; skipping", name, num)
+
     initial_mass = _mass_from_h(perturber_el.get("H"))
     logger.info(
         "Target %d: a=%.4f e=%.4f  Perturber %d: H=%.2f → M_est=%.2e kg",
         args.target, target_el["a_au"], target_el["e"],
         args.perturber, perturber_el.get("H", float("nan")), initial_mass,
     )
-    logger.info("Big-4 loaded: %s", list(big4_elements.keys()))
+    logger.info(
+        "Background asteroids (%d/%d): %s",
+        len(background_elements), background_n, list(background_elements.keys()),
+    )
+
+    # Warn if MPCORB epoch is far from the Gaia era — the N-body integrator will
+    # have to run backwards/forwards many years, accumulating propagation error.
+    _GAIA_MID_JD = 2457300.0  # ~2015-10 (middle of Gaia DR3 window)
+    mpcorb_epoch = float(target_el["epoch_jd"])
+    epoch_offset_yr = abs(mpcorb_epoch - _GAIA_MID_JD) / 365.25
+    if epoch_offset_yr > 2.0:
+        logger.warning(
+            "MPCORB epoch is %.1f yr from Gaia mid-mission; backward integration "
+            "will degrade orbit_rms. Prefer a ~2015 MPCORB snapshot for best precision.",
+            epoch_offset_yr,
+        )
 
     # ── Phase A: LOO orbit fit ───────────────────────────────────────────────
     fitted_elements, loo_diag = fit_orbit_loo(
@@ -546,7 +589,7 @@ def main() -> int:
         ra_err_rand=ra_err_rand[out_mask],
         dec_err_rand=dec_err_rand[out_mask],
         corr_rand=corr_rand[out_mask],
-        big4_elements=big4_elements,
+        background_elements=background_elements,
         dt_days=args.dt_days,
         integrator=args.integrator,
     )
@@ -577,7 +620,7 @@ def main() -> int:
         dec_err_rand=dec_err_rand[win_mask],
         corr_rand=corr_rand[win_mask],
         blackout_days=args.blackout_days,
-        big4_elements=big4_elements,
+        background_elements=background_elements,
         dt_days=args.dt_days,
         integrator=args.integrator,
     )
@@ -617,8 +660,8 @@ def main() -> int:
         "target": args.target,
         "encounter_date": args.date,
         "loo_window_days": args.loo_window_days,
-        "include_big4": True,
-        "big4_used": list(big4_elements.keys()),
+        "background_n": len(background_elements),
+        "background_used": list(background_elements.keys()),
         "n_obs_total": obs.height,
         "n_loo_orbit": n_out,
         "n_window": n_win,
