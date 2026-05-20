@@ -7,17 +7,25 @@
 
 ## Resumen ejecutivo
 
-De los **119.545 encuentros novedosos** que detectamos (ningún paper publicado los menciona),
-encontramos **41 candidatos viables** para determinación de masa asteroidal usando astrometría
-de Gaia DR3. Estos son potencialmente publicables como nuevas masas.
+De los **119.545 encuentros novedosos** en el catálogo (ningún paper publicado los menciona),
+identificamos **41 candidatos prioritarios** para determinación de masa asteroidal usando
+astrometría de Gaia DR3.
 
-| Etapa | Encuentros |
-|-------|-----------|
-| Detectados por el pipeline a 0.05 AU | 4.036.495 |
-| No documentados en literatura | 119.545 |
-| Físicamente relevantes (filtros astrofísicos) | 379 |
-| Top 100 por score de deflexión | 100 |
-| **Viables (señal ≥ 100 μas + Gaia obs en ambos lados)** | **41** |
+> ⚠️ **Nota metodológica**: los 41 candidatos están priorizados por el score de deflexión
+> impulsiva (δ = 2GM/v²b ≥ 100 μas) y cobertura Gaia bracketing. Esto es una condición
+> necesaria pero **no suficiente** para una detección publicable. Un resultado de masa real
+> requiere un fit LOO/N-body AL-weighted con mejora estadística robusta sobre el modelo
+> masa=0. Hasta ahora solo (111) Ate + (18105) 2000 NT3 cuenta con ese análisis completo.
+
+| Etapa | Encuentros | Threshold |
+|-------|-----------|-----------|
+| Corrida exploratoria (MPCORB ~99k obj.) | 4.036.495 | 0.05 AU |
+| Corrida de producción actual (MPCORB 433k obj.) | 119.546 | 0.01 AU |
+| No documentados en literatura (producción) | 119.545 | — |
+| Físicamente relevantes (filtros astrofísicos) | 379 | — |
+| Top 100 por score de deflexión | 100 | — |
+| **Prioritarios (δ ≥ 100 μas + Gaia obs en ambos lados)** | **41** | — |
+| **Con fit LOO/N-body completo (detección real)** | **1** ← (111) Ate | — |
 
 ---
 
