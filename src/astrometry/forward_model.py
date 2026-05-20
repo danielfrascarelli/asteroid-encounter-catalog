@@ -24,10 +24,12 @@ from scipy.interpolate import CubicSpline
 
 from src.astrometry.transforms import (
     heliocentric_to_barycentric_icrs,
-    light_time_iterate,
     xyz_to_radec,
 )
 from src.propagate.nbody_perturber import propagate_target_with_perturber
+
+# Speed of light in AU/day — must match the value in transforms.py
+_C_AU_DAY = 173.144632674
 
 
 def forward_model(
@@ -130,31 +132,24 @@ def forward_model(
         dt_days=dt_days,
     )
 
-    # Convert to barycentric ICRS — heliocentric_to_barycentric_icrs handles
-    # the rotation + Sun offset internally.  Done at grid nodes.
-    bary_icrs = np.empty_like(helio_ecl)
-    for i in range(len(grid)):
-        bary_icrs[i] = np.asarray(
-            heliocentric_to_barycentric_icrs(helio_ecl[i], float(grid[i]))
-        ).reshape(3)
+    # Vectorised: convert entire grid in one call (ecliptic→equatorial + Sun offset).
+    bary_icrs = heliocentric_to_barycentric_icrs(helio_ecl, grid)
 
     # Spline the (T, 3) barycentric trajectory so we can evaluate at any time
     # for the light-time iteration.
     splines = [CubicSpline(grid, bary_icrs[:, k]) for k in range(3)]
 
-    def target_pos_at(jd: float) -> np.ndarray:
-        return np.array([s(jd) for s in splines])
+    # Vectorised light-time correction: 3 fixed iterations converge to < 1 s
+    # precision at 3 AU (same as the scalar light_time_iterate with max_iter=3).
+    tau = np.zeros(len(obs_jd_tdb))
+    for _ in range(3):
+        jd_ret = obs_jd_tdb - tau
+        pos_bary = np.stack([s(jd_ret) for s in splines], axis=-1)  # (N, 3)
+        tau = np.linalg.norm(pos_bary - gaia_xyz_bary, axis=1) / _C_AU_DAY
 
-    # For each observation, apply light-time and project to RA/Dec.
-    ra = np.empty(len(obs_jd_tdb), dtype=float)
-    dec = np.empty(len(obs_jd_tdb), dtype=float)
-    for i, jd_obs in enumerate(obs_jd_tdb):
-        pos, _tau = light_time_iterate(target_pos_at, float(jd_obs), gaia_xyz_bary[i])
-        los = pos - gaia_xyz_bary[i]
-        r, d = xyz_to_radec(los)
-        ra[i] = r
-        dec[i] = d
-    return ra, dec
+    jd_ret = obs_jd_tdb - tau
+    pos_bary = np.stack([s(jd_ret) for s in splines], axis=-1)
+    return xyz_to_radec(pos_bary - gaia_xyz_bary)
 
 
 def residuals_mas(

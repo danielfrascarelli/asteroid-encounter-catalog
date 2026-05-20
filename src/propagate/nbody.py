@@ -477,12 +477,12 @@ def propagate_grid_nbody(
     init_vxvyvz = np.empty((sim.N, 3), dtype=np.float64)
     sim.serialize_particle_data(xyz=init_xyz, vxvyvz=init_vxvyvz)
 
+    # Pre-allocate once; reused across ~25k _snapshot calls to avoid per-call GC pressure.
+    _all_pos_buf = np.empty((sim.N, 3), dtype=np.float64)
+
     def _snapshot(idx: int) -> None:
-        sun_p = np.array([sim.particles[0].x, sim.particles[0].y, sim.particles[0].z])
-        all_pos = np.empty((sim.N, 3), dtype=np.float64)
-        sim.serialize_particle_data(xyz=all_pos)
-        helio = all_pos - sun_p
-        out[idx, :, :] = helio[rebound_index].astype(np.float32)
+        sim.serialize_particle_data(xyz=_all_pos_buf)
+        out[idx, :, :] = (_all_pos_buf[rebound_index] - _all_pos_buf[0]).astype(np.float32)
 
     from tqdm import tqdm
 
