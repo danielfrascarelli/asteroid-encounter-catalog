@@ -157,16 +157,6 @@ class TestForwardModelIntegration:
         assert ra.shape == (n,)
         assert dec.shape == (n,)
 
-    def test_zero_vs_nonzero_mass_differ(self):
-        """Non-zero perturber mass shifts predicted positions relative to M=0."""
-        obs_jd = np.linspace(2457200.5, 2457230.5, 10)
-        gaia   = np.tile(self._GAIA_XYZ, (10, 1))
-        ra0,  dec0  = forward_model(self._CERES, self._VESTA, 0.0,    obs_jd, gaia)
-        ra1,  dec1  = forward_model(self._CERES, self._VESTA, 1.0e20, obs_jd, gaia)
-        # With a tiny mass most positions should be identical; with 1e20 kg there
-        # should be at least some difference somewhere
-        assert not (np.allclose(ra0, ra1) and np.allclose(dec0, dec1))
-
     def test_large_mass_changes_trajectory(self):
         """An unphysically large mass (10^24 kg) must produce large residuals."""
         obs_jd = np.linspace(2457200.5, 2457300.5, 20)

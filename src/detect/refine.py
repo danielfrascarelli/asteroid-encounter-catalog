@@ -297,40 +297,42 @@ def refine_candidates(
         ) as pool:
             for chunk_rows in pool.imap_unordered(_refine_chunk, chunks):
                 rows.extend(chunk_rows)
-    else:
-        for idx_i, idx_j, t_coarse, d_coarse in candidates:
+    elif use_cache:
+        # Batch all k0 lookups upfront and sort candidates by k0 so that sequential
+        # candidates touch the same memmap page region, trading random I/O for
+        # sequential I/O on the positions array.
+        assert positions is not None and time_grid is not None
+        t_coarses = np.array([c[2] for c in candidates])
+        k0s = np.clip(
+            np.searchsorted(time_grid, t_coarses), 1, len(time_grid) - 2
+        ).astype(int)
+        order = np.argsort(k0s, kind="stable")
+
+        _prev_k0 = -1
+        _slab: np.ndarray | None = None
+
+        for oi in order:
+            idx_i, idx_j, t_coarse, _ = candidates[oi]
+            k0 = k0s[oi]
             row_i = elem_rows[idx_i]
             row_j = elem_rows[idx_j]
 
-            if use_cache:
-                assert positions is not None and time_grid is not None  # mypy guard
-                k0 = int(np.searchsorted(time_grid, t_coarse))
-                k0 = max(1, min(len(time_grid) - 2, k0))
-                t0, t1, t2 = (
-                    float(time_grid[k0 - 1]),
-                    float(time_grid[k0]),
-                    float(time_grid[k0 + 1]),
-                )
-                p_i = positions[k0 - 1 : k0 + 2, idx_i]
-                p_j = positions[k0 - 1 : k0 + 2, idx_j]
-                d3 = np.linalg.norm(p_i - p_j, axis=1)
-                t_min, d_min = _quadratic_min(t0, t1, t2, float(d3[0]), float(d3[1]), float(d3[2]))
+            if k0 != _prev_k0:
+                _slab = positions[k0 - 1 : k0 + 2]  # memmap view; sort ensures locality
+                _prev_k0 = k0
 
-                if d_min > threshold_au:
-                    continue
+            p_i = _slab[:, idx_i]
+            p_j = _slab[:, idx_j]
+            d3 = np.linalg.norm(p_i - p_j, axis=1)
+            t_min, d_min = _quadratic_min(
+                float(time_grid[k0 - 1]), float(time_grid[k0]), float(time_grid[k0 + 1]),
+                float(d3[0]), float(d3[1]), float(d3[2]),
+            )
 
-                dt_v = cache_step_days
-                rel_vel_vec = (p_i[2] - p_i[0] - (p_j[2] - p_j[0])) / (2.0 * dt_v)
-                rel_vel_au_day = float(np.linalg.norm(rel_vel_vec))
-            else:
-                result = _refine_one_kepler(
-                    row_i, row_j, t_coarse, d_coarse, threshold_au, fine_step_days, half_window_days
-                )
-                if result is None:
-                    continue
-                rows.append(result)
+            if d_min > threshold_au:
                 continue
 
+            rel_vel_vec = (p_i[2] - p_i[0] - (p_j[2] - p_j[0])) / (2.0 * cache_step_days)
             rows.append(
                 {
                     "number_1": row_i["number"],
@@ -339,9 +341,19 @@ def refine_candidates(
                     "designation_2": row_j["designation"],
                     "jd_tdb": t_min,
                     "dist_au": d_min,
-                    "rel_vel_au_day": rel_vel_au_day,
+                    "rel_vel_au_day": float(np.linalg.norm(rel_vel_vec)),
                 }
             )
+    else:
+        for idx_i, idx_j, t_coarse, d_coarse in candidates:
+            row_i = elem_rows[idx_i]
+            row_j = elem_rows[idx_j]
+            result = _refine_one_kepler(
+                row_i, row_j, t_coarse, d_coarse, threshold_au, fine_step_days, half_window_days
+            )
+            if result is None:
+                continue
+            rows.append(result)
 
     if not rows:
         return pl.DataFrame(schema=schema)
