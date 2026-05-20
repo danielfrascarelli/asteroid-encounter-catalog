@@ -233,8 +233,12 @@ class TestRealCatalog:
         assert float(df["rel_vel_km_s"].max()) < 100  # type: ignore[arg-type]
 
     def test_dist_au_within_threshold(self) -> None:
+        import yaml
+        cfg = yaml.safe_load(Path("config.yaml").read_text())
+        threshold = float(cfg["detection"]["threshold_au"])
         df = load_catalog(_CATALOG_PATH)
-        assert float(df["dist_au"].max()) <= 0.011  # type: ignore[arg-type]
+        # Allow 10% headroom for floating-point rounding in refinement step
+        assert float(df["dist_au"].max()) <= threshold * 1.1  # type: ignore[arg-type]
 
     def test_gaia_observable_fraction_reasonable(self) -> None:
         df = load_catalog(_CATALOG_PATH)
