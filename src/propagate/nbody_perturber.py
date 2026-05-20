@@ -52,6 +52,9 @@ def propagate_target_with_perturber(
         "sun", "mercury", "venus", "earth", "mars",
         "jupiter", "saturn", "uranus", "neptune",
     ),
+    include_background: bool = False,
+    background_elements: dict[str, dict] | None = None,
+    # Legacy aliases kept for backward compatibility
     include_big4: bool = False,
     big4_elements: dict[str, dict] | None = None,
     integrator: str = "whfast",
@@ -75,14 +78,17 @@ def propagate_target_with_perturber(
         the integration start epoch.
     include_planets:
         Tuple of planet names to include as massive perturbers.  Sun is always
-        added regardless.  Defaults to ``("sun", "jupiter", "saturn")``.
+        added regardless.  Defaults to all 8 planets.
+    include_background:
+        If True, add massive background asteroids from *background_elements*
+        with masses from ``_MAJOR_ASTEROIDS``.  Supersedes ``include_big4``.
+    background_elements:
+        Dict keyed by lowercase asteroid name with their MPCORB element dicts.
+        Required when ``include_background=True``.
     include_big4:
-        If true, also add (1) Ceres, (2) Pallas, (4) Vesta, (10) Hygiea as
-        massive perturbers with their canonical masses.  Requires
-        *big4_elements* with their MPCORB rows.
+        Deprecated alias for ``include_background``.
     big4_elements:
-        Dict keyed by asteroid name (lowercase: ``"ceres"``, ...) with the
-        MPCORB element dicts.  Required when ``include_big4=True``.
+        Deprecated alias for ``background_elements``.
     integrator:
         REBOUND integrator (``"whfast"`` or ``"ias15"``).
     dt_days:
@@ -100,6 +106,12 @@ def propagate_target_with_perturber(
     same instant.
     """
     import rebound
+
+    # Resolve legacy aliases
+    if include_big4 and not include_background:
+        include_background = True
+    if big4_elements is not None and background_elements is None:
+        background_elements = big4_elements
 
     if perturber_mass_kg < 0:
         raise ValueError("perturber_mass_kg must be non-negative")
@@ -140,15 +152,14 @@ def propagate_target_with_perturber(
 
     sun_pos_bary, sun_vel_bary = _planet_state_at("sun", epoch_jd)
 
-    # Add the big-4 if requested
-    if include_big4:
-        if big4_elements is None:
-            raise ValueError("include_big4=True requires big4_elements dict")
+    # Add background asteroids if requested
+    if include_background:
+        if background_elements is None:
+            raise ValueError("include_background=True requires background_elements dict")
         for name, (_number, gm_msun) in _MAJOR_ASTEROIDS.items():
-            if name not in big4_elements:
-                logger.warning("Big-4 %s requested but no elements provided; skipping", name)
-                continue
-            p_helio, v_helio = _heliocentric_kepler_state(big4_elements[name], epoch_jd)
+            if name not in background_elements:
+                continue  # silently skip bodies not supplied by caller
+            p_helio, v_helio = _heliocentric_kepler_state(background_elements[name], epoch_jd)
             sim.add(
                 m=gm_msun,
                 x=float(p_helio[0] + sun_pos_bary[0]),

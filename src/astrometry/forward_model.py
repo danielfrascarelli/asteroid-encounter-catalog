@@ -41,6 +41,9 @@ def forward_model(
         "sun", "mercury", "venus", "earth", "mars",
         "jupiter", "saturn", "uranus", "neptune",
     ),
+    include_background: bool = False,
+    background_elements: dict[str, dict] | None = None,
+    # Legacy aliases
     include_big4: bool = False,
     big4_elements: dict[str, dict] | None = None,
     dt_days: float = 1.0,
@@ -69,13 +72,15 @@ def forward_model(
         (N, 3) Gaia barycentric ICRS positions at the same epochs (AU).
     include_planets:
         Planets to include in the N-body integration.
+    include_background:
+        If True, include massive background asteroids from *background_elements*
+        with masses from ``_MAJOR_ASTEROIDS``.  Supersedes ``include_big4``.
+    background_elements:
+        Dict keyed by lowercase name with MPCORB element dicts.
     include_big4:
-        If True, include (1) Ceres, (2) Pallas, (4) Vesta, (10) Hygiea as
-        massive perturbers.  Requires *big4_elements*.
+        Deprecated alias for ``include_background``.
     big4_elements:
-        Dict keyed by lowercase name (``"ceres"``, ``"pallas"``, ``"vesta"``,
-        ``"hygiea"``) with their MPCORB element dicts.  Required when
-        ``include_big4=True``.
+        Deprecated alias for ``background_elements``.
     dt_days:
         WHFast time step (days).
     bracket_days:
@@ -119,8 +124,8 @@ def forward_model(
         perturber_mass_kg=perturber_mass_kg,
         time_grid_jd_tdb=grid,
         include_planets=include_planets,
-        include_big4=include_big4,
-        big4_elements=big4_elements,
+        include_background=include_background or include_big4,
+        background_elements=background_elements or big4_elements,
         integrator=integrator,
         dt_days=dt_days,
     )
