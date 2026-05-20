@@ -156,18 +156,23 @@ Ver `config.yaml` para la lista completa con comentarios.
 
 Ver `CLAUDE.md` para una descripción detallada de cada módulo.
 
-## 📊 Resultados (corrida completa sobre todos los asteroides numerados)
+## 📊 Resultados (corrida de producción actual)
 
 | Métrica | Valor |
 |---------|-------|
-| Asteroides procesados | ~98.775 numerados (MPCORB) |
+| Asteroides procesados | 433.880 numerados (MPCORB snapshot 2015-05-24) |
 | Ventana temporal | 2014-07-25 → 2017-05-28 (Gaia DR3) |
-| Umbral de detección | 0.05 AU |
-| **Encuentros detectados** | **4.036.495** |
+| Umbral de detección | **0.01 AU** (corrida de producción) |
+| **Encuentros detectados** | **119.546** |
 | Encuentro más cercano | **0.000025 AU** (≈ 3.695 km) |
 | Velocidad relativa (rango) | 0.032 – 25.23 km/s |
 | Diámetro cuerpo 1 (rango) | 1 – 795 km |
 | Cuerpos grandes confirmados | Ceres (74 enc.), Vesta (103 enc.), Hygiea (50 enc.) |
+
+> **Nota**: una corrida exploratoria previa con umbral 0.05 AU y ~99k asteroides (MPCORB sin
+> fix de números empaquetados) produjo 4.036.495 encuentros. La corrida de producción usa el
+> umbral más restrictivo 0.01 AU y el parser corregido (433k objetos). Ver
+> `encounters_characterized_metadata.json` para el hash exacto de inputs.
 
 ### Encuentros destacados
 

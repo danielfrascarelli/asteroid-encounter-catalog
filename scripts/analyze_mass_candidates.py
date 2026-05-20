@@ -263,7 +263,10 @@ def analyze_candidates(
         # Mass + deflection
         mass_est_kg = estimate_mass_kg(perturber_diameter_km)
         deflection_muas = compute_deflection_muas(mass_est_kg, rel_vel_km_s, dist_au)
-        viable = bool(
+        # NOTE: this flag indicates the impulse-formula deflection exceeds 100 μas.
+        # It is a *priority score*, NOT a detection or publishability criterion.
+        # A real detection requires an AL-weighted LOO orbit fit with N-body integration.
+        priority_by_impulse_score = bool(
             math.isfinite(deflection_muas) and deflection_muas >= _GAIA_PRECISION_MUAS
         )
 
@@ -277,7 +280,7 @@ def analyze_candidates(
 
         logger.info(
             "[#%02d] (%d) %s + %s on %s :: d=%.6f AU, v=%.3f km/s, "
-            "D₁=%.1f km, M_est=%.3e kg, δ=%.1f μas, viable=%s, gaia=%s",
+            "D₁=%.1f km, M_est=%.3e kg, δ=%.1f μas, priority=%s, gaia=%s",
             rank,
             perturber,
             perturber_name,
@@ -288,7 +291,7 @@ def analyze_candidates(
             perturber_diameter_km,
             mass_est_kg,
             deflection_muas,
-            viable,
+            priority_by_impulse_score,
             gaia_has_target,
         )
 
@@ -339,7 +342,7 @@ def analyze_candidates(
                 "deflection_muas": deflection_muas,
                 "gaia_precision_muas": _GAIA_PRECISION_MUAS,
                 "gaia_has_target": gaia_has_target,
-                "viable": viable,
+                "priority_by_impulse_score": priority_by_impulse_score,
                 "jpl_dist_au": jpl_dist_au,
                 "delta_au": delta_au,
             }
