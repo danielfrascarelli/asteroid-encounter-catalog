@@ -129,14 +129,31 @@ def main() -> int:
         return 1
 
     # --- Time grid ---
-    grid = make_time_grid(t_start, t_end, step_hours=cfg.propagation.time_step_hours)
-    logger.info(
-        "Time grid: %s → %s  (%d steps, Δt=%.1fh)",
-        tw.start,
-        tw.end,
-        len(grid),
-        cfg.propagation.time_step_hours,
-    )
+    # Strategy A: when ``coarse_step_hours`` is set and exceeds the fine step,
+    # the bulk N-body cache is built (and the KD-tree scan walks) at the coarse
+    # step. Refinement still uses the fine ``time_step_hours`` indirectly via
+    # the Kepler propagator. When ``coarse_step_hours`` is unset, the bulk grid
+    # falls back to ``time_step_hours`` (original behaviour).
+    fine_step_hours = cfg.propagation.time_step_hours
+    coarse_step_hours = cfg.propagation.coarse_step_hours or fine_step_hours
+    use_tiered = coarse_step_hours > fine_step_hours
+    grid = make_time_grid(t_start, t_end, step_hours=coarse_step_hours)
+    if use_tiered:
+        logger.info(
+            "Tiered cache: bulk grid Δt=%.1fh (%d steps); refinement falls back "
+            "to Kepler on the fine grid Δt=%.1fh",
+            coarse_step_hours,
+            len(grid),
+            fine_step_hours,
+        )
+    else:
+        logger.info(
+            "Time grid: %s → %s  (%d steps, Δt=%.1fh)",
+            tw.start,
+            tw.end,
+            len(grid),
+            coarse_step_hours,
+        )
 
     # --- Propagation (N-body branch precomputes the trajectory) ---
     positions = None
@@ -151,7 +168,11 @@ def main() -> int:
             "include_planets": cfg.propagation.rebound.include_planets,
             "include_major_asteroids": cfg.propagation.rebound.include_major_asteroids,
             "integrator": cfg.propagation.rebound.integrator,
-            "dt_days": cfg.propagation.time_step_hours / 24.0,
+            # The integrator step stays at the fine resolution to preserve
+            # accuracy; only the snapshot cadence (the time_grid spacing) is
+            # coarsened. This is the standard trick — full N-body precision
+            # with 12× less disk and 12× less work in the KD-tree scan.
+            "dt_days": fine_step_hours / 24.0,
         }
         cache_dir = cfg.paths.cache if cfg.propagation.cache_results else None
         cache_key = None
@@ -185,6 +206,23 @@ def main() -> int:
     par = cfg.parallel
     n_workers = par.n_workers if par.enabled else 1
 
+    # Strategy A: widen the KD-tree query radius to cover encounters whose
+    # closest approach falls between two coarse samples. Half-step displacement
+    # at v_max sets the bound; we use the full step for extra safety margin.
+    query_radius_au = det.threshold_au
+    if use_tiered:
+        v_max_au_per_day = det.max_relative_velocity_km_s * 86_400.0 / 1.495_978_707e8
+        widen_au = v_max_au_per_day * (coarse_step_hours / 24.0)
+        query_radius_au = det.threshold_au + widen_au
+        logger.info(
+            "Coarse Δt=%.1fh × v_max=%.1f km/s → widening +%.5f AU "
+            "(query radius %.5f AU)",
+            coarse_step_hours,
+            det.max_relative_velocity_km_s,
+            widen_au,
+            query_radius_au,
+        )
+
     logger.info(
         "Starting encounter detection  (workers=%s, chunk_size=%.0f days)…",
         n_workers,
@@ -206,6 +244,8 @@ def main() -> int:
         n_workers=n_workers,
         chunk_size_days=par.chunk_size_days,
         positions=positions,
+        query_radius_au=query_radius_au,
+        force_kepler_refine=use_tiered,
     )
 
     elapsed = time.monotonic() - t0

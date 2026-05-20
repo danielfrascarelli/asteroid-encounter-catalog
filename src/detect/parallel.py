@@ -63,9 +63,9 @@ def _init_worker(
 
 
 def _scan_chunk(
-    args: tuple[np.ndarray, np.ndarray, float, int],
+    args: tuple[np.ndarray, np.ndarray, float, int, float],
 ) -> list[tuple[int, int, float, float]]:
-    chunk_times, chunk_indices, threshold_au, leaf_size = args
+    chunk_times, chunk_indices, threshold_au, leaf_size, query_radius_au = args
     assert _G_ELEMENTS is not None
     positions_chunk: np.ndarray | None = None
     if _G_POSITIONS is not None:
@@ -77,6 +77,7 @@ def _scan_chunk(
         threshold_au,
         leaf_size,
         positions=positions_chunk,
+        query_radius_au=query_radius_au,
     )
 
 
@@ -122,6 +123,7 @@ def scan_parallel(
     n_workers: int | str = "auto",
     chunk_size_days: float = 30.0,
     positions: np.ndarray | None = None,
+    query_radius_au: float | None = None,
 ) -> list[tuple[int, int, float, float]]:
     """Parallel drop-in replacement for :func:`~src.detect.kdtree_scan.scan_time_grid`.
 
@@ -158,8 +160,9 @@ def scan_parallel(
     """
     nw = resolve_n_workers(n_workers)
     chunks = _make_chunks(time_grid, chunk_size_days)
+    qr = query_radius_au if query_radius_au is not None else threshold_au
     tasks = [
-        (chunk_times, chunk_indices, threshold_au, leaf_size)
+        (chunk_times, chunk_indices, threshold_au, leaf_size, qr)
         for chunk_times, chunk_indices in chunks
     ]
 
