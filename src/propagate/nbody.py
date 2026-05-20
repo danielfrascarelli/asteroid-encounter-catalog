@@ -455,11 +455,8 @@ def propagate_grid_nbody(
     # ---------------------------------------------------------------------
     # REBOUND's clock starts at sim.t = 0 corresponding to epoch_jd.
     sim.t = 0.0
-    # WHFast safe-mode synchronisation must be on for accurate intermediate
-    # output between sim.integrate(t) calls; mandatory because the KD-tree
-    # scan samples the trajectory at every grid step (not just the endpoint).
-    if integrator == "whfast":
-        sim.ri_whfast.safe_mode = 1
+    # REBOUND 5+ synchronizes WHFast on every sim.integrate() return by default;
+    # the explicit safe_mode flag was removed in the 5.0 API refactor.
 
     if out is None:
         out = np.empty((n_steps, n_ast, 3), dtype=np.float32)
@@ -515,7 +512,9 @@ def propagate_grid_nbody(
         sim.t = 0.0
         if integrator == "whfast":
             sim.dt = -abs(dt_days)
-            sim.ri_whfast.recalculate_coordinates_this_timestep = 1
+            # REBOUND 5 flag: signal that particle positions changed externally
+            # so WHFast recomputes its Jacobi coordinates on the next step.
+            sim.did_modify_particles = 1
         # Walk backward steps in decreasing time order (most-negative last)
         for step_idx in tqdm(
             bwd_steps[::-1], desc="N-body integrate (bwd)", unit="step", leave=False

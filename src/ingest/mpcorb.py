@@ -19,6 +19,7 @@ MPCORB.DAT column layout (1-based, per MPC documentation):
 from __future__ import annotations
 
 import logging
+from functools import cache
 from pathlib import Path
 
 import polars as pl
@@ -39,6 +40,7 @@ _DAY.update({c: 10 + j for j, c in enumerate("ABCDEFGHIJKLMNOPQRSTUV")})
 _CENTURY: dict[str, int] = {"I": 1800, "J": 1900, "K": 2000}
 
 
+@cache
 def unpack_epoch(packed: str) -> float:
     """Convert a 5-char MPC packed epoch string to JD (TDB).
 
