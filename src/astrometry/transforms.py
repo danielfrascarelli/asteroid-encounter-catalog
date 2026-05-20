@@ -9,9 +9,10 @@ Conventions
 - Times are JD TDB unless noted.
 - Angles internal: radians.
 
-All transforms use the IAU 1980 obliquity ε = 23°26'21.448" ≈ 23.43928083°.
-For our mas-level accuracy this is sufficient; higher precision would use the
-IAU 2006 precession-nutation model via astropy.
+All transforms use the IAU 2006 obliquity ε = 23.4392911° (consistent with
+the value used in nbody.py to rotate planet ephemerides into ecliptic frame).
+Using a mismatched obliquity introduces a ~37 mas systematic in the ecliptic
+→ equatorial rotation.
 """
 
 from __future__ import annotations
@@ -20,8 +21,8 @@ import numpy as np
 from astropy.coordinates import get_body_barycentric
 from astropy.time import Time
 
-# IAU 1980 obliquity at J2000
-_OBLIQUITY_DEG = 23.43928083
+# IAU 2006 obliquity at J2000 — must match nbody.py's _EPS_J2000
+_OBLIQUITY_DEG = 23.4392911
 _EPS = np.radians(_OBLIQUITY_DEG)
 _COS_EPS = np.cos(_EPS)
 _SIN_EPS = np.sin(_EPS)

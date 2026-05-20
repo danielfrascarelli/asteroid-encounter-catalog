@@ -64,17 +64,39 @@ def unpack_epoch(packed: str) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Packed number decoding  (numbers ≥ 100 000 use letter + 4-digit format)
+# ---------------------------------------------------------------------------
+
+# MPC packed number scheme: A=10, B=11, …, Z=35, a=36, …, z=61
+# so A0000 = 100000, L6875 = 210000 + 6875 = 216875, etc.
+_PACK_LETTER: dict[str, int] = {
+    c: 10 + i for i, c in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+}
+_PACK_LETTER.update({c: 36 + i for i, c in enumerate("abcdefghijklmnopqrstuvwxyz")})
+
+
+def _unpack_number(no_field: str) -> int | None:
+    """Return the integer asteroid number from an MPCORB number field, or None."""
+    s = no_field.strip()
+    if not s:
+        return None
+    # Plain integer (1–99999)
+    if s.isdigit():
+        return int(s)
+    # Packed format: one letter + 4 digits (≥ 100000)
+    if len(s) == 5 and s[0] in _PACK_LETTER and s[1:].isdigit():
+        return _PACK_LETTER[s[0]] * 10_000 + int(s[1:])
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Line classification helpers
 # ---------------------------------------------------------------------------
 
 
 def _is_numbered(no_field: str) -> bool:
-    """Return True if the number field contains a plain integer."""
-    try:
-        int(no_field.strip())
-        return True
-    except ValueError:
-        return False
+    """Return True if the number field represents a numbered asteroid."""
+    return _unpack_number(no_field) is not None
 
 
 def _is_data_line(line: str) -> bool:
@@ -150,7 +172,7 @@ def parse_mpcorb(
                 logger.debug("Skipping line with unparseable epoch: %.40s…", line)
                 continue
 
-            number = int(no_field.strip()) if _is_numbered(no_field) else None
+            number = _unpack_number(no_field)
             designation = line[166:194].strip() if len(line) >= 194 else no_field.strip()
 
             rows.append(

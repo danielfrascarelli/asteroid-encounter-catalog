@@ -48,7 +48,10 @@ def propagate_target_with_perturber(
     perturber_mass_kg: float,
     time_grid_jd_tdb: np.ndarray,
     *,
-    include_planets: tuple[str, ...] = ("sun", "jupiter", "saturn"),
+    include_planets: tuple[str, ...] = (
+        "sun", "mercury", "venus", "earth", "mars",
+        "jupiter", "saturn", "uranus", "neptune",
+    ),
     include_big4: bool = False,
     big4_elements: dict[str, dict] | None = None,
     integrator: str = "whfast",

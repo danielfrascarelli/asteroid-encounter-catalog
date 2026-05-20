@@ -37,8 +37,14 @@ def forward_model(
     obs_jd_tdb: np.ndarray,
     gaia_xyz_bary: np.ndarray,
     *,
-    include_planets: tuple[str, ...] = ("sun", "jupiter", "saturn"),
+    include_planets: tuple[str, ...] = (
+        "sun", "mercury", "venus", "earth", "mars",
+        "jupiter", "saturn", "uranus", "neptune",
+    ),
+    include_big4: bool = False,
+    big4_elements: dict[str, dict] | None = None,
     dt_days: float = 1.0,
+    integrator: str = "whfast",
     bracket_days: float = 2.0,
     n_bracket_points: int = 9,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -63,6 +69,13 @@ def forward_model(
         (N, 3) Gaia barycentric ICRS positions at the same epochs (AU).
     include_planets:
         Planets to include in the N-body integration.
+    include_big4:
+        If True, include (1) Ceres, (2) Pallas, (4) Vesta, (10) Hygiea as
+        massive perturbers.  Requires *big4_elements*.
+    big4_elements:
+        Dict keyed by lowercase name (``"ceres"``, ``"pallas"``, ``"vesta"``,
+        ``"hygiea"``) with their MPCORB element dicts.  Required when
+        ``include_big4=True``.
     dt_days:
         WHFast time step (days).
     bracket_days:
@@ -106,6 +119,9 @@ def forward_model(
         perturber_mass_kg=perturber_mass_kg,
         time_grid_jd_tdb=grid,
         include_planets=include_planets,
+        include_big4=include_big4,
+        big4_elements=big4_elements,
+        integrator=integrator,
         dt_days=dt_days,
     )
 

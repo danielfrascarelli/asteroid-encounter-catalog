@@ -89,12 +89,25 @@ def fit_orbit_only(
     gaia_xyz: np.ndarray,
     ra_obs: np.ndarray,
     dec_obs: np.ndarray,
+    reg_sigma: np.ndarray | None = None,
 ) -> tuple[dict, dict]:
     """Phase A of the two-phase fit: fit only the target's orbital elements.
 
     Uses *pre-encounter* observations only. The perturber is treated as
     massless (mass = 0) so it doesn't affect the trajectory, just provides
     the structure the forward model expects.
+
+    Tikhonov regularization keeps the solution close to the MPCORB prior.
+    This is critical when pre-encounter observations are few: without it,
+    the Jacobian is near-singular and the optimizer declares false convergence
+    after <5 iterations with residuals still at ~100 mas.
+
+    Parameters
+    ----------
+    reg_sigma:
+        6-element array of 1-sigma priors on [a_au, e, i_deg, Omega_deg,
+        omega_deg, M_deg].  Defaults to typical uncertainties for a
+        well-observed numbered MBA in the MPCORB 2012 snapshot.
 
     Returns
     -------
@@ -115,6 +128,12 @@ def fit_orbit_only(
     hi = np.array([a0 + 0.01, min(0.999, e0 + 0.01), i0 + 0.5,
                    Omega0 + 5.0, omega0 + 5.0, M0 + 5.0])
 
+    # Default regularization: typical MPCORB orbit uncertainty for a numbered MBA.
+    # Loose enough to correct MPCORB→observation drift; tight enough to prevent
+    # overfitting when only a handful of pre-encounter transits are available.
+    if reg_sigma is None:
+        reg_sigma = np.array([1e-4, 1e-4, 0.05, 0.10, 0.10, 0.20])
+
     def residual_func(params: np.ndarray) -> np.ndarray:
         tgt = dict(target_elements)
         tgt["a_au"] = float(params[0])
@@ -127,14 +146,21 @@ def fit_orbit_only(
             tgt, perturber_elements, 0.0, obs_jd_tdb, gaia_xyz,  # mass=0
         )
         dra, ddec = residuals_mas(ra_obs, dec_obs, ra_pred, dec_pred)
-        return np.concatenate([dra, ddec])
+        # Tikhonov terms: (param − prior) / σ in parameter units.
+        # These 6 extra residuals make J full-rank regardless of n_obs,
+        # preventing false convergence and enabling genuine parameter updates.
+        reg = (params - x0) / reg_sigma
+        return np.concatenate([dra, ddec, reg])
 
     logger.info(
-        "[Phase A] orbit-only fit: 6 params, %d pre-encounter obs (%d residuals)",
+        "[Phase A] orbit-only fit with Tikhonov regularization: "
+        "6 params, %d pre-encounter obs (%d + 6 residuals)",
         len(obs_jd_tdb), 2 * len(obs_jd_tdb),
     )
     res = least_squares(
-        residual_func, x0, method="trf", bounds=(lo, hi), max_nfev=100, verbose=2,
+        residual_func, x0, method="trf", bounds=(lo, hi),
+        max_nfev=500,
+        ftol=1e-10, xtol=1e-10, gtol=1e-10,
     )
     logger.info("[Phase A] done: nfev=%d cost=%.3e", res.nfev, res.cost)
 
@@ -147,14 +173,16 @@ def fit_orbit_only(
     fitted["M_deg"] = float(res.x[5])
 
     chi2 = float(np.sum(res.fun ** 2))
-    n_data = len(res.fun)
-    chi2_red = chi2 / max(1, n_data - 6)
+    # Data-only residuals (exclude the 6 Tikhonov terms at the end)
+    n_data_residuals = 2 * len(obs_jd_tdb)
+    data_chi2 = float(np.sum(res.fun[:n_data_residuals] ** 2))
+    chi2_red = data_chi2 / max(1, n_data_residuals - 6)
     return fitted, {
-        "chi2": chi2,
+        "chi2": data_chi2,
         "chi2_red": chi2_red,
         "nfev": res.nfev,
         "fitted_elements": fitted,
-        "residual_rms_mas": float(np.sqrt(chi2 / max(1, n_data))),
+        "residual_rms_mas": float(np.sqrt(data_chi2 / max(1, n_data_residuals))),
     }
 
 
