@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator
+from functools import lru_cache
 
 import numpy as np
 import polars as pl
@@ -136,11 +137,34 @@ def _icrs_to_ecliptic(vec: np.ndarray) -> np.ndarray:
     return np.asarray(_ICRS_TO_ECL @ vec)
 
 
+@lru_cache(maxsize=4096)
+def _planet_state_cached(body: str, epoch_jd_tdb_quant: float) -> tuple[tuple, tuple]:
+    """Cacheable inner: keys on a quantised epoch so float jitter still hits."""
+    t = Time(epoch_jd_tdb_quant, format="jd", scale="tdb")
+    with solar_system_ephemeris.set("builtin"):
+        pos, vel = get_body_barycentric_posvel(body, t)
+    p_icrs = pos.xyz.to(u.AU).value
+    v_icrs = vel.xyz.to(u.AU / u.day).value
+    p_ecl = _icrs_to_ecliptic(p_icrs)
+    v_ecl = _icrs_to_ecliptic(v_icrs)
+    # Return immutable tuples so the cache value can't be mutated by callers.
+    return (float(p_ecl[0]), float(p_ecl[1]), float(p_ecl[2])), (
+        float(v_ecl[0]),
+        float(v_ecl[1]),
+        float(v_ecl[2]),
+    )
+
+
 def _planet_state_at(body: str, epoch_jd_tdb: float) -> tuple[np.ndarray, np.ndarray]:
     """Return (pos_AU, vel_AU_per_day) of *body* in barycentric ecliptic J2000.
 
     Uses astropy's built-in low-precision JPL ephemeris (no network, no files
     beyond the wheels).  Inputs are in JD TDB.
+
+    The result is memoised on ``(body, round(epoch_jd_tdb, 6))`` — quantising
+    to ~0.1 s preserves astrometric precision while still hitting on the
+    repeated lookups inside the mass-fit optimiser, where every evaluation
+    rebuilds a REBOUND simulation with the same planet states.
 
     Parameters
     ----------
@@ -155,12 +179,8 @@ def _planet_state_at(body: str, epoch_jd_tdb: float) -> tuple[np.ndarray, np.nda
     (pos_au, vel_au_per_day)
         Both arrays of shape (3,).
     """
-    t = Time(epoch_jd_tdb, format="jd", scale="tdb")
-    with solar_system_ephemeris.set("builtin"):
-        pos, vel = get_body_barycentric_posvel(body, t)
-    p_icrs = pos.xyz.to(u.AU).value
-    v_icrs = vel.xyz.to(u.AU / u.day).value
-    return _icrs_to_ecliptic(p_icrs), _icrs_to_ecliptic(v_icrs)
+    p_tup, v_tup = _planet_state_cached(body, round(float(epoch_jd_tdb), 6))
+    return np.asarray(p_tup, dtype=float), np.asarray(v_tup, dtype=float)
 
 
 def _heliocentric_kepler_state(
@@ -476,10 +496,19 @@ def propagate_grid_nbody(
 
     # Pre-allocate once; reused across ~25k _snapshot calls to avoid per-call GC pressure.
     _all_pos_buf = np.empty((sim.N, 3), dtype=np.float64)
+    # Pre-allocate the heliocentric scratch buffer too — fancy indexing into
+    # _all_pos_buf would otherwise malloc (n_ast, 3) float64 per snapshot, and
+    # the previous .astype(np.float32) cast was a second malloc on top. With
+    # np.take(..., out=) plus an in-place subtract we keep both buffers fixed.
+    _helio_buf = np.empty((n_ast, 3), dtype=np.float64)
 
     def _snapshot(idx: int) -> None:
         sim.serialize_particle_data(xyz=_all_pos_buf)
-        out[idx, :, :] = (_all_pos_buf[rebound_index] - _all_pos_buf[0]).astype(np.float32)
+        np.take(_all_pos_buf, rebound_index, axis=0, out=_helio_buf)
+        np.subtract(_helio_buf, _all_pos_buf[0], out=_helio_buf)
+        # Assigning float64 -> float32 memmap slice casts elementwise without
+        # allocating an intermediate array.
+        out[idx, :, :] = _helio_buf
 
     from tqdm import tqdm
 

@@ -72,15 +72,18 @@ def equatorial_to_ecliptic(xyz_eq: np.ndarray) -> np.ndarray:
 def sun_barycentric_au(jd_tdb: np.ndarray | float) -> np.ndarray:
     """Sun's barycentric (ICRS) position at *jd_tdb* in AU.
 
-    Uses astropy's default solar-system ephemeris.
+    Uses astropy's default solar-system ephemeris. astropy's
+    ``get_body_barycentric`` accepts an array-valued Time, so a single
+    vectorised call replaces the per-epoch Python loop that previously
+    dominated this function in the mass-fit hot path.
     """
     jd_tdb_arr = np.atleast_1d(np.asarray(jd_tdb, dtype=float))
-    out = np.empty((len(jd_tdb_arr), 3), dtype=float)
-    for i, t in enumerate(jd_tdb_arr):
-        sun = get_body_barycentric("sun", Time(t, format="jd", scale="tdb"))
-        out[i, 0] = sun.x.to_value("AU")
-        out[i, 1] = sun.y.to_value("AU")
-        out[i, 2] = sun.z.to_value("AU")
+    t = Time(jd_tdb_arr, format="jd", scale="tdb")
+    sun = get_body_barycentric("sun", t)
+    out = np.stack(
+        [sun.x.to_value("AU"), sun.y.to_value("AU"), sun.z.to_value("AU")],
+        axis=-1,
+    )
     if np.ndim(jd_tdb) == 0:
         return out[0]
     return out
