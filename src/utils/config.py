@@ -128,6 +128,12 @@ class PropagationConfig:
     reference_frame: str
     cache_results: bool
     rebound: ReboundConfig
+    # Optional coarser step (hours) for the bulk-scan trajectory cache. When
+    # set and larger than ``time_step_hours`` the bulk cache is built at this
+    # step (12× smaller at 12 h vs 1 h) and the KD-tree scan widens its query
+    # radius accordingly. Refinement falls back to Kepler-on-demand when the
+    # cache is too coarse for quadratic interpolation.
+    coarse_step_hours: float | None = None
 
 
 @dataclass
@@ -155,6 +161,11 @@ class DetectionConfig:
     prefilter: PrefilterConfig
     kdtree: KdTreeConfig
     refinement: RefinementConfig
+    # Conservative upper bound on inter-asteroid relative velocity used to
+    # widen the KD-tree query radius when the bulk trajectory is sampled
+    # coarsely. ~25 km/s safely covers MBA-only subsets (max heliocentric
+    # speeds ≲ 30 km/s at perihelion; mutual encounter velocities much lower).
+    max_relative_velocity_km_s: float = 25.0
 
 
 @dataclass
@@ -294,6 +305,8 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
     prop = raw["propagation"]
     _require(prop, "method", "time_step_hours", "reference_frame", "cache_results", "rebound")
     _require(prop["rebound"], "integrator", "include_planets", "include_major_asteroids")
+    # coarse_step_hours and max_relative_velocity_km_s are optional with sensible
+    # defaults — older configs without these keys still validate.
 
     det = raw["detection"]
     _require(det, "threshold_au", "prefilter", "kdtree", "refinement")
@@ -347,12 +360,14 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
             reference_frame=prop["reference_frame"],
             cache_results=prop["cache_results"],
             rebound=ReboundConfig(**prop["rebound"]),
+            coarse_step_hours=prop.get("coarse_step_hours"),
         ),
         detection=DetectionConfig(
             threshold_au=det["threshold_au"],
             prefilter=PrefilterConfig(**det["prefilter"]),
             kdtree=KdTreeConfig(**det["kdtree"]),
             refinement=RefinementConfig(**det["refinement"]),
+            max_relative_velocity_km_s=float(det.get("max_relative_velocity_km_s", 25.0)),
         ),
         characterize=CharacterizeConfig(**char),
         parallel=ParallelConfig(**par),

@@ -33,6 +33,7 @@ def scan_time_grid(
     threshold_au: float,
     leaf_size: int = 30,
     positions: np.ndarray | None = None,
+    query_radius_au: float | None = None,
 ) -> list[tuple[int, int, float, float]]:
     """Scan *time_grid* for compatible pairs closer than *threshold_au*.
 
@@ -46,22 +47,34 @@ def scan_time_grid(
     pairs:
         ``(M, 2)`` int32 array of prefilter-compatible pair indices.
     threshold_au:
-        Distance threshold in AU.
+        Distance threshold in AU. Pairs whose minimum observed distance is
+        below this value are returned.
     leaf_size:
         ``cKDTree`` leaf_size parameter.
     positions:
         Optional ``(T, N, 3)`` array of pre-computed positions (e.g. from the
         N-body propagator).  When supplied, *elements* is unused for
         propagation; positions are simply indexed step-by-step.
+    query_radius_au:
+        Optional widened radius for the ``query_pairs`` lookup. When the bulk
+        trajectory is sampled coarsely (e.g. 12 h step), the true closest
+        approach can fall between two sampled epochs and miss the threshold
+        at both. Passing ``query_radius_au = threshold + v_max * dt/2`` lets
+        the scan capture those pairs as candidates; the refinement step then
+        re-evaluates them on a fine grid and drops any whose true minimum is
+        above ``threshold_au``. Defaults to ``threshold_au`` (no widening).
 
     Returns
     -------
     list of (idx_i, idx_j, best_t_jd, best_dist_au)
         One entry per pair where the minimum observed distance is below
-        *threshold_au*.  Pairs never seen within threshold are omitted.
+        *query_radius_au*.  Pairs never seen within that radius are omitted.
     """
     if pairs is not None and len(pairs) == 0:
         return []
+
+    if query_radius_au is None or query_radius_au < threshold_au:
+        query_radius_au = threshold_au
 
     # Build a fast set for O(1) membership tests (query_pairs guarantees i<j).
     # When pairs is None the orbital prefilter was skipped; all spatially close
@@ -82,7 +95,7 @@ def scan_time_grid(
         )
     ):
         tree = cKDTree(pos, leafsize=leaf_size)
-        raw: np.ndarray = tree.query_pairs(threshold_au, output_type="ndarray")
+        raw: np.ndarray = tree.query_pairs(query_radius_au, output_type="ndarray")
 
         if len(raw) == 0:
             continue

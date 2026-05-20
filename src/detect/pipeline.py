@@ -47,6 +47,8 @@ def detect_encounters(
     n_workers: int | str,
     chunk_size_days: float,
     positions: np.ndarray | None = None,
+    query_radius_au: float | None = None,
+    force_kepler_refine: bool = False,
 ) -> pl.DataFrame:
     """Detect close asteroid encounters over a time grid.
 
@@ -126,6 +128,13 @@ def detect_encounters(
     from src.detect.parallel import resolve_n_workers
 
     nw = resolve_n_workers(n_workers)
+    if query_radius_au is not None and query_radius_au > threshold_au:
+        logger.info(
+            "KD-tree query radius widened to %.5f AU (vs threshold %.5f AU) to "
+            "compensate for coarse temporal sampling",
+            query_radius_au,
+            threshold_au,
+        )
     if nw > 1:
         candidates = scan_parallel(
             elements,
@@ -136,10 +145,17 @@ def detect_encounters(
             n_workers,
             chunk_size_days,
             positions=positions,
+            query_radius_au=query_radius_au,
         )
     else:
         candidates = scan_time_grid(
-            elements, time_grid, pairs, threshold_au, leaf_size, positions=positions
+            elements,
+            time_grid,
+            pairs,
+            threshold_au,
+            leaf_size,
+            positions=positions,
+            query_radius_au=query_radius_au,
         )
     logger.info("%d coarse candidates after KD-tree scan", len(candidates))
 
@@ -148,14 +164,21 @@ def detect_encounters(
 
     # --- Step 3: refinement ---
     if refinement_enabled:
+        # When the bulk cache is coarse (Strategy A), the quadratic-over-cache
+        # refinement loses precision (3-point parabola over 12 h grid is way
+        # less accurate than a 60 s Kepler scan). Pass force_kepler_refine=True
+        # to skip the cache path inside refine_candidates and re-evaluate every
+        # candidate with the 2-body propagator on a ±window_hours fine grid.
+        refine_positions = None if force_kepler_refine else positions
+        refine_time_grid = None if force_kepler_refine else time_grid
         result = refine_candidates(
             elements,
             candidates,
             threshold_au,
             fine_step_seconds,
             window_hours,
-            positions=positions,
-            time_grid=time_grid,
+            positions=refine_positions,
+            time_grid=refine_time_grid,
             n_workers=nw,
         )
     else:

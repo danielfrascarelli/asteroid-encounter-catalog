@@ -125,7 +125,14 @@ time_window:
 # -----------------------------------------------------------------------------
 propagation:
   method: "kepler"                   # "kepler" (rápido, 2 cuerpos) o "rebound" (preciso, N-cuerpos)
-  time_step_hours: 1.0               # Resolución temporal de la grilla
+  time_step_hours: 1.0               # Resolución temporal "fina" (usada por refinement Kepler)
+  # Strategy A — Tiered temporal resolution
+  # Si está seteado y es > time_step_hours, el bulk N-body cache se construye a
+  # este paso (12x menos disco a 12h vs 1h). El KD-tree scan ensancha su query
+  # radius para no perder encuentros entre samples coarse, y el refinement
+  # vuelve al propagador Kepler en una ventana fina alrededor de cada candidato.
+  # null = comportamiento original (bulk cache al fine step).
+  coarse_step_hours: 12.0
   reference_frame: "barycentric"     # "barycentric" o "heliocentric"
   cache_results: true                # Guardar grilla propagada en data/cache/
 
@@ -150,6 +157,10 @@ propagation:
 # -----------------------------------------------------------------------------
 detection:
   threshold_au: 0.05                 # Umbral de distancia (clave!)
+  # Cota conservadora de velocidad relativa inter-asteroide (km/s) usada para
+  # ensanchar el query radius del KD-tree cuando el bulk cache es coarse.
+  # ~25 km/s cubre con margen el subset MBA (a∈[1.5,4.0]).
+  max_relative_velocity_km_s: 25.0
   prefilter:
     enabled: true                    # Filtrar pares incompatibles antes del KD-tree
     semimajor_diff_max_au: 0.5       # Pares con |Δa| mayor a esto se descartan
