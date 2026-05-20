@@ -70,6 +70,39 @@ _J2010_TCB_JD = 2455197.5
 _GAIA_START_JD_TCB = 2456863.5  # 2014-07-25
 _GAIA_END_JD_TCB   = 2457910.5  # 2017-05-28
 
+_MPCORB_ARCHIVE_DIR = Path("data/raw/mpcorb_archive")
+
+
+def _best_mpcorb_snapshot(archive_dir: Path, encounter_jd: float) -> Path:
+    """Return the MPCORB snapshot whose orbital epoch is closest to *encounter_jd*.
+
+    Reads the ``.json`` sidecar for every ``.DAT`` file in *archive_dir* and
+    picks the one with the smallest |epoch_jd_tdb − encounter_jd|.  Using the
+    epoch-closest snapshot minimises the backward/forward N-body integration
+    needed to reach the Gaia era, which is the dominant source of orbit_rms
+    degradation.
+    """
+    best_path: Path | None = None
+    best_delta = float("inf")
+    for sidecar in sorted(archive_dir.glob("*.json")):
+        dat = sidecar.with_suffix(".DAT")
+        if not dat.exists():
+            continue
+        try:
+            meta = json.loads(sidecar.read_text())
+            epoch_jd = float(meta["epoch_jd_tdb"])
+        except (KeyError, ValueError, json.JSONDecodeError):
+            continue
+        delta = abs(epoch_jd - encounter_jd)
+        if delta < best_delta:
+            best_delta = delta
+            best_path = dat
+    if best_path is None:
+        raise FileNotFoundError(
+            f"No valid MPCORB snapshots found in {archive_dir}"
+        )
+    return best_path
+
 
 def fetch_gaia_full(archive_url: str, target: int) -> pl.DataFrame:
     d_min = _GAIA_START_JD_TCB - _J2010_TCB_JD
@@ -442,12 +475,12 @@ def main() -> int:
         help="Inner blackout around encounter (days).",
     )
     p.add_argument(
-        "--mpcorb", type=Path,
-        default=Path("data/raw/mpcorb_archive/MPCORB_20120918.DAT"),
-        help="Path to MPCORB snapshot. IMPORTANT: use a snapshot from ~2015 "
-             "(e.g. MPCORB_20150524.DAT) to minimise backward-integration error. "
-             "A 2025-epoch MPCORB requires ~10-yr backward integration to reach "
-             "the Gaia era, degrading orbit_rms from ~3 mas to ~15 mas.",
+        "--mpcorb", type=Path, default=None,
+        help="Path to MPCORB snapshot.  If omitted, the archive snapshot whose "
+             "orbital epoch is closest to the encounter date is selected "
+             f"automatically from {_MPCORB_ARCHIVE_DIR}.  A contemporaneous "
+             "snapshot (within ~1 yr of the encounter) gives orbit_rms ~3 mas; "
+             "using a 2025-epoch MPCORB degrades this to ~15 mas.",
     )
     p.add_argument(
         "--dt-days", type=float, default=1.0,
@@ -472,6 +505,11 @@ def main() -> int:
     archive_url = cfg.sources.gaia_sso.archive_url
 
     enc_jd_tdb = float(Time(args.date, scale="utc").tdb.jd)
+
+    # Auto-select MPCORB snapshot if not explicitly provided
+    if args.mpcorb is None:
+        args.mpcorb = _best_mpcorb_snapshot(_MPCORB_ARCHIVE_DIR, enc_jd_tdb)
+        logger.info("Auto-selected MPCORB snapshot: %s", args.mpcorb.name)
 
     # ── Fetch all Gaia observations ──────────────────────────────────────────
     logger.info("Fetching all Gaia DR3 observations of target %d…", args.target)
