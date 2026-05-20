@@ -348,7 +348,9 @@ def fit_mass_from_window(
     if n_post < 3:
         return {
             "mass_kg": float("nan"), "mass_sigma_kg": float("nan"),
+            "mass_sigma_inflated_kg": float("nan"),
             "log10_mass": float("nan"), "log10_mass_sigma": float("nan"),
+            "log10_mass_sigma_inflated": float("nan"),
             "chi2_red": float("nan"), "n_pre": n_pre, "n_post": n_post,
             "rms_pre_al_mas": rms_pre_al, "rms_post_al_mas": rms_post_al,
             "shift_al_mas": shift_al,
@@ -400,12 +402,18 @@ def fit_mass_from_window(
         log_m_sig = float("nan")
     mass_fit = 10.0 ** log_m_fit
     mass_sig  = mass_fit * log_m_sig * math.log(10.0)
+    # Inflate formal uncertainty by sqrt(chi2_red) to account for residual systematics
+    sqrt_chi2 = math.sqrt(chi2_red) if math.isfinite(chi2_red) and chi2_red > 0 else float("nan")
+    mass_sig_inflated   = mass_sig   * sqrt_chi2
+    log_m_sig_inflated  = log_m_sig  * sqrt_chi2
 
     return {
         "mass_kg": mass_fit,
         "mass_sigma_kg": mass_sig,
+        "mass_sigma_inflated_kg": mass_sig_inflated,
         "log10_mass": log_m_fit,
         "log10_mass_sigma": log_m_sig,
+        "log10_mass_sigma_inflated": log_m_sig_inflated,
         "chi2_red": chi2_red,
         "n_pre": n_pre,
         "n_post": n_post,
