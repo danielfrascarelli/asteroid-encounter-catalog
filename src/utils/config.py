@@ -71,6 +71,12 @@ class Fienga2003SourceConfig:
 
 
 @dataclass
+class Goffin2014SourceConfig:
+    vizier_catalog: str
+    output_filename: str
+
+
+@dataclass
 class Galad2002SourceConfig:
     source_url: str
     output_filename: str
@@ -83,6 +89,7 @@ class SourcesConfig:
     gaia_orbits: GaiaOrbitsSourceConfig
     jpl_horizons: JplHorizonsSourceConfig
     fienga_2003: Fienga2003SourceConfig
+    goffin_2014: Goffin2014SourceConfig
     galad_2002: Galad2002SourceConfig
 
 
@@ -266,6 +273,7 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
         "gaia_orbits",
         "jpl_horizons",
         "fienga_2003",
+        "goffin_2014",
         "galad_2002",
     )
     _require(s["mpcorb"], "url", "local_filename", "refresh_days")
@@ -273,6 +281,7 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
     _require(s["gaia_orbits"], "archive_url")
     _require(s["jpl_horizons"], "api_url", "rate_limit_seconds")
     _require(s["fienga_2003"], "vizier_catalog", "output_filename")
+    _require(s["goffin_2014"], "vizier_catalog", "output_filename")
     _require(s["galad_2002"], "source_url", "output_filename")
 
     sub = raw["subset"]
@@ -322,6 +331,7 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
             gaia_orbits=GaiaOrbitsSourceConfig(**s["gaia_orbits"]),
             jpl_horizons=JplHorizonsSourceConfig(**s["jpl_horizons"]),
             fienga_2003=Fienga2003SourceConfig(**s["fienga_2003"]),
+            goffin_2014=Goffin2014SourceConfig(**s["goffin_2014"]),
             galad_2002=Galad2002SourceConfig(**s["galad_2002"]),
         ),
         subset=SubsetConfig(
