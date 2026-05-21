@@ -79,7 +79,7 @@ def _mass_from_diameter(d_km: float, rho_kg_m3: float = 1500.0) -> float:
     if d_km is None or (isinstance(d_km, float) and math.isnan(d_km)) or d_km <= 0.0:
         return 1.0e18  # generic ~100 km MBA fallback
     radius_m = 0.5 * d_km * 1000.0
-    return rho_kg_m3 * (4.0 / 3.0) * math.pi * radius_m ** 3
+    return rho_kg_m3 * (4.0 / 3.0) * math.pi * radius_m**3
 
 
 def fit_orbit_only(
@@ -123,10 +123,12 @@ def fit_orbit_only(
     M0 = target_elements["M_deg"]  # noqa: N806
 
     x0 = np.array([a0, e0, i0, Omega0, omega0, M0])
-    lo = np.array([a0 - 0.01, max(0.0, e0 - 0.01), max(0.0, i0 - 0.5),
-                   Omega0 - 5.0, omega0 - 5.0, M0 - 5.0])
-    hi = np.array([a0 + 0.01, min(0.999, e0 + 0.01), i0 + 0.5,
-                   Omega0 + 5.0, omega0 + 5.0, M0 + 5.0])
+    lo = np.array(
+        [a0 - 0.01, max(0.0, e0 - 0.01), max(0.0, i0 - 0.5), Omega0 - 5.0, omega0 - 5.0, M0 - 5.0]
+    )
+    hi = np.array(
+        [a0 + 0.01, min(0.999, e0 + 0.01), i0 + 0.5, Omega0 + 5.0, omega0 + 5.0, M0 + 5.0]
+    )
 
     # Default regularization: typical MPCORB orbit uncertainty for a numbered MBA.
     # Loose enough to correct MPCORB→observation drift; tight enough to prevent
@@ -143,7 +145,11 @@ def fit_orbit_only(
         tgt["omega_deg"] = float(params[4])
         tgt["M_deg"] = float(params[5])
         ra_pred, dec_pred = forward_model(
-            tgt, perturber_elements, 0.0, obs_jd_tdb, gaia_xyz,  # mass=0
+            tgt,
+            perturber_elements,
+            0.0,
+            obs_jd_tdb,
+            gaia_xyz,  # mass=0
         )
         dra, ddec = residuals_mas(ra_obs, dec_obs, ra_pred, dec_pred)
         # Tikhonov terms: (param − prior) / σ in parameter units.
@@ -155,12 +161,18 @@ def fit_orbit_only(
     logger.info(
         "[Phase A] orbit-only fit with Tikhonov regularization: "
         "6 params, %d pre-encounter obs (%d + 6 residuals)",
-        len(obs_jd_tdb), 2 * len(obs_jd_tdb),
+        len(obs_jd_tdb),
+        2 * len(obs_jd_tdb),
     )
     res = least_squares(
-        residual_func, x0, method="trf", bounds=(lo, hi),
+        residual_func,
+        x0,
+        method="trf",
+        bounds=(lo, hi),
         max_nfev=500,
-        ftol=1e-10, xtol=1e-10, gtol=1e-10,
+        ftol=1e-10,
+        xtol=1e-10,
+        gtol=1e-10,
     )
     logger.info("[Phase A] done: nfev=%d cost=%.3e", res.nfev, res.cost)
 
@@ -172,7 +184,6 @@ def fit_orbit_only(
     fitted["omega_deg"] = float(res.x[4])
     fitted["M_deg"] = float(res.x[5])
 
-    chi2 = float(np.sum(res.fun ** 2))
     # Data-only residuals (exclude the 6 Tikhonov terms at the end)
     n_data_residuals = 2 * len(obs_jd_tdb)
     data_chi2 = float(np.sum(res.fun[:n_data_residuals] ** 2))
@@ -209,22 +220,32 @@ def fit_mass_only(
     def residual_func(params: np.ndarray) -> np.ndarray:
         mass = float(10.0 ** params[0])
         ra_pred, dec_pred = forward_model(
-            target_elements, perturber_elements, mass, obs_jd_tdb, gaia_xyz,
+            target_elements,
+            perturber_elements,
+            mass,
+            obs_jd_tdb,
+            gaia_xyz,
         )
         dra, ddec = residuals_mas(ra_obs, dec_obs, ra_pred, dec_pred)
         return np.concatenate([dra, ddec])
 
     logger.info(
         "[Phase B] mass-only fit: 1 param, %d post-encounter obs (%d residuals)",
-        len(obs_jd_tdb), 2 * len(obs_jd_tdb),
+        len(obs_jd_tdb),
+        2 * len(obs_jd_tdb),
     )
     res = least_squares(
-        residual_func, x0, method="trf", bounds=(lo, hi), max_nfev=100, verbose=2,
+        residual_func,
+        x0,
+        method="trf",
+        bounds=(lo, hi),
+        max_nfev=100,
+        verbose=2,
     )
     logger.info("[Phase B] done: nfev=%d cost=%.3e", res.nfev, res.cost)
 
     log_m_fit = float(res.x[0])
-    chi2 = float(np.sum(res.fun ** 2))
+    chi2 = float(np.sum(res.fun**2))
     n_data = len(res.fun)
     chi2_red = chi2 / max(1, n_data - 1)
     try:
@@ -232,7 +253,7 @@ def fit_mass_only(
         log_m_sig = float(np.sqrt(cov[0, 0]))
     except np.linalg.LinAlgError:
         log_m_sig = float("nan")
-    mass_fit = 10.0 ** log_m_fit
+    mass_fit = 10.0**log_m_fit
     mass_sig = mass_fit * log_m_sig * math.log(10.0)
     return {
         "mass_kg": mass_fit,
@@ -273,12 +294,12 @@ def fit_mass_two_phase(
     n_pre = int(pre_mask.sum())
     n_post = int(post_mask.sum())
     if n_pre < min_obs_per_side or n_post < min_obs_per_side:
-        raise ValueError(
-            f"Need ≥ {min_obs_per_side} obs each side; got pre={n_pre}, post={n_post}"
-        )
+        raise ValueError(f"Need ≥ {min_obs_per_side} obs each side; got pre={n_pre}, post={n_post}")
     logger.info(
         "Two-phase fit: %d pre + %d post observations (blackout ±%.1f d)",
-        n_pre, n_post, blackout_days,
+        n_pre,
+        n_post,
+        blackout_days,
     )
 
     # Phase A: orbit from pre-encounter
@@ -292,7 +313,8 @@ def fit_mass_two_phase(
     )
     logger.info(
         "[Phase A] residual RMS = %.1f mas (chi²_red=%.1f)",
-        phase_a["residual_rms_mas"], phase_a["chi2_red"],
+        phase_a["residual_rms_mas"],
+        phase_a["chi2_red"],
     )
 
     # Phase B: mass from post-encounter, with orbit fixed
@@ -307,7 +329,8 @@ def fit_mass_two_phase(
     )
     logger.info(
         "[Phase B] residual RMS = %.1f mas (chi²_red=%.1f)",
-        phase_b["residual_rms_mas"], phase_b["chi2_red"],
+        phase_b["residual_rms_mas"],
+        phase_b["chi2_red"],
     )
 
     return {
@@ -364,10 +387,20 @@ def fit_mass(
     if fit_orbit:
         x0 = np.array([a0, e0, i0, Omega0, omega0, M0, log_m0])
         # Reasonable bounds: small deviations on orbital elements + mass in [1e15, 1e22]
-        lo = np.array([a0 - 0.01, max(0.0, e0 - 0.01), max(0.0, i0 - 0.5),
-                       Omega0 - 5.0, omega0 - 5.0, M0 - 5.0, 15.0])
-        hi = np.array([a0 + 0.01, min(0.999, e0 + 0.01), i0 + 0.5,
-                       Omega0 + 5.0, omega0 + 5.0, M0 + 5.0, 22.0])
+        lo = np.array(
+            [
+                a0 - 0.01,
+                max(0.0, e0 - 0.01),
+                max(0.0, i0 - 0.5),
+                Omega0 - 5.0,
+                omega0 - 5.0,
+                M0 - 5.0,
+                15.0,
+            ]
+        )
+        hi = np.array(
+            [a0 + 0.01, min(0.999, e0 + 0.01), i0 + 0.5, Omega0 + 5.0, omega0 + 5.0, M0 + 5.0, 22.0]
+        )
     else:
         x0 = np.array([log_m0])
         lo = np.array([15.0])
@@ -386,19 +419,25 @@ def fit_mass(
         tgt["Omega_deg"] = float(Omega)
         tgt["omega_deg"] = float(omega)
         tgt["M_deg"] = float(M)
-        return tgt, float(10.0 ** log_m)
+        return tgt, float(10.0**log_m)
 
     def residual_func(params: np.ndarray) -> np.ndarray:
         tgt, mass = _build_target_elements(params)
         ra_pred, dec_pred = forward_model(
-            tgt, perturber_elements, mass, obs_jd_tdb, gaia_xyz,
+            tgt,
+            perturber_elements,
+            mass,
+            obs_jd_tdb,
+            gaia_xyz,
         )
         dra, ddec = residuals_mas(ra_obs, dec_obs, ra_pred, dec_pred)
         return np.concatenate([dra, ddec])
 
     logger.info(
         "Starting least_squares: %d free params, %d observations, %d residuals",
-        len(x0), len(obs_jd_tdb), 2 * len(obs_jd_tdb),
+        len(x0),
+        len(obs_jd_tdb),
+        2 * len(obs_jd_tdb),
     )
     res = least_squares(
         residual_func,
@@ -412,7 +451,7 @@ def fit_mass(
 
     # Uncertainty: (Jᵀ J)⁻¹ × χ²_red, diagonal = variance per param
     jac = res.jac
-    chi2 = float(np.sum(res.fun ** 2))
+    chi2 = float(np.sum(res.fun**2))
     n_data = len(res.fun)
     n_params = len(res.x)
     chi2_red = chi2 / max(1, n_data - n_params)
@@ -429,7 +468,7 @@ def fit_mass(
         log_m_fit = res.x[0]
         log_m_sig = sigma[0]
 
-    mass_fit = 10.0 ** log_m_fit
+    mass_fit = 10.0**log_m_fit
     # Propagate log → linear uncertainty
     mass_sig = mass_fit * log_m_sig * math.log(10.0)
 
@@ -471,7 +510,7 @@ def main() -> int:
         "--two-phase",
         action="store_true",
         help="Two-phase fit: orbit from pre-encounter, mass from post-encounter. "
-             "Mutually exclusive with --fit-orbit.",
+        "Mutually exclusive with --fit-orbit.",
     )
     p.add_argument(
         "--blackout-days",
@@ -508,11 +547,13 @@ def main() -> int:
     epochs_days = obs["epoch"].to_numpy()
     jd_tcb = epochs_days + _J2010_TCB_JD
     jd_tdb = Time(jd_tcb, format="jd", scale="tcb").tdb.jd.astype(float)
-    gaia_xyz = np.column_stack([
-        obs["x_gaia"].to_numpy(),
-        obs["y_gaia"].to_numpy(),
-        obs["z_gaia"].to_numpy(),
-    ]).astype(float)
+    gaia_xyz = np.column_stack(
+        [
+            obs["x_gaia"].to_numpy(),
+            obs["y_gaia"].to_numpy(),
+            obs["z_gaia"].to_numpy(),
+        ]
+    ).astype(float)
     ra_obs = obs["ra"].to_numpy().astype(float)
     dec_obs = obs["dec"].to_numpy().astype(float)
 
@@ -521,13 +562,20 @@ def main() -> int:
     perturber_el = load_element_row(args.mpcorb, args.perturber)
     logger.info(
         "Target %d: a=%.4f e=%.4f i=%.2f° epoch=%.1f",
-        args.target, target_el["a_au"], target_el["e"], target_el["i_deg"],
+        args.target,
+        target_el["a_au"],
+        target_el["e"],
+        target_el["i_deg"],
         target_el["epoch_jd"],
     )
     logger.info(
         "Perturber %d: a=%.4f e=%.4f i=%.2f° epoch=%.1f H=%.2f",
-        args.perturber, perturber_el["a_au"], perturber_el["e"],
-        perturber_el["i_deg"], perturber_el["epoch_jd"], perturber_el.get("H", 0.0),
+        args.perturber,
+        perturber_el["a_au"],
+        perturber_el["e"],
+        perturber_el["i_deg"],
+        perturber_el["epoch_jd"],
+        perturber_el.get("H", 0.0),
     )
 
     # Initial mass: from perturber diameter (H → D via ρ=0.14 albedo, ρ=1.5 g/cm³)
@@ -548,9 +596,12 @@ def main() -> int:
 
     if args.two_phase:
         fit = fit_mass_two_phase(
-            target_el, perturber_el,
-            obs_jd_tdb=jd_tdb, gaia_xyz=gaia_xyz,
-            ra_obs=ra_obs, dec_obs=dec_obs,
+            target_el,
+            perturber_el,
+            obs_jd_tdb=jd_tdb,
+            gaia_xyz=gaia_xyz,
+            ra_obs=ra_obs,
+            dec_obs=dec_obs,
             encounter_jd_tdb=enc_jd_tdb,
             initial_mass_kg=initial_mass,
             blackout_days=args.blackout_days,
@@ -559,15 +610,21 @@ def main() -> int:
         logger.info("=== TWO-PHASE FIT RESULT ===")
         logger.info(
             "  fitted mass = %.3e ± %.2e kg  (%.2f log10)",
-            fit["mass_kg"], fit["mass_sigma_kg"], fit["log10_mass"],
+            fit["mass_kg"],
+            fit["mass_sigma_kg"],
+            fit["log10_mass"],
         )
         logger.info(
             "  Phase A (orbit, pre-encounter): %d obs, RMS=%.1f mas, chi²_red=%.1f",
-            fit["n_pre"], fit["phase_a_rms_mas"], fit["phase_a_chi2_red"],
+            fit["n_pre"],
+            fit["phase_a_rms_mas"],
+            fit["phase_a_chi2_red"],
         )
         logger.info(
             "  Phase B (mass, post-encounter): %d obs, RMS=%.1f mas, chi²_red=%.1f",
-            fit["n_post"], fit["phase_b_rms_mas"], fit["phase_b_chi2_red"],
+            fit["n_post"],
+            fit["phase_b_rms_mas"],
+            fit["phase_b_chi2_red"],
         )
         n_obs_for_save = fit["n_pre"] + fit["n_post"]
         chi2_save = fit["phase_b_chi2_red"]
@@ -577,9 +634,12 @@ def main() -> int:
         param_sigmas_save = None
     else:
         fit = fit_mass(
-            target_el, perturber_el,
-            obs_jd_tdb=jd_tdb, gaia_xyz=gaia_xyz,
-            ra_obs=ra_obs, dec_obs=dec_obs,
+            target_el,
+            perturber_el,
+            obs_jd_tdb=jd_tdb,
+            gaia_xyz=gaia_xyz,
+            ra_obs=ra_obs,
+            dec_obs=dec_obs,
             initial_mass_kg=initial_mass,
             fit_orbit=args.fit_orbit,
         )
@@ -587,11 +647,17 @@ def main() -> int:
         logger.info("=== FIT RESULT ===")
         logger.info(
             "  fitted mass = %.3e ± %.2e kg  (%.2f log10)",
-            fit["mass_kg"], fit["mass_sigma_kg"], fit["log10_mass"],
+            fit["mass_kg"],
+            fit["mass_sigma_kg"],
+            fit["log10_mass"],
         )
         logger.info("  chi2 = %.2e   chi2_red = %.2f", fit["chi2"], fit["chi2_red"])
-        logger.info("  n_obs = %d   n_params = %d   nfev = %d",
-                    fit["n_data"] // 2, fit["n_params"], fit["nfev"])
+        logger.info(
+            "  n_obs = %d   n_params = %d   nfev = %d",
+            fit["n_data"] // 2,
+            fit["n_params"],
+            fit["nfev"],
+        )
         n_obs_for_save = fit["n_data"] // 2
         chi2_save = fit["chi2_red"]
         n_params_save = fit["n_params"]
@@ -618,7 +684,9 @@ def main() -> int:
         "n_params": n_params_save,
         "chi2_red": chi2_save,
         "nfev": nfev_save,
-        "method": "two_phase" if args.two_phase else ("joint_fit" if args.fit_orbit else "mass_only"),
+        "method": (
+            "two_phase" if args.two_phase else ("joint_fit" if args.fit_orbit else "mass_only")
+        ),
     }
     if args.two_phase:
         summary["phase_a_chi2_red"] = fit["phase_a_chi2_red"]

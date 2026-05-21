@@ -25,14 +25,11 @@ from __future__ import annotations
 import logging
 
 import numpy as np
-import polars as pl
 
 from src.propagate.nbody import (
-    _ICRS_TO_ECL,
     _MAJOR_ASTEROIDS,
     _PLANET_GMS,
     _heliocentric_kepler_state,
-    _icrs_to_ecliptic,
     _planet_state_at,
 )
 
@@ -49,8 +46,15 @@ def propagate_target_with_perturber(
     time_grid_jd_tdb: np.ndarray,
     *,
     include_planets: tuple[str, ...] = (
-        "sun", "mercury", "venus", "earth", "mars",
-        "jupiter", "saturn", "uranus", "neptune",
+        "sun",
+        "mercury",
+        "venus",
+        "earth",
+        "mars",
+        "jupiter",
+        "saturn",
+        "uranus",
+        "neptune",
     ),
     include_background: bool = False,
     background_elements: dict[str, dict] | None = None,
@@ -210,9 +214,7 @@ def propagate_target_with_perturber(
         target_p = sim.particles[target_idx]
         sun_p = sim.particles[0]
         # Heliocentric ecliptic position
-        helio_eq = np.array(
-            [target_p.x - sun_p.x, target_p.y - sun_p.y, target_p.z - sun_p.z]
-        )
+        helio_eq = np.array([target_p.x - sun_p.x, target_p.y - sun_p.y, target_p.z - sun_p.z])
         # State vectors in REBOUND are in ecliptic frame (we set up planets in
         # ecliptic from _planet_state_at), so no rotation needed.
         out[i] = helio_eq

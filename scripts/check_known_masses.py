@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 _G = 6.674e-11
-_KM3_S2_TO_KG = 1e9 / _G       # GM in km³/s² → M in kg
+_KM3_S2_TO_KG = 1e9 / _G  # GM in km³/s² → M in kg
 
 
 def query_sbdb(number: int) -> dict:
@@ -150,8 +150,7 @@ def main() -> int:
     logger.info("Summary of %d unique perturbers in detection catalog:", n_total)
     logger.info("  Already have published mass in SBDB: %d", n_with_mass)
     logger.info("  Detected by our pipeline (≥3σ shift): %d", n_detected)
-    logger.info("  >>> NOVEL MASS CANDIDATES (detected AND no published mass): %d <<<",
-                n_novel)
+    logger.info("  >>> NOVEL MASS CANDIDATES (detected AND no published mass): %d <<<", n_novel)
 
     novel = out.filter(pl.col("novel_candidate")).sort("perturber_number")
     if novel.height > 0:
@@ -159,7 +158,7 @@ def main() -> int:
         logger.info("Novel candidates (the asteroids we could newly weigh):")
         for r in novel.iter_rows(named=True):
             label = f"({r['perturber_number']}) {r['perturber_name']}"
-            d_str = f"D~{r['diameter_km']:.0f} km" if r['diameter_km'] is not None else ""
+            d_str = f"D~{r['diameter_km']:.0f} km" if r["diameter_km"] is not None else ""
             logger.info("  • %-22s  %s", label, d_str)
 
     return 0

@@ -134,6 +134,13 @@ class PropagationConfig:
     # radius accordingly. Refinement falls back to Kepler-on-demand when the
     # cache is too coarse for quadratic interpolation.
     coarse_step_hours: float | None = None
+    # On-disk format for the bulk trajectory cache. ``"zarr"`` (default) stores
+    # the (T, N, 3) float32 array as a chunked, Blosc-zstd-bitshuffled Zarr v2
+    # directory — typical ratio ~5× on smooth orbital data. ``"memmap"`` keeps
+    # the original raw ``.npy`` layout. Cache keys are stable across formats,
+    # so a stored memmap cache survives a config change to zarr (it just won't
+    # be read; a new zarr cache will be computed alongside).
+    cache_format: str = "zarr"
 
 
 @dataclass
@@ -361,6 +368,7 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
             cache_results=prop["cache_results"],
             rebound=ReboundConfig(**prop["rebound"]),
             coarse_step_hours=prop.get("coarse_step_hours"),
+            cache_format=str(prop.get("cache_format", "zarr")),
         ),
         detection=DetectionConfig(
             threshold_au=det["threshold_au"],

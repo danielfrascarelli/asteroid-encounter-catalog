@@ -71,9 +71,7 @@ def unpack_epoch(packed: str) -> float:
 
 # MPC packed number scheme: A=10, B=11, …, Z=35, a=36, …, z=61
 # so A0000 = 100000, L6875 = 210000 + 6875 = 216875, etc.
-_PACK_LETTER: dict[str, int] = {
-    c: 10 + i for i, c in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-}
+_PACK_LETTER: dict[str, int] = {c: 10 + i for i, c in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ")}
 _PACK_LETTER.update({c: 36 + i for i, c in enumerate("abcdefghijklmnopqrstuvwxyz")})
 
 

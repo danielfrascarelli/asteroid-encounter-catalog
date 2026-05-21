@@ -50,7 +50,9 @@ def _fit_linear(t: np.ndarray, y: np.ndarray) -> tuple[float, float, float]:
     return a, b, chi2
 
 
-def _fit_linear_step(t: np.ndarray, y: np.ndarray, t_step: float) -> tuple[float, float, float, float]:
+def _fit_linear_step(
+    t: np.ndarray, y: np.ndarray, t_step: float
+) -> tuple[float, float, float, float]:
     """Fit y = a + b·t + c·H(t > t_step). Returns (a, b, c, chi2)."""
     H = (t > t_step).astype(float)
     A = np.column_stack([np.ones_like(t), t, H])
@@ -213,22 +215,24 @@ def main() -> int:
 
     # Summary
     finite = out.filter(pl.col("dbic_ra").is_finite())
-    n_strong = int(finite.filter(
-        (pl.col("dbic_ra") > 6.0) | (pl.col("dbic_dec") > 6.0)
-    ).height)
-    n_marginal = int(finite.filter(
-        ((pl.col("dbic_ra") > 2.0) & (pl.col("dbic_ra") <= 6.0))
-        | ((pl.col("dbic_dec") > 2.0) & (pl.col("dbic_dec") <= 6.0))
-    ).height)
+    n_strong = int(finite.filter((pl.col("dbic_ra") > 6.0) | (pl.col("dbic_dec") > 6.0)).height)
+    n_marginal = int(
+        finite.filter(
+            ((pl.col("dbic_ra") > 2.0) & (pl.col("dbic_ra") <= 6.0))
+            | ((pl.col("dbic_dec") > 2.0) & (pl.col("dbic_dec") <= 6.0))
+        ).height
+    )
     logger.info("")
     logger.info("STEP-MODEL TEST SUMMARY:")
     logger.info(
         "  Strong evidence for step (ΔBIC > 6 in RA or Dec):  %d / %d",
-        n_strong, finite.height,
+        n_strong,
+        finite.height,
     )
     logger.info(
         "  Marginal evidence (2 < ΔBIC ≤ 6):                  %d / %d",
-        n_marginal, finite.height,
+        n_marginal,
+        finite.height,
     )
 
     # Top candidates by step significance

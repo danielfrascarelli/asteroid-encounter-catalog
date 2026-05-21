@@ -44,12 +44,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-_G = 6.674e-11                # N m² / kg²
-_AU_M = 1.495978707e11        # meters per AU
+_G = 6.674e-11  # N m² / kg²
+_AU_M = 1.495978707e11  # meters per AU
 _MAS_TO_RAD = math.pi / (180.0 * 3_600_000.0)
 
-_T_EFFECTIVE_SECONDS = 90.0 * 86400.0   # mean post-encounter time
-_D_OBSERVER_AU = 2.5                    # typical target distance from Gaia
+_T_EFFECTIVE_SECONDS = 90.0 * 86400.0  # mean post-encounter time
+_D_OBSERVER_AU = 2.5  # typical target distance from Gaia
 _D_OBSERVER_M = _D_OBSERVER_AU * _AU_M
 
 
@@ -64,10 +64,7 @@ def implied_mass_kg(shift_mas: float, rel_vel_km_s: float, dist_au: float) -> fl
     delta_theta_rad = abs(shift_mas) * _MAS_TO_RAD
     v_ms = rel_vel_km_s * 1000.0
     b_m = dist_au * _AU_M
-    return (
-        delta_theta_rad * v_ms * b_m * _D_OBSERVER_M
-        / (2.0 * _G * _T_EFFECTIVE_SECONDS)
-    )
+    return delta_theta_rad * v_ms * b_m * _D_OBSERVER_M / (2.0 * _G * _T_EFFECTIVE_SECONDS)
 
 
 def main() -> int:
@@ -94,9 +91,7 @@ def main() -> int:
         return 1
     detections = pl.read_csv(args.detections)
 
-    candidates = (
-        pl.read_csv(args.candidates) if args.candidates.exists() else None
-    )
+    candidates = pl.read_csv(args.candidates) if args.candidates.exists() else None
 
     # Join distance / velocity from the candidates table
     if candidates is not None:
@@ -119,11 +114,17 @@ def main() -> int:
     # rel_vel_km_s must be looked up; relevant_novel_encounters has it
     rel_path = Path("data/output/relevant_novel_encounters.csv")
     if rel_path.exists():
-        rel = pl.read_csv(rel_path).select(
-            [pl.col("number_1").alias("perturber_number"),
-             pl.col("number_2").alias("target_number"),
-             "rel_vel_km_s"]
-        ).unique(subset=["perturber_number", "target_number"])
+        rel = (
+            pl.read_csv(rel_path)
+            .select(
+                [
+                    pl.col("number_1").alias("perturber_number"),
+                    pl.col("number_2").alias("target_number"),
+                    "rel_vel_km_s",
+                ]
+            )
+            .unique(subset=["perturber_number", "target_number"])
+        )
         det = det.join(rel, on=["perturber_number", "target_number"], how="left")
 
     rows: list[dict] = []
@@ -141,7 +142,11 @@ def main() -> int:
             m_est = implied_mass_kg(total_shift_mas, float(v), float(b))
 
         known = _KNOWN_MASSES_KG.get(r["perturber_number"])
-        ratio = (m_est / known) if (known is not None and math.isfinite(m_est) and m_est > 0) else float("nan")
+        ratio = (
+            (m_est / known)
+            if (known is not None and math.isfinite(m_est) and m_est > 0)
+            else float("nan")
+        )
 
         rows.append(
             {
@@ -173,7 +178,9 @@ def main() -> int:
     detected = out.filter(pl.col("detection") == "yes").sort("total_shift_mas", descending=True)
     logger.info("")
     logger.info("Implied masses for the %d detected candidates:", detected.height)
-    header = f"  {'Perturber':<22} {'Target':<18} {'Δθ (mas)':>10} {'M_implied (kg)':>18} {'known':>12}"
+    header = (
+        f"  {'Perturber':<22} {'Target':<18} {'Δθ (mas)':>10} {'M_implied (kg)':>18} {'known':>12}"
+    )
     logger.info(header)
     logger.info("-" * len(header))
     for r in detected.iter_rows(named=True):

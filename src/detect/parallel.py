@@ -18,6 +18,7 @@ import multiprocessing as mp
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -30,7 +31,39 @@ logger = logging.getLogger(__name__)
 # Per-worker globals — set once by the pool initializer, never mutated.
 _G_ELEMENTS: pl.DataFrame | None = None
 _G_PAIRS: np.ndarray | None = None
-_G_POSITIONS: np.ndarray | None = None
+_G_POSITIONS: Any | None = None
+
+
+class _PositionsWindow:
+    """Time-window adapter over a full trajectory array.
+
+    ``np.memmap[start:stop]`` is cheap (returns a view), so memmap-backed
+    trajectories are kept lazy and indexed one slab at a time.  Zarr-backed
+    trajectories are *not* cheap to index one slab at a time — every read
+    decompresses the underlying chunk regardless of any encoded-chunk cache.
+    For those, eagerly slicing the full window once decompresses each
+    overlapping chunk only once; subsequent slab reads are numpy views into
+    the materialised block.
+    """
+
+    def __init__(self, positions: Any, start: int, stop: int) -> None:
+        self._start = int(start)
+        self.shape = (int(stop - start), positions.shape[1], positions.shape[2])
+        # Eagerly materialise zarr-backed windows (TrajectoryView) into a
+        # contiguous numpy block — one decompression per chunk vs one per slab.
+        from src.propagate.cache import TrajectoryView
+
+        if isinstance(positions, TrajectoryView):
+            self._positions = np.asarray(positions[self._start : int(stop)])
+            self._eager = True
+        else:
+            self._positions = positions
+            self._eager = False
+
+    def __getitem__(self, idx: int) -> np.ndarray:
+        if self._eager:
+            return np.asarray(self._positions[int(idx)])
+        return np.asarray(self._positions[self._start + int(idx)])
 
 
 def _init_worker(
@@ -39,6 +72,7 @@ def _init_worker(
     pairs_path: str | None,
     positions: np.ndarray | None,
     positions_memmap: tuple[str, tuple[int, int, int], str] | None,
+    positions_zarr_path: str | None,
 ) -> None:
     """Initialise per-worker globals.
 
@@ -46,8 +80,11 @@ def _init_worker(
     path when their pickle size would otherwise overwhelm the multiprocessing
     queue.  ``pairs_path`` points to an ``.npy`` file with the prefilter pair
     indices; ``positions_memmap`` is the ``(filename, shape, dtype)`` triple
-    used to re-open a disk-backed trajectory.  Workers re-load these locally
-    — the OS shares the underlying pages across processes via the page cache.
+    used to re-open a disk-backed memmap; ``positions_zarr_path`` is a Zarr
+    DirectoryStore path opened through :func:`src.propagate.cache.
+    open_trajectory_for_worker` so the worker keeps recently-decompressed
+    chunks resident in an LRU cache. Workers re-load these locally — the OS
+    shares the underlying chunk files across processes via the page cache.
     """
     global _G_ELEMENTS, _G_PAIRS, _G_POSITIONS
     _G_ELEMENTS = elements
@@ -55,7 +92,11 @@ def _init_worker(
         _G_PAIRS = np.load(pairs_path, mmap_mode="r")
     else:
         _G_PAIRS = pairs
-    if positions_memmap is not None:
+    if positions_zarr_path is not None:
+        from src.propagate.cache import open_trajectory_for_worker
+
+        _G_POSITIONS = open_trajectory_for_worker(positions_zarr_path)
+    elif positions_memmap is not None:
         filename, shape, dtype_str = positions_memmap
         _G_POSITIONS = np.memmap(filename, dtype=np.dtype(dtype_str), mode="r", shape=shape)
     else:
@@ -67,9 +108,13 @@ def _scan_chunk(
 ) -> list[tuple[int, int, float, float]]:
     chunk_times, chunk_indices, threshold_au, leaf_size, query_radius_au = args
     assert _G_ELEMENTS is not None
-    positions_chunk: np.ndarray | None = None
+    positions_chunk: Any | None = None
     if _G_POSITIONS is not None:
-        positions_chunk = _G_POSITIONS[chunk_indices[0] : chunk_indices[-1] + 1]
+        positions_chunk = _PositionsWindow(
+            _G_POSITIONS,
+            int(chunk_indices[0]),
+            int(chunk_indices[-1]) + 1,
+        )
     return scan_time_grid(
         _G_ELEMENTS,
         chunk_times,
@@ -167,13 +212,26 @@ def scan_parallel(
     ]
 
     # Memmap-backed trajectories (cache hits) are passed as (filename, shape,
-    # dtype) so each worker re-opens its own read-only map. Pickling the array
-    # itself via initargs forces a full copy per worker — fatal at ~30 GB for
-    # 100k asteroids × 25k steps.
+    # dtype) so each worker re-opens its own read-only map.  Zarr-backed caches
+    # come wrapped in a TrajectoryView; we pass the underlying DirectoryStore
+    # path so each worker opens its own LRU-cached view.  Pickling either
+    # object directly via initargs would force a full copy per worker — fatal
+    # at the production scale of ~30 GB raw.
     positions_memmap: tuple[str, tuple[int, int, int], str] | None = None
+    positions_zarr_path: str | None = None
     positions_inmem: np.ndarray | None = None
     if positions is not None:
-        if isinstance(positions, np.memmap) and positions.filename:
+        # Avoid importing TrajectoryView at module import time so this file
+        # has no hard zarr dependency for the streaming-Kepler path.
+        from src.propagate.cache import TrajectoryView
+
+        if isinstance(positions, TrajectoryView):
+            store_path = positions.zarr_path
+            if store_path is not None:
+                positions_zarr_path = str(store_path)
+            else:
+                positions_inmem = positions  # in-memory zarr / unsupported store
+        elif isinstance(positions, np.memmap) and positions.filename:
             positions_memmap = (
                 str(positions.filename),
                 tuple(positions.shape),  # type: ignore[assignment]
@@ -184,6 +242,8 @@ def scan_parallel(
 
     if positions is None:
         mode = "streaming"
+    elif positions_zarr_path is not None:
+        mode = f"zarr:{Path(positions_zarr_path).name}"
     elif positions_memmap is not None:
         mode = f"memmap:{Path(positions_memmap[0]).name}"
     else:
@@ -236,7 +296,14 @@ def scan_parallel(
     with ctx.Pool(
         processes=nw,
         initializer=_init_worker,
-        initargs=(elements, pairs_inmem, pairs_path, positions_inmem, positions_memmap),
+        initargs=(
+            elements,
+            pairs_inmem,
+            pairs_path,
+            positions_inmem,
+            positions_memmap,
+            positions_zarr_path,
+        ),
     ) as pool:
         all_results: list[list[tuple[int, int, float, float]]] = []
         with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:

@@ -234,6 +234,7 @@ class TestRealCatalog:
 
     def test_dist_au_within_threshold(self) -> None:
         import yaml
+
         cfg = yaml.safe_load(Path("config.yaml").read_text())
         threshold = float(cfg["detection"]["threshold_au"])
         df = load_catalog(_CATALOG_PATH)

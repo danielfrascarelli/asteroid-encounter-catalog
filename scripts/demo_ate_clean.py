@@ -45,7 +45,7 @@ _ENCOUNTER_DATE = "2016-06-08T00:00:00"
 _HALF_WINDOW_DAYS = 180.0
 _BLACKOUT_DAYS = 7.0
 _J2010_TCB_JD = 2455197.5
-_GAIA_OBSERVER = "500@-139479"   # Gaia spacecraft, MPC observatory code
+_GAIA_OBSERVER = "500@-139479"  # Gaia spacecraft, MPC observatory code
 
 
 def fetch_gaia(archive_url: str, target: int, d_min: float, d_max: float) -> pl.DataFrame:
@@ -80,9 +80,7 @@ def horizons_apparent_radec(
             start,
             start + len(epochs) - 1,
         )
-        h = Horizons(
-            id=str(target), location=_GAIA_OBSERVER, epochs=epochs, id_type="smallbody"
-        )
+        h = Horizons(id=str(target), location=_GAIA_OBSERVER, epochs=epochs, id_type="smallbody")
         eph = h.ephemerides()
         ra_out[idx] = np.array(eph["RA"], dtype=float)
         dec_out[idx] = np.array(eph["DEC"], dtype=float)
@@ -186,9 +184,7 @@ def main() -> int:
         for axis, key in [("ΔRA", "dra"), ("ΔDec", "ddec")]:
             mb = sb[f"mu_{key}"]
             ma = sa[f"mu_{key}"]
-            se = np.sqrt(
-                (sb[f"std_{key}"] ** 2) / sb["n"] + (sa[f"std_{key}"] ** 2) / sa["n"]
-            )
+            se = np.sqrt((sb[f"std_{key}"] ** 2) / sb["n"] + (sa[f"std_{key}"] ** 2) / sa["n"])
             t = (ma - mb) / se if se > 0 else float("inf")
             logger.info(
                 "Δ(after − before) on %s = %+7.2f ± %5.2f mas   t = %+5.2fσ",
@@ -200,7 +196,9 @@ def main() -> int:
 
     logger.info("")
     logger.info("Expected (111) Ate signal: ~5 mas at encounter, growing post-encounter.")
-    logger.info("If residual scatter is at the mas level and Δ(after − before) > 3σ, signal is detected.")
+    logger.info(
+        "If residual scatter is at the mas level and Δ(after − before) > 3σ, signal is detected."
+    )
     return 0
 
 

@@ -12,7 +12,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import plotly.express as px
-import plotly.graph_objects as go
 import polars as pl
 import streamlit as st
 
@@ -80,12 +79,14 @@ st.caption(
     "N-body propagation (REBOUND) · KD-tree detection · AL-weighted mass fitting."
 )
 
-tab_catalog, tab_novel, tab_coverage, tab_mass = st.tabs([
-    "📦 Encounter Catalog",
-    "🔭 Novel Encounters",
-    "📡 Gaia Coverage",
-    "⚖️ Mass Candidates",
-])
+tab_catalog, tab_novel, tab_coverage, tab_mass = st.tabs(
+    [
+        "📦 Encounter Catalog",
+        "🔭 Novel Encounters",
+        "📡 Gaia Coverage",
+        "⚖️ Mass Candidates",
+    ]
+)
 
 # ===========================================================================
 # TAB 1 — ENCOUNTER CATALOG
@@ -114,8 +115,11 @@ with tab_catalog:
             fc1, fc2, fc3 = st.columns(3)
             dist_max = fc1.slider(
                 "Max separation (AU)",
-                min_value=0.001, max_value=0.05,
-                value=0.05, step=0.001, format="%.3f",
+                min_value=0.001,
+                max_value=0.05,
+                value=0.05,
+                step=0.001,
+                format="%.3f",
                 key="cat_dist",
             )
             gaia_only = fc2.checkbox("Gaia-observable only", key="cat_gaia")
@@ -140,7 +144,9 @@ with tab_catalog:
         ch1, ch2 = st.columns(2)
         with ch1:
             fig = px.histogram(
-                df.to_pandas(), x="dist_au", nbins=80,
+                df.to_pandas(),
+                x="dist_au",
+                nbins=80,
                 labels={"dist_au": "Min. separation (AU)"},
                 color_discrete_sequence=["#4a90d9"],
                 title="Distance distribution",
@@ -151,8 +157,10 @@ with tab_catalog:
         with ch2:
             fig = px.scatter(
                 df.sample(min(10_000, len(df))).to_pandas(),
-                x="dist_au", y="rel_vel_km_s",
-                color="class_1", opacity=0.4,
+                x="dist_au",
+                y="rel_vel_km_s",
+                color="class_1",
+                opacity=0.4,
                 hover_data=["designation_1", "designation_2", "date_utc"],
                 labels={
                     "dist_au": "Separation (AU)",
@@ -168,7 +176,9 @@ with tab_catalog:
         with ch3:
             # Timeline histogram
             fig = px.histogram(
-                df.to_pandas(), x="date_utc", nbins=60,
+                df.to_pandas(),
+                x="date_utc",
+                nbins=60,
                 labels={"date_utc": "Date"},
                 color_discrete_sequence=["#e67e22"],
                 title="Encounters per month",
@@ -179,15 +189,21 @@ with tab_catalog:
         with ch4:
             # Orbit class breakdown
             class_counts = (
-                pl.concat([
-                    df.select(pl.col("class_1").alias("class")),
-                    df.select(pl.col("class_2").alias("class")),
-                ])
-                .group_by("class").agg(pl.len().alias("count"))
+                pl.concat(
+                    [
+                        df.select(pl.col("class_1").alias("class")),
+                        df.select(pl.col("class_2").alias("class")),
+                    ]
+                )
+                .group_by("class")
+                .agg(pl.len().alias("count"))
                 .sort("count", descending=True)
             )
             fig = px.pie(
-                class_counts.to_pandas(), values="count", names="class", hole=0.4,
+                class_counts.to_pandas(),
+                values="count",
+                names="class",
+                hole=0.4,
                 title="Encounters by orbit class",
             )
             fig.update_layout(margin=dict(t=40, b=10), height=280)
@@ -195,12 +211,26 @@ with tab_catalog:
 
         # ── Table ──────────────────────────────────────────────────────────
         st.subheader("Closest encounters")
-        show_cols = [c for c in [
-            "number_1", "designation_1", "number_2", "designation_2",
-            "date_utc", "dist_au", "dist_km", "rel_vel_km_s",
-            "diameter_1_km", "diameter_2_km", "class_1", "class_2",
-            "solar_elongation_deg", "gaia_observable",
-        ] if c in df.columns]
+        show_cols = [
+            c
+            for c in [
+                "number_1",
+                "designation_1",
+                "number_2",
+                "designation_2",
+                "date_utc",
+                "dist_au",
+                "dist_km",
+                "rel_vel_km_s",
+                "diameter_1_km",
+                "diameter_2_km",
+                "class_1",
+                "class_2",
+                "solar_elongation_deg",
+                "gaia_observable",
+            ]
+            if c in df.columns
+        ]
         top_df = df.sort("dist_au").head(500).select(show_cols)
         st.dataframe(top_df.to_pandas(), use_container_width=True, height=380)
 
@@ -225,7 +255,9 @@ with tab_novel:
     else:
         n_nov = len(df_nov)
         n_unk = int(df_nov["mass_unknown"].sum()) if "mass_unknown" in df_nov.columns else 0
-        n_gaia_nov = int(df_nov["gaia_observable"].sum()) if "gaia_observable" in df_nov.columns else 0
+        n_gaia_nov = (
+            int(df_nov["gaia_observable"].sum()) if "gaia_observable" in df_nov.columns else 0
+        )
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Novel candidates", f"{n_nov:,}")
@@ -239,11 +271,20 @@ with tab_novel:
         with st.expander("🔧 Filters", expanded=True):
             fc1, fc2, fc3 = st.columns(3)
             nov_dist = fc1.slider(
-                "Max separation (AU)", 0.001, 0.05, 0.05, 0.001,
-                format="%.3f", key="nov_dist",
+                "Max separation (AU)",
+                0.001,
+                0.05,
+                0.05,
+                0.001,
+                format="%.3f",
+                key="nov_dist",
             )
             nov_vel = fc2.slider(
-                "Max rel. velocity (km/s)", 0.5, 20.0, 10.0, 0.5,
+                "Max rel. velocity (km/s)",
+                0.5,
+                20.0,
+                10.0,
+                0.5,
                 key="nov_vel",
             )
             nov_gaia = fc3.checkbox("Gaia-observable only", key="nov_gaia")
@@ -269,14 +310,17 @@ with tab_novel:
             )
             fig.update_layout(
                 yaxis=dict(autorange="reversed"),
-                margin=dict(t=40, b=10), height=420, coloraxis_colorbar_title="AU",
+                margin=dict(t=40, b=10),
+                height=420,
+                coloraxis_colorbar_title="AU",
             )
             st.plotly_chart(fig, use_container_width=True)
 
         with ch2:
             fig = px.scatter(
                 df_n.to_pandas(),
-                x="dist_au", y="deflection_score",
+                x="dist_au",
+                y="deflection_score",
                 color="rel_vel_km_s",
                 size="diameter_1_km",
                 hover_data=["designation_1", "designation_2", "date_utc"],
@@ -293,21 +337,34 @@ with tab_novel:
             st.plotly_chart(fig, use_container_width=True)
 
         st.subheader(f"All {len(df_n):,} filtered novel encounters")
-        show = [c for c in [
-            "number_1", "designation_1", "diameter_1_km",
-            "number_2", "designation_2", "diameter_2_km",
-            "date_utc", "dist_au", "rel_vel_km_s",
-            "deflection_score", "gaia_observable",
-        ] if c in df_n.columns]
+        show = [
+            c
+            for c in [
+                "number_1",
+                "designation_1",
+                "diameter_1_km",
+                "number_2",
+                "designation_2",
+                "diameter_2_km",
+                "date_utc",
+                "dist_au",
+                "rel_vel_km_s",
+                "deflection_score",
+                "gaia_observable",
+            ]
+            if c in df_n.columns
+        ]
         st.dataframe(
             df_n.sort("deflection_score", descending=True).select(show).to_pandas(),
-            use_container_width=True, height=400,
+            use_container_width=True,
+            height=400,
         )
 
         st.download_button(
             "⬇ Download novel encounters (CSV)",
             data=df_n.select(show).to_pandas().to_csv(index=False).encode(),
-            file_name="novel_encounters_filtered.csv", mime="text/csv",
+            file_name="novel_encounters_filtered.csv",
+            mime="text/csv",
         )
 
 # ===========================================================================
@@ -342,8 +399,13 @@ with tab_coverage:
                 x="n_pre_transits",
                 y="n_post_transits",
                 color="viable_coverage",
-                hover_data=["perturber_name", "target_designation", "date_utc",
-                            "nearest_post_days", "dist_au"],
+                hover_data=[
+                    "perturber_name",
+                    "target_designation",
+                    "date_utc",
+                    "nearest_post_days",
+                    "dist_au",
+                ],
                 color_discrete_map={True: "#2ecc71", False: "#e74c3c"},
                 labels={
                     "n_pre_transits": "Pre-encounter transits",
@@ -353,10 +415,8 @@ with tab_coverage:
                 title="Pre vs post-encounter Gaia transit counts",
             )
             # Viability thresholds
-            fig.add_hline(y=3, line_dash="dot", line_color="gray",
-                          annotation_text="min post=3")
-            fig.add_vline(x=5, line_dash="dot", line_color="gray",
-                          annotation_text="min pre=5")
+            fig.add_hline(y=3, line_dash="dot", line_color="gray", annotation_text="min post=3")
+            fig.add_vline(x=5, line_dash="dot", line_color="gray", annotation_text="min pre=5")
             fig.update_layout(margin=dict(t=40, b=10), height=400)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -371,8 +431,7 @@ with tab_coverage:
                 labels={"nearest_post_days": "Days to first post-encounter transit"},
                 title="Gap: encounter → first post-encounter transit (viable only)",
             )
-            fig.add_vline(x=30, line_dash="dash", line_color="orange",
-                          annotation_text="30 d")
+            fig.add_vline(x=30, line_dash="dash", line_color="orange", annotation_text="30 d")
             fig.update_layout(margin=dict(t=40, b=10), height=400)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -383,25 +442,35 @@ with tab_coverage:
         df_nov2 = _load_novel()
         if df_nov2 is not None and "mass_unknown" in df_nov2.columns:
             df_cov_aug = df_cov.join(
-                df_nov2.select(["number_2", "mass_unknown"]).rename(
-                    {"number_2": "target_number"}
-                ),
-                on="target_number", how="left",
+                df_nov2.select(["number_2", "mass_unknown"]).rename({"number_2": "target_number"}),
+                on="target_number",
+                how="left",
             )
         else:
             df_cov_aug = df_cov.with_columns(pl.lit(True).alias("mass_unknown"))
 
-        show_cov = [c for c in [
-            "perturber_number", "perturber_name", "target_designation",
-            "date_utc", "dist_au", "deflection_score",
-            "n_pre_transits", "n_post_transits",
-            "nearest_pre_days", "nearest_post_days",
-            "n_window_transits", "viable_coverage", "note",
-        ] if c in df_cov_aug.columns]
+        show_cov = [
+            c
+            for c in [
+                "perturber_number",
+                "perturber_name",
+                "target_designation",
+                "date_utc",
+                "dist_au",
+                "deflection_score",
+                "n_pre_transits",
+                "n_post_transits",
+                "nearest_pre_days",
+                "nearest_post_days",
+                "n_window_transits",
+                "viable_coverage",
+                "note",
+            ]
+            if c in df_cov_aug.columns
+        ]
 
         viable_df = (
-            df_cov_aug
-            .filter(pl.col("viable_coverage"))
+            df_cov_aug.filter(pl.col("viable_coverage"))
             .sort("deflection_score", descending=True)
             .select(show_cov)
         )
@@ -414,7 +483,8 @@ with tab_coverage:
         st.download_button(
             "⬇ Download full coverage audit (CSV)",
             data=df_cov.to_pandas().to_csv(index=False).encode(),
-            file_name="gaia_coverage_audit.csv", mime="text/csv",
+            file_name="gaia_coverage_audit.csv",
+            mime="text/csv",
         )
 
 # ===========================================================================
@@ -455,6 +525,7 @@ with tab_mass:
     ]
 
     import pandas as pd
+
     st.dataframe(pd.DataFrame(fit_results), use_container_width=True)
 
     st.caption(
@@ -502,27 +573,45 @@ with tab_mass:
                 },
                 title=f"Expected astrometric deflection — top {show_top} candidates",
             )
-            fig.add_vline(x=100, line_dash="dash", line_color="red",
-                          annotation_text="Gaia threshold (100 μas)")
+            fig.add_vline(
+                x=100,
+                line_dash="dash",
+                line_color="red",
+                annotation_text="Gaia threshold (100 μas)",
+            )
             fig.update_layout(
                 yaxis=dict(autorange="reversed"),
-                margin=dict(t=40, b=10), height=500,
+                margin=dict(t=40, b=10),
+                height=500,
             )
             st.plotly_chart(fig, use_container_width=True)
 
         # Full table
-        show_cols_c = [c for c in [
-            "rank", "perturber_name", "perturber_diameter_km",
-            "target_designation", "target_diameter_km",
-            "date_utc", "dist_au", "rel_vel_km_s",
-            "deflection_score", "mass_est_kg", "deflection_muas",
-            "gaia_precision_muas", "viable",
-        ] if c in (df_cand.columns if isinstance(df_cand, pl.DataFrame) else df_cand.columns)]
+        show_cols_c = [
+            c
+            for c in [
+                "rank",
+                "perturber_name",
+                "perturber_diameter_km",
+                "target_designation",
+                "target_diameter_km",
+                "date_utc",
+                "dist_au",
+                "rel_vel_km_s",
+                "deflection_score",
+                "mass_est_kg",
+                "deflection_muas",
+                "gaia_precision_muas",
+                "viable",
+            ]
+            if c in (df_cand.columns if isinstance(df_cand, pl.DataFrame) else df_cand.columns)
+        ]
 
         st.subheader("All mass candidates")
         st.dataframe(
             (df_cand.to_pandas() if isinstance(df_cand, pl.DataFrame) else df_cand)[show_cols_c],
-            use_container_width=True, height=380,
+            use_container_width=True,
+            height=380,
         )
 
     # ── Coverage context for top candidates ───────────────────────────────
@@ -536,11 +625,11 @@ with tab_mass:
         if df_nov3 is not None and "mass_unknown" in df_nov3.columns:
             merged = df_cov2.join(
                 df_nov3.select(["number_2", "mass_unknown"]).rename({"number_2": "target_number"}),
-                on="target_number", how="left",
+                on="target_number",
+                how="left",
             )
             top10 = (
-                merged
-                .filter(pl.col("viable_coverage"))
+                merged.filter(pl.col("viable_coverage"))
                 .filter(pl.col("mass_unknown").fill_null(True))
                 .sort("deflection_score", descending=True)
                 .head(10)
@@ -548,11 +637,21 @@ with tab_mass:
         else:
             top10 = df_cov2.filter(pl.col("viable_coverage")).head(10)
 
-        show_top10 = [c for c in [
-            "perturber_name", "target_designation", "date_utc", "dist_au",
-            "deflection_score", "n_pre_transits", "n_post_transits",
-            "nearest_post_days", "viable_coverage",
-        ] if c in top10.columns]
+        show_top10 = [
+            c
+            for c in [
+                "perturber_name",
+                "target_designation",
+                "date_utc",
+                "dist_au",
+                "deflection_score",
+                "n_pre_transits",
+                "n_post_transits",
+                "nearest_post_days",
+                "viable_coverage",
+            ]
+            if c in top10.columns
+        ]
 
         st.dataframe(top10.select(show_top10).to_pandas(), use_container_width=True)
 

@@ -48,12 +48,8 @@ def test_zero_mass_perturber_matches_no_perturber() -> None:
     pert_a = _make_elements(a_au=3.0)
     pert_b = _make_elements(a_au=4.0, Omega_deg=180.0)
     grid = np.array([2456200.5 + d for d in (1.0, 30.0, 100.0)])
-    out_a = propagate_target_with_perturber(
-        target, pert_a, 0.0, grid, include_planets=("sun",)
-    )
-    out_b = propagate_target_with_perturber(
-        target, pert_b, 0.0, grid, include_planets=("sun",)
-    )
+    out_a = propagate_target_with_perturber(target, pert_a, 0.0, grid, include_planets=("sun",))
+    out_b = propagate_target_with_perturber(target, pert_b, 0.0, grid, include_planets=("sun",))
     # Massless perturbers contribute nothing → identical target trajectories
     assert np.allclose(out_a, out_b, atol=1e-10)
 

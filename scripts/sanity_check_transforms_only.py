@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import logging
 import time
-from pathlib import Path
 
 import numpy as np
 import polars as pl
@@ -184,10 +183,11 @@ def main() -> int:
 
     # 5. Compare
     deg = np.pi / 180.0
+
     def _shift(ra1, dec1, ra2, dec2):
         dra = ((ra1 - ra2 + 540.0) % 360.0 - 180.0) * np.cos(dec2 * deg) * 3_600_000.0
         ddec = (dec1 - dec2) * 3_600_000.0
-        return dra, ddec, np.sqrt(dra ** 2 + ddec ** 2)
+        return dra, ddec, np.sqrt(dra**2 + ddec**2)
 
     dra_lt, ddec_lt, sep_lt = _shift(ra_ours, dec_ours, ra_horizons, dec_horizons)
     dra_nolt, ddec_nolt, sep_nolt = _shift(ra_ours_nolt, dec_ours_nolt, ra_horizons, dec_horizons)
@@ -198,17 +198,23 @@ def main() -> int:
     logger.info("  NEITHER light-time NOR aberration:")
     logger.info(
         "    median |ΔRA| = %.2f mas    median |ΔDec| = %.2f mas    median sep = %.2f mas",
-        np.median(np.abs(dra_nolt)), np.median(np.abs(ddec_nolt)), np.median(sep_nolt),
+        np.median(np.abs(dra_nolt)),
+        np.median(np.abs(ddec_nolt)),
+        np.median(sep_nolt),
     )
     logger.info("  WITH light-time only:")
     logger.info(
         "    median |ΔRA| = %.2f mas    median |ΔDec| = %.2f mas    median sep = %.2f mas",
-        np.median(np.abs(dra_lt)), np.median(np.abs(ddec_lt)), np.median(sep_lt),
+        np.median(np.abs(dra_lt)),
+        np.median(np.abs(ddec_lt)),
+        np.median(sep_lt),
     )
     logger.info("  WITH light-time + aberration:")
     logger.info(
         "    median |ΔRA| = %.2f mas    median |ΔDec| = %.2f mas    median sep = %.2f mas",
-        np.median(np.abs(dra_full)), np.median(np.abs(ddec_full)), np.median(sep_full),
+        np.median(np.abs(dra_full)),
+        np.median(np.abs(ddec_full)),
+        np.median(sep_full),
     )
     logger.info("")
     # The light-time-only run is the one comparable with Gaia's reported (ra, dec):

@@ -40,6 +40,7 @@ _OUTPUT_DEFAULT = Path("data/output/relevant_novel_encounters.csv")
 # Score
 # ---------------------------------------------------------------------------
 
+
 def deflection_score(df: pl.DataFrame) -> pl.Series:
     """Proxy for gravitational deflection strength.
 
@@ -48,15 +49,13 @@ def deflection_score(df: pl.DataFrame) -> pl.Series:
 
     Higher score = stronger expected deflection = better mass-determination candidate.
     """
-    return (
-        pl.col("diameter_1_km") ** 3
-        / (pl.col("dist_au") * pl.col("rel_vel_km_s") ** 2)
-    )
+    return pl.col("diameter_1_km") ** 3 / (pl.col("dist_au") * pl.col("rel_vel_km_s") ** 2)
 
 
 # ---------------------------------------------------------------------------
 # Main filter
 # ---------------------------------------------------------------------------
+
 
 def filter_candidates(
     df: pl.DataFrame,
@@ -90,7 +89,9 @@ def filter_candidates(
 
     # Normalise gaia_observable: may be bool or string "true"/"false"
     if df["gaia_observable"].dtype == pl.Utf8:
-        df = df.with_columns(pl.col("gaia_observable").str.to_lowercase().eq("true").alias("gaia_observable"))
+        df = df.with_columns(
+            pl.col("gaia_observable").str.to_lowercase().eq("true").alias("gaia_observable")
+        )
 
     mask = (
         (pl.col("dist_au") < max_dist_au)
@@ -103,9 +104,7 @@ def filter_candidates(
     filtered = df.filter(mask)
 
     # Add deflection score
-    filtered = filtered.with_columns(
-        deflection_score(filtered).alias("deflection_score")
-    )
+    filtered = filtered.with_columns(deflection_score(filtered).alias("deflection_score"))
 
     # Flag encounters where the perturber's mass is not in the literature
     # (diameter_1_km is present but no published mass — approximated by
@@ -133,6 +132,7 @@ def filter_candidates(
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--input", type=Path, default=_INPUT_DEFAULT)
@@ -140,8 +140,9 @@ def main() -> None:
     p.add_argument("--max-dist-au", type=float, default=_MAX_DIST_AU)
     p.add_argument("--min-diameter-km", type=float, default=_MIN_DIAMETER_KM)
     p.add_argument("--max-vel-km-s", type=float, default=_MAX_VEL_KM_S)
-    p.add_argument("--all-observability", action="store_true",
-                   help="Include encounters not observable by Gaia")
+    p.add_argument(
+        "--all-observability", action="store_true", help="Include encounters not observable by Gaia"
+    )
     args = p.parse_args()
 
     if not args.input.exists():

@@ -120,15 +120,25 @@ def analyze_one_candidate(
     except Exception as exc:  # noqa: BLE001
         logger.warning("  Gaia query failed: %s", exc)
         return _empty_row(
-            perturber_number, perturber_name, target_number, target_designation,
-            date_utc, expected_muas, note=f"gaia query failed: {exc}",
+            perturber_number,
+            perturber_name,
+            target_number,
+            target_designation,
+            date_utc,
+            expected_muas,
+            note=f"gaia query failed: {exc}",
         )
 
     if obs.height == 0:
         logger.warning("  no Gaia transits in window")
         return _empty_row(
-            perturber_number, perturber_name, target_number, target_designation,
-            date_utc, expected_muas, note="no Gaia transits",
+            perturber_number,
+            perturber_name,
+            target_number,
+            target_designation,
+            date_utc,
+            expected_muas,
+            note="no Gaia transits",
         )
 
     epochs_days = obs["epoch"].to_numpy()
@@ -140,8 +150,13 @@ def analyze_one_candidate(
     except Exception as exc:  # noqa: BLE001
         logger.warning("  Horizons query failed: %s", exc)
         return _empty_row(
-            perturber_number, perturber_name, target_number, target_designation,
-            date_utc, expected_muas, note=f"horizons failed: {exc}",
+            perturber_number,
+            perturber_name,
+            target_number,
+            target_designation,
+            date_utc,
+            expected_muas,
+            note=f"horizons failed: {exc}",
         )
 
     ra_obs = obs["ra"].to_numpy().astype(float)
@@ -218,7 +233,8 @@ def analyze_one_candidate(
         "sd_ddec_after": sd_ddec_a,
         "t_ddec": t_ddec,
         "detection": (
-            "yes" if (math.isfinite(t_dra) and abs(t_dra) >= 3.0)
+            "yes"
+            if (math.isfinite(t_dra) and abs(t_dra) >= 3.0)
             or (math.isfinite(t_ddec) and abs(t_ddec) >= 3.0)
             else "no"
         ),
@@ -226,8 +242,15 @@ def analyze_one_candidate(
     }
 
 
-def _empty_row(perturber_number, perturber_name, target_number, target_designation,
-               date_utc, expected_muas, note: str) -> dict:
+def _empty_row(
+    perturber_number,
+    perturber_name,
+    target_number,
+    target_designation,
+    date_utc,
+    expected_muas,
+    note: str,
+) -> dict:
     return {
         "perturber_number": perturber_number,
         "perturber_name": perturber_name,
@@ -301,19 +324,36 @@ def main() -> int:
         if target_no is None or (isinstance(target_no, float) and math.isnan(target_no)):
             logger.warning(
                 "[%d/%d] (%d) %s + %s: target has no MPC number — skipping",
-                i, df.height, perturber, perturber_name, target_des,
+                i,
+                df.height,
+                perturber,
+                perturber_name,
+                target_des,
             )
-            rows.append(_empty_row(
-                perturber, perturber_name, None, target_des,
-                date_utc, expected_muas, note="no target_number",
-            ))
+            rows.append(
+                _empty_row(
+                    perturber,
+                    perturber_name,
+                    None,
+                    target_des,
+                    date_utc,
+                    expected_muas,
+                    note="no target_number",
+                )
+            )
             continue
 
         target_no = int(target_no)
         logger.info(
             "[%d/%d] (%d) %s + (%d) %s on %s  (expected δ = %.0f μas)…",
-            i, df.height, perturber, perturber_name, target_no, target_des,
-            date_utc, expected_muas,
+            i,
+            df.height,
+            perturber,
+            perturber_name,
+            target_no,
+            target_des,
+            date_utc,
+            expected_muas,
         )
 
         result = analyze_one_candidate(
@@ -332,15 +372,19 @@ def main() -> int:
         if result["detection"] == "yes":
             logger.info(
                 "  → DETECTION  shift_RA=%+.1f mas (t=%+.2f), shift_Dec=%+.1f mas (t=%+.2f), σ_RA(before)=%.0f mas",
-                result["shift_dra_mas"], result["t_dra"],
-                result["shift_ddec_mas"], result["t_ddec"],
+                result["shift_dra_mas"],
+                result["t_dra"],
+                result["shift_ddec_mas"],
+                result["t_ddec"],
                 result["sd_dra_before"],
             )
         else:
             logger.info(
                 "  → no detection  shift_RA=%+.1f mas (t=%+.2f), shift_Dec=%+.1f mas (t=%+.2f)",
-                result["shift_dra_mas"], result["t_dra"],
-                result["shift_ddec_mas"], result["t_ddec"],
+                result["shift_dra_mas"],
+                result["t_dra"],
+                result["shift_ddec_mas"],
+                result["t_ddec"],
             )
 
     out = pl.DataFrame(rows)
@@ -350,8 +394,9 @@ def main() -> int:
 
     # Summary
     n_detected = int((out["detection"] == "yes").sum())
-    logger.info("Summary: %d / %d candidates with |t| ≥ 3σ shift on either axis",
-                n_detected, out.height)
+    logger.info(
+        "Summary: %d / %d candidates with |t| ≥ 3σ shift on either axis", n_detected, out.height
+    )
 
     finite = out.filter(pl.col("t_dra").is_finite())
     if finite.height > 0:

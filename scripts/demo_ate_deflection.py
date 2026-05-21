@@ -46,7 +46,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -70,8 +69,8 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_TARGET_NUMBER = 18105                  # MPC number for 2000 NT3
-_PERTURBER_NUMBER = 111                 # (111) Ate
+_TARGET_NUMBER = 18105  # MPC number for 2000 NT3
+_PERTURBER_NUMBER = 111  # (111) Ate
 _ENCOUNTER_DATE = "2016-06-08T00:00:00"
 _HALF_WINDOW_DAYS = 180.0
 _BLACKOUT_DAYS = 7.0
@@ -291,8 +290,9 @@ def main() -> int:
     # --- Time window ----------------------------------------------------------
     enc_jd_tdb = float(Time(_ENCOUNTER_DATE, scale="utc").tdb.jd)
     enc_days_j2010 = float(Time(_ENCOUNTER_DATE, scale="utc").tcb.jd) - _J2010_TCB_JD
-    logger.info("Encounter JD TDB = %.6f  (days since J2010 TCB = %.3f)",
-                enc_jd_tdb, enc_days_j2010)
+    logger.info(
+        "Encounter JD TDB = %.6f  (days since J2010 TCB = %.3f)", enc_jd_tdb, enc_days_j2010
+    )
 
     # --- Fetch Gaia observations ---------------------------------------------
     obs = fetch_target_observations(
@@ -343,9 +343,9 @@ def main() -> int:
 
     # Component residuals (mas, on tangent plane around the predicted position)
     deg = np.pi / 180.0
-    dra = (ra_obs - ra_pred + 540.0) % 360.0 - 180.0   # signed in degrees
+    dra = (ra_obs - ra_pred + 540.0) % 360.0 - 180.0  # signed in degrees
     ddec = dec_obs - dec_pred
-    dra_mas = dra * np.cos(dec_pred * deg) * 3_600_000.0   # cos(dec) factor
+    dra_mas = dra * np.cos(dec_pred * deg) * 3_600_000.0  # cos(dec) factor
     ddec_mas = ddec * 3_600_000.0
 
     days_from_enc = jd_tdb - enc_jd_tdb
@@ -412,8 +412,7 @@ def main() -> int:
             sa = stats_after[f"std_{key}"] / np.sqrt(stats_after["n"])
             sigma = np.sqrt(sb * sb + sa * sa)
             t = (ma - mb) / sigma if sigma > 0 else float("inf")
-            logger.info("Δ(after − before) on %s = %+.1f mas   t = %+.2fσ",
-                        axis, ma - mb, t)
+            logger.info("Δ(after − before) on %s = %+.1f mas   t = %+.2fσ", axis, ma - mb, t)
 
     logger.info("")
     logger.info("Interpretation:")

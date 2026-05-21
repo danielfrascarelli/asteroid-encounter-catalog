@@ -38,6 +38,8 @@ integration using GMs from the JPL Small-Body Database (units of M_sun).
 from __future__ import annotations
 
 import logging
+import multiprocessing as mp
+import os
 from collections.abc import Iterator
 from functools import lru_cache
 
@@ -50,6 +52,9 @@ from astropy.time import Time
 from src.propagate.kepler import kepler_to_cartesian
 
 logger = logging.getLogger(__name__)
+
+_TARGET_SHARD_BYTES = 256 * 1024 * 1024
+_AUTO_NBODY_WORKER_CAP = 8
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -102,28 +107,28 @@ _PLANET_GMS: dict[str, float] = {
 _MAJOR_ASTEROIDS: dict[str, tuple[int, float]] = {
     # name: (MPC number, mass in M_sun)
     # Tier 1 — Big-4 (high-confidence, < 5% uncertainty)
-    "ceres":        (1,    4.723e-10),  # [D] Dawn; GM=62.628 km³/s²
-    "pallas":       (2,    1.059e-10),  # [G] Goffin 2014
-    "vesta":        (4,    1.302e-10),  # [D] Dawn; GM=17.288 km³/s²
-    "hygiea":       (10,   4.397e-11),  # [Ba] Baer 2017
+    "ceres": (1, 4.723e-10),  # [D] Dawn; GM=62.628 km³/s²
+    "pallas": (2, 1.059e-10),  # [G] Goffin 2014
+    "vesta": (4, 1.302e-10),  # [D] Dawn; GM=17.288 km³/s²
+    "hygiea": (10, 4.397e-11),  # [Ba] Baer 2017
     # Tier 2 — Extended (D > 200 km; uncertainty ~20–40%)
-    "interamnia":   (704,  1.131e-11),  # [Ba] Baer 2011; D=316 km
-    "europa_ast":   (52,   1.413e-11),  # [G]  Goffin 2014; D=300 km
-    "davida":       (511,  1.131e-11),  # [G]  Goffin 2014; D=289 km
-    "eunomia":      (15,   9.452e-12),  # [G]  Goffin 2014; D=255 km
-    "euphrosyne":   (31,   4.892e-12),  # [C]  Carry 2012; D=268 km ρ≈2.0
-    "psyche":       (16,   8.496e-12),  # [C]  Shepard 2017; D=226 km M-type
-    "cybele":       (65,   7.240e-12),  # [C]  Carry 2012; D=237 km
-    "sylvia":       (87,   7.461e-12),  # [B]  Marchis 2005; D=261 km (triple)
-    "juno":         (3,    7.541e-12),  # [G]  Goffin 2014; D=234 km S-type
+    "interamnia": (704, 1.131e-11),  # [Ba] Baer 2011; D=316 km
+    "europa_ast": (52, 1.413e-11),  # [G]  Goffin 2014; D=300 km
+    "davida": (511, 1.131e-11),  # [G]  Goffin 2014; D=289 km
+    "eunomia": (15, 9.452e-12),  # [G]  Goffin 2014; D=255 km
+    "euphrosyne": (31, 4.892e-12),  # [C]  Carry 2012; D=268 km ρ≈2.0
+    "psyche": (16, 8.496e-12),  # [C]  Shepard 2017; D=226 km M-type
+    "cybele": (65, 7.240e-12),  # [C]  Carry 2012; D=237 km
+    "sylvia": (87, 7.461e-12),  # [B]  Marchis 2005; D=261 km (triple)
+    "juno": (3, 7.541e-12),  # [G]  Goffin 2014; D=234 km S-type
     # Tier 3 — Smaller binaries (D > 150 km; uncertainty ~5–15%)
-    "camilla":      (107,  5.631e-12),  # [B]  Marchis 2008; D=223 km
-    "iris":         (7,    4.394e-12),  # [G]  Goffin 2014; D=200 km
-    "bamberga":     (324,  5.682e-12),  # [C]  Carry 2012; D=228 km
-    "kalliope":     (22,   4.078e-12),  # [B]  Marchis 2003; D=166 km
-    "eugenia":      (45,   2.931e-12),  # [B]  Merline 1999; D=185 km
-    "hermione":     (121,  2.756e-12),  # [B]  Marchis 2005; D=187 km
-    "fortuna":      (19,   4.344e-12),  # [G]  Goffin 2014; D=211 km
+    "camilla": (107, 5.631e-12),  # [B]  Marchis 2008; D=223 km
+    "iris": (7, 4.394e-12),  # [G]  Goffin 2014; D=200 km
+    "bamberga": (324, 5.682e-12),  # [C]  Carry 2012; D=228 km
+    "kalliope": (22, 4.078e-12),  # [B]  Marchis 2003; D=166 km
+    "eugenia": (45, 2.931e-12),  # [B]  Merline 1999; D=185 km
+    "hermione": (121, 2.756e-12),  # [B]  Marchis 2005; D=187 km
+    "fortuna": (19, 4.344e-12),  # [G]  Goffin 2014; D=211 km
 }
 
 
@@ -266,6 +271,115 @@ def _vectorised_kepler_state(
     return p_now, vel
 
 
+def resolve_nbody_workers(n_workers: int | str | None) -> int:
+    """Resolve an N-body worker count."""
+    if n_workers is None:
+        return 1
+    if n_workers == "auto":
+        return min(os.cpu_count() or 1, _AUTO_NBODY_WORKER_CAP)
+    return max(1, int(n_workers))
+
+
+def choose_nbody_shard_size(
+    n_steps: int,
+    n_asteroids: int,
+    requested: int | None = None,
+) -> int:
+    """Return an asteroid shard size with bounded per-worker output memory."""
+    if requested is not None:
+        return max(1, min(int(requested), n_asteroids))
+    bytes_per_asteroid = max(1, int(n_steps)) * 3 * np.dtype(np.float32).itemsize
+    shard = max(1, _TARGET_SHARD_BYTES // bytes_per_asteroid)
+    return max(1, min(int(shard), n_asteroids))
+
+
+def _nbody_worker_task(args: tuple) -> tuple[int, int, np.ndarray]:
+    """Integrate one asteroid shard and return its local trajectory."""
+    (
+        start,
+        stop,
+        elements_shard,
+        time_grid,
+        include_planets,
+        integrator,
+        dt_days,
+        epoch_jd,
+    ) = args
+    for var in (
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "NUMEXPR_MAX_THREADS",
+    ):
+        os.environ.setdefault(var, "1")
+    shard_out = propagate_grid_nbody(
+        elements_shard,
+        time_grid,
+        include_planets=include_planets,
+        include_major_asteroids=False,
+        integrator=integrator,
+        dt_days=dt_days,
+        epoch_jd=epoch_jd,
+        n_workers=1,
+    )
+    return int(start), int(stop), shard_out
+
+
+def _propagate_grid_nbody_parallel(
+    elements: pl.DataFrame,
+    time_grid: np.ndarray,
+    *,
+    include_planets: list[str],
+    integrator: str,
+    dt_days: float,
+    epoch_jd: float,
+    out: np.ndarray,
+    n_workers: int,
+    worker_shard_size: int | None,
+) -> np.ndarray:
+    """Parallel shard dispatcher for massless-test-particle propagation."""
+    n_ast = len(elements)
+    n_steps = len(time_grid)
+    shard_size = choose_nbody_shard_size(n_steps, n_ast, worker_shard_size)
+    shards = [(start, min(start + shard_size, n_ast)) for start in range(0, n_ast, shard_size)]
+    nw = min(max(1, n_workers), len(shards))
+    logger.info(
+        "N-body parallel propagation: %d workers | %d shards | shard_size≈%d asteroids",
+        nw,
+        len(shards),
+        shard_size,
+    )
+
+    tasks = [
+        (
+            start,
+            stop,
+            elements.slice(start, stop - start),
+            time_grid,
+            include_planets,
+            integrator,
+            dt_days,
+            epoch_jd,
+        )
+        for start, stop in shards
+    ]
+
+    from tqdm import tqdm
+
+    ctx = mp.get_context("forkserver")
+    with ctx.Pool(processes=nw) as pool:
+        for start, stop, shard_out in tqdm(
+            pool.imap_unordered(_nbody_worker_task, tasks),
+            total=len(tasks),
+            desc="N-body shards",
+            unit="shard",
+            leave=False,
+        ):
+            out[:, start:stop, :] = shard_out
+    logger.info("N-body parallel propagation finished: output shape %s", out.shape)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Public propagator
 # ---------------------------------------------------------------------------
@@ -281,6 +395,8 @@ def propagate_grid_nbody(
     dt_days: float = 1.0,
     epoch_jd: float | None = None,
     out: np.ndarray | None = None,
+    n_workers: int | str = 1,
+    worker_shard_size: int | None = None,
 ) -> np.ndarray:
     """Integrate *elements* across *time_grid* with planetary perturbers.
 
@@ -310,6 +426,13 @@ def propagate_grid_nbody(
         Initial epoch for the integration in JD TDB.  Defaults to the
         ``epoch_jd`` column of *elements* (which is uniform within a single
         MPCORB snapshot).
+    n_workers:
+        Number of asteroid-shard worker processes.  ``1`` preserves the serial
+        REBOUND path; ``"auto"`` uses up to 8 processes to avoid excessive
+        memory pressure from in-flight trajectory shards.
+    worker_shard_size:
+        Optional asteroid count per worker task.  Defaults to a size that keeps
+        each returned ``float32`` shard near 256 MiB.
 
     Returns
     -------
@@ -358,14 +481,44 @@ def propagate_grid_nbody(
         raise ValueError(f"Unknown planet names in include_planets: {unknown}")
 
     logger.info(
-        "N-body propagation: %d asteroids | %d steps | dt=%.3f d | integrator=%s | planets=%s | major_asteroids=%s",
+        "N-body propagation: %d asteroids | %d steps | dt=%.3f d | integrator=%s | planets=%s | major_asteroids=%s | workers=%s",
         n_ast,
         n_steps,
         dt_days,
         integrator,
         ",".join(planet_names),
         include_major_asteroids,
+        n_workers,
     )
+
+    expected = (n_steps, n_ast, 3)
+    if out is not None:
+        if out.shape != expected:
+            raise ValueError(f"out has shape {out.shape}, expected {expected}")
+        if out.dtype != np.float32:
+            raise ValueError(f"out has dtype {out.dtype}, expected float32")
+
+    resolved_workers = resolve_nbody_workers(n_workers)
+    if resolved_workers > 1:
+        if include_major_asteroids:
+            logger.warning(
+                "Parallel N-body propagation disabled because include_major_asteroids=True; "
+                "massive asteroid perturbers require a single shared simulation in this implementation."
+            )
+        else:
+            if out is None:
+                out = np.empty(expected, dtype=np.float32)
+            return _propagate_grid_nbody_parallel(
+                elements,
+                time_grid,
+                include_planets=planet_names,
+                integrator=integrator,
+                dt_days=dt_days,
+                epoch_jd=float(epoch_jd),
+                out=out,
+                n_workers=resolved_workers,
+                worker_shard_size=worker_shard_size,
+            )
 
     sim = rebound.Simulation()
     sim.units = ("AU", "days", "Msun")
@@ -479,13 +632,7 @@ def propagate_grid_nbody(
     # the explicit safe_mode flag was removed in the 5.0 API refactor.
 
     if out is None:
-        out = np.empty((n_steps, n_ast, 3), dtype=np.float32)
-    else:
-        expected = (n_steps, n_ast, 3)
-        if out.shape != expected:
-            raise ValueError(f"out has shape {out.shape}, expected {expected}")
-        if out.dtype != np.float32:
-            raise ValueError(f"out has dtype {out.dtype}, expected float32")
+        out = np.empty(expected, dtype=np.float32)
 
     # Snapshot the initial state so we can re-run the simulation backward
     # without rebuilding it from scratch.  REBOUND stores particle state by

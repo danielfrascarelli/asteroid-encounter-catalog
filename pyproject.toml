@@ -27,6 +27,11 @@ dependencies = [
     "tqdm>=4.0",
     "pyyaml>=6.0",
     "dask>=2024.1",
+    # Compressed chunked storage for the bulk N-body trajectory cache.
+    # Zarr v2 is stable; numcodecs supplies the Blosc compressor with the
+    # bitshuffle filter that we use for float32 trajectories (~5× ratio).
+    "zarr>=2.16,<3",
+    "numcodecs>=0.12",
 ]
 
 [project.optional-dependencies]
@@ -52,7 +57,10 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP"]
-ignore = ["E501"]
+# E501 — line length (delegated to black)
+# N806/N803 — uppercase identifiers (`N`, `T`, `M0`, `Omega0`, ...) are
+# standard scientific notation in this codebase and don't indicate bugs.
+ignore = ["E501", "N806", "N803"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

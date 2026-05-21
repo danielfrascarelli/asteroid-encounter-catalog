@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 _J2010_TCB_JD = 2455197.5
 _GAIA_OBSERVER = "500@-139479"
 _GAIA_START_JD_TCB = 2456863.5  # 2014-07-25 (Gaia mission start)
-_GAIA_END_JD_TCB   = 2457910.5  # 2017-05-28 (Gaia DR3 end)
+_GAIA_END_JD_TCB = 2457910.5  # 2017-05-28 (Gaia DR3 end)
 _AU_M = 1.495978707e11
 _G = 6.674e-11
 
@@ -71,7 +71,7 @@ _G = 6.674e-11
 def fetch_gaia_full_window(archive_url: str, target: int) -> pl.DataFrame:
     """Fetch all Gaia DR3 observations of *target* in the mission window."""
     d_min = _GAIA_START_JD_TCB - _J2010_TCB_JD
-    d_max = _GAIA_END_JD_TCB   - _J2010_TCB_JD
+    d_max = _GAIA_END_JD_TCB - _J2010_TCB_JD
     adql = (
         "SELECT number_mp, epoch, ra, dec, g_mag, x_gaia, y_gaia, z_gaia "
         "FROM gaiadr3.sso_observation "
@@ -90,17 +90,19 @@ def horizons_apparent_radec(
     target: int, jd_tdb: np.ndarray, rate_limit_s: float
 ) -> tuple[np.ndarray, np.ndarray]:
     """Query Horizons for apparent RA/Dec from Gaia at each epoch."""
-    ra_out  = np.empty(len(jd_tdb), dtype=float)
+    ra_out = np.empty(len(jd_tdb), dtype=float)
     dec_out = np.empty(len(jd_tdb), dtype=float)
     chunk = 50
     for start in range(0, len(jd_tdb), chunk):
         idx = np.arange(start, min(start + chunk, len(jd_tdb)))
         h = Horizons(
-            id=str(target), location=_GAIA_OBSERVER,
-            epochs=jd_tdb[idx].tolist(), id_type="smallbody",
+            id=str(target),
+            location=_GAIA_OBSERVER,
+            epochs=jd_tdb[idx].tolist(),
+            id_type="smallbody",
         )
         eph = h.ephemerides()
-        ra_out[idx]  = np.array(eph["RA"],  dtype=float)
+        ra_out[idx] = np.array(eph["RA"], dtype=float)
         dec_out[idx] = np.array(eph["DEC"], dtype=float)
         if start + chunk < len(jd_tdb):
             time.sleep(rate_limit_s)
@@ -123,14 +125,22 @@ def compute_perturbation_signal(
     """
     logger.info("Computing N-body perturbation basis (M=M_est)…")
     ra_with, dec_with = forward_model(
-        target_elements, perturber_elements, m_est_kg, jd_tdb, gaia_xyz,
+        target_elements,
+        perturber_elements,
+        m_est_kg,
+        jd_tdb,
+        gaia_xyz,
     )
     logger.info("Computing N-body perturbation basis (M=0)…")
     ra_zero, dec_zero = forward_model(
-        target_elements, perturber_elements, 0.0, jd_tdb, gaia_xyz,
+        target_elements,
+        perturber_elements,
+        0.0,
+        jd_tdb,
+        gaia_xyz,
     )
     deg = np.pi / 180.0
-    dra  = ((ra_with  - ra_zero  + 540.0) % 360.0 - 180.0) * np.cos(dec_zero * deg) * 3_600_000.0
+    dra = ((ra_with - ra_zero + 540.0) % 360.0 - 180.0) * np.cos(dec_zero * deg) * 3_600_000.0
     ddec = (dec_with - dec_zero) * 3_600_000.0
     # Normalized per M_est kg (so α = M/M_est)
     return dra, ddec
@@ -169,12 +179,12 @@ def fit_mass_linear(
     # RA rows:  R_RA = a + b*dt + α * Δθ_RA
     # Dec rows: R_Dec = c + d*dt + α * Δθ_Dec
     A = np.zeros((2 * n, 5), dtype=float)
-    A[:n, 0] = 1.0 / sig_ra           # a term (RA)
-    A[:n, 1] = dt / sig_ra             # b term
-    A[:n, 4] = dtheta_ra / sig_ra      # α term
-    A[n:, 2] = 1.0 / sig_dec          # c term (Dec)
-    A[n:, 3] = dt / sig_dec            # d term
-    A[n:, 4] = dtheta_dec / sig_dec    # α term
+    A[:n, 0] = 1.0 / sig_ra  # a term (RA)
+    A[:n, 1] = dt / sig_ra  # b term
+    A[:n, 4] = dtheta_ra / sig_ra  # α term
+    A[n:, 2] = 1.0 / sig_dec  # c term (Dec)
+    A[n:, 3] = dt / sig_dec  # d term
+    A[n:, 4] = dtheta_dec / sig_dec  # α term
 
     y = np.concatenate([r_ra / sig_ra, r_dec / sig_dec])
 
@@ -219,37 +229,39 @@ def _mass_from_diameter(d_km: float, rho_kg_m3: float = 1500.0) -> float:
     if d_km is None or (isinstance(d_km, float) and math.isnan(d_km)) or d_km <= 0.0:
         return 1.0e18
     r = 0.5 * d_km * 1000.0
-    return rho_kg_m3 * (4.0 / 3.0) * math.pi * r ** 3
+    return rho_kg_m3 * (4.0 / 3.0) * math.pi * r**3
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--config", default="config.yaml")
     p.add_argument("--perturber", type=int, required=True)
-    p.add_argument("--target",    type=int, required=True)
-    p.add_argument("--date",      required=True, help="Encounter date, ISO UTC")
+    p.add_argument("--target", type=int, required=True)
+    p.add_argument("--date", required=True, help="Encounter date, ISO UTC")
     p.add_argument(
         "--mpcorb",
         type=Path,
         default=Path("data/raw/mpcorb_archive/MPCORB_20120918.DAT"),
     )
     p.add_argument(
-        "--noise-mas", type=float, default=5.0,
+        "--noise-mas",
+        type=float,
+        default=5.0,
         help="Assumed per-transit astrometric noise (mas). Used as uniform weight.",
     )
     p.add_argument(
-        "--output", type=Path,
+        "--output",
+        type=Path,
         default=None,
         help="Output JSON path. Defaults to data/output/fit_linear_<tag>.json",
     )
     args = p.parse_args()
 
     cfg = load_config(args.config)
-    archive_url  = cfg.sources.gaia_sso.archive_url
-    rate_limit   = float(cfg.sources.jpl_horizons.rate_limit_seconds)
+    archive_url = cfg.sources.gaia_sso.archive_url
+    rate_limit = float(cfg.sources.jpl_horizons.rate_limit_seconds)
 
     enc_jd_tdb = float(Time(args.date, scale="utc").tdb.jd)
-    enc_jd_tcb = float(Time(args.date, scale="utc").tcb.jd)
 
     # Gaia observations (full DR3 window)
     logger.info("Fetching all Gaia DR3 observations of target %d…", args.target)
@@ -262,12 +274,14 @@ def main() -> int:
     epochs_days = obs["epoch"].to_numpy()
     jd_tcb = epochs_days + _J2010_TCB_JD
     jd_tdb = Time(jd_tcb, format="jd", scale="tcb").tdb.jd.astype(float)
-    gaia_xyz = np.column_stack([
-        obs["x_gaia"].to_numpy(),
-        obs["y_gaia"].to_numpy(),
-        obs["z_gaia"].to_numpy(),
-    ]).astype(float)
-    ra_obs  = obs["ra"].to_numpy().astype(float)
+    gaia_xyz = np.column_stack(
+        [
+            obs["x_gaia"].to_numpy(),
+            obs["y_gaia"].to_numpy(),
+            obs["z_gaia"].to_numpy(),
+        ]
+    ).astype(float)
+    ra_obs = obs["ra"].to_numpy().astype(float)
     dec_obs = obs["dec"].to_numpy().astype(float)
 
     # Horizons predictions for full window
@@ -275,20 +289,20 @@ def main() -> int:
     ra_pred, dec_pred = horizons_apparent_radec(args.target, jd_tdb, rate_limit)
 
     deg = np.pi / 180.0
-    r_ra  = ((ra_obs  - ra_pred  + 540.0) % 360.0 - 180.0) * np.cos(dec_pred * deg) * 3_600_000.0
+    r_ra = ((ra_obs - ra_pred + 540.0) % 360.0 - 180.0) * np.cos(dec_pred * deg) * 3_600_000.0
     r_dec = (dec_obs - dec_pred) * 3_600_000.0
 
     # Time axis (days from encounter, JD TDB scale)
     t_days = jd_tdb - enc_jd_tdb
 
     # Count pre/post
-    n_pre  = int((t_days < -7.0).sum())
-    n_post = int((t_days >  7.0).sum())
+    n_pre = int((t_days < -7.0).sum())
+    n_post = int((t_days > 7.0).sum())
     logger.info("  %d pre-encounter + %d post-encounter observations", n_pre, n_post)
 
     # Load orbital elements
     logger.info("Loading MPCORB elements…")
-    target_el    = load_element_row(args.mpcorb, args.target)
+    target_el = load_element_row(args.mpcorb, args.target)
     perturber_el = load_element_row(args.mpcorb, args.perturber)
 
     h = perturber_el.get("H", None)
@@ -302,28 +316,38 @@ def main() -> int:
     # N-body perturbation basis (only at observation epochs to save time)
     logger.info("Computing N-body perturbation signal (2 integrations)…")
     dtheta_ra, dtheta_dec = compute_perturbation_signal(
-        target_el, perturber_el, m_est, jd_tdb, gaia_xyz,
+        target_el,
+        perturber_el,
+        m_est,
+        jd_tdb,
+        gaia_xyz,
     )
     max_signal = float(np.max(np.abs(dtheta_ra)))
-    logger.info("  Max |Δθ_RA| over full window = %.1f mas  (at M=M_est=%.2e kg)",
-                max_signal, m_est)
+    logger.info(
+        "  Max |Δθ_RA| over full window = %.1f mas  (at M=M_est=%.2e kg)", max_signal, m_est
+    )
 
     # Uniform noise weights
-    sig_ra  = np.full(len(jd_tdb), args.noise_mas)
+    sig_ra = np.full(len(jd_tdb), args.noise_mas)
     sig_dec = np.full(len(jd_tdb), args.noise_mas)
 
     # Linear fit
     logger.info("Running linear fit…")
     fit = fit_mass_linear(
-        r_ra, r_dec, t_days, sig_ra, sig_dec,
-        dtheta_ra, dtheta_dec,
+        r_ra,
+        r_dec,
+        t_days,
+        sig_ra,
+        sig_dec,
+        dtheta_ra,
+        dtheta_dec,
         enc_days=0.0,  # t_days already relative to encounter
     )
 
-    alpha     = fit["alpha"]
+    alpha = fit["alpha"]
     alpha_sig = fit["alpha_sigma"]
-    mass_kg   = alpha * m_est
-    mass_sig  = alpha_sig * m_est
+    mass_kg = alpha * m_est
+    mass_sig = alpha_sig * m_est
 
     logger.info("")
     logger.info("=== LINEAR FIT RESULT ===")

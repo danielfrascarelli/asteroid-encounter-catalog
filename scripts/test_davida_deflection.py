@@ -68,15 +68,24 @@ def main() -> int:
     davida = _load_element_row(snap, _DAVIDA_NUMBER)
     logger.info(
         "Target %d: a=%.4f e=%.4f i=%.2f° epoch=%.1f",
-        _TARGET_NUMBER, target["a_au"], target["e"], target["i_deg"], target["epoch_jd"],
+        _TARGET_NUMBER,
+        target["a_au"],
+        target["e"],
+        target["i_deg"],
+        target["epoch_jd"],
     )
     logger.info(
         "Davida (%d): a=%.4f e=%.4f i=%.2f° epoch=%.1f",
-        _DAVIDA_NUMBER, davida["a_au"], davida["e"], davida["i_deg"], davida["epoch_jd"],
+        _DAVIDA_NUMBER,
+        davida["a_au"],
+        davida["e"],
+        davida["i_deg"],
+        davida["epoch_jd"],
     )
 
     # Time grid: ±180 days around the encounter
     from astropy.time import Time
+
     enc_jd = float(Time(_ENCOUNTER_DATE_UTC, scale="utc").tdb.jd)
     t_grid = np.linspace(enc_jd - 180.0, enc_jd + 180.0, 361)  # 1-day spacing
 
@@ -118,24 +127,33 @@ def main() -> int:
 
     logger.info("")
     logger.info("Position difference (with vs without Davida gravity):")
-    logger.info("  at encounter (t=0):     diff = %.3e AU = %.2f mas",
-                diff[180], angular_shift_mas[180])
-    logger.info("  at +90 days:            diff = %.3e AU = %.2f mas",
-                diff[270], angular_shift_mas[270])
-    logger.info("  at +180 days (end):     diff = %.3e AU = %.2f mas",
-                diff[-1], angular_shift_mas[-1])
-    logger.info("  at -180 days (start):   diff = %.3e AU = %.2f mas",
-                diff[0], angular_shift_mas[0])
-    logger.info("  max difference in window: %.2f mas (at t=%+.0f d)",
-                angular_shift_mas.max(), days_from_enc[int(np.argmax(angular_shift_mas))])
+    logger.info(
+        "  at encounter (t=0):     diff = %.3e AU = %.2f mas", diff[180], angular_shift_mas[180]
+    )
+    logger.info(
+        "  at +90 days:            diff = %.3e AU = %.2f mas", diff[270], angular_shift_mas[270]
+    )
+    logger.info(
+        "  at +180 days (end):     diff = %.3e AU = %.2f mas", diff[-1], angular_shift_mas[-1]
+    )
+    logger.info(
+        "  at -180 days (start):   diff = %.3e AU = %.2f mas", diff[0], angular_shift_mas[0]
+    )
+    logger.info(
+        "  max difference in window: %.2f mas (at t=%+.0f d)",
+        angular_shift_mas.max(),
+        days_from_enc[int(np.argmax(angular_shift_mas))],
+    )
 
     # Save the data
-    out = pl.DataFrame({
-        "jd_tdb": t_grid,
-        "days_from_encounter": days_from_enc,
-        "diff_au": diff,
-        "angular_shift_mas": angular_shift_mas,
-    })
+    out = pl.DataFrame(
+        {
+            "jd_tdb": t_grid,
+            "days_from_encounter": days_from_enc,
+            "diff_au": diff,
+            "angular_shift_mas": angular_shift_mas,
+        }
+    )
     out_path = Path("data/output/davida_deflection_test.csv")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out.write_csv(out_path)
@@ -146,9 +164,7 @@ def main() -> int:
     if max_shift > 1.0:
         logger.info("")
         logger.info("✅ N-body wrapper produces a detectable shift (%.1f mas peak).", max_shift)
-        logger.info(
-            "   Order of magnitude consistent with expected δ ~ 5 mas for this encounter."
-        )
+        logger.info("   Order of magnitude consistent with expected δ ~ 5 mas for this encounter.")
         return 0
     else:
         logger.warning("")

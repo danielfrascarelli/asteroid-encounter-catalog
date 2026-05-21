@@ -11,11 +11,15 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 import numpy as np
 import polars as pl
 
 from src.propagate.kepler import propagate_df
+
+if TYPE_CHECKING:
+    from src.propagate.cache import TrajectoryView
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +96,8 @@ def propagate_full_grid(
     rebound_kwargs: dict | None = None,
     cache_dir: str | None = None,
     cache_key: str | None = None,
-) -> np.ndarray | None:
+    cache_format: str = "zarr",
+) -> np.ndarray | TrajectoryView | None:
     """Pre-compute the full ``(T, N, 3)`` trajectory or return None for streaming Kepler.
 
     Used by the detection pipeline to materialise the N-body trajectory once
@@ -141,6 +146,7 @@ def propagate_full_grid(
                 cache_dir=cache_dir,
                 cache_key=cache_key,
                 rebound_kwargs=rebound_kwargs,
+                cache_format=cache_format,
             )
         from src.propagate.nbody import propagate_grid_nbody
 

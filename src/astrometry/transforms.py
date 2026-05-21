@@ -85,8 +85,8 @@ def sun_barycentric_au(jd_tdb: np.ndarray | float) -> np.ndarray:
         axis=-1,
     )
     if np.ndim(jd_tdb) == 0:
-        return out[0]
-    return out
+        return out[0]  # type: ignore[no-any-return]
+    return out  # type: ignore[no-any-return]
 
 
 def heliocentric_to_barycentric_icrs(
@@ -107,7 +107,7 @@ def heliocentric_to_barycentric_icrs(
     pos_eq = ecliptic_to_equatorial(pos_helio_ecl)
     sun_bary = sun_barycentric_au(jd_tdb)
     # Broadcast sun_bary against pos_eq if needed
-    return pos_eq + sun_bary
+    return pos_eq + sun_bary  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
@@ -132,9 +132,7 @@ def radec_to_unit_vec(ra_deg: np.ndarray, dec_deg: np.ndarray) -> np.ndarray:
     ra = np.asarray(ra_deg, dtype=float) * _DEG_TO_RAD
     dec = np.asarray(dec_deg, dtype=float) * _DEG_TO_RAD
     cos_dec = np.cos(dec)
-    return np.stack(
-        [cos_dec * np.cos(ra), cos_dec * np.sin(ra), np.sin(dec)], axis=-1
-    )
+    return np.stack([cos_dec * np.cos(ra), cos_dec * np.sin(ra), np.sin(dec)], axis=-1)
 
 
 # ---------------------------------------------------------------------------
@@ -192,9 +190,7 @@ def light_time_iterate(
 # ---------------------------------------------------------------------------
 
 
-def stellar_aberration(
-    los_vec: np.ndarray, observer_vel_au_day: np.ndarray
-) -> np.ndarray:
+def stellar_aberration(los_vec: np.ndarray, observer_vel_au_day: np.ndarray) -> np.ndarray:
     """Apply first-order stellar aberration to a line-of-sight unit vector.
 
     Given the true direction-of-arrival ``los_vec`` (unit vector from observer
@@ -210,4 +206,4 @@ def stellar_aberration(
     v = np.asarray(observer_vel_au_day, dtype=float)
     beta = v / _C_AU_DAY
     apparent = los_vec + beta
-    return apparent / np.linalg.norm(apparent, axis=-1, keepdims=True)
+    return apparent / np.linalg.norm(apparent, axis=-1, keepdims=True)  # type: ignore[no-any-return]

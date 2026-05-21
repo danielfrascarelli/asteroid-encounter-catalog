@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+import pytest
 
 from src.detect.parallel import scan_parallel
 
@@ -115,3 +116,60 @@ def test_scan_parallel_memmap_matches_streaming(tmp_path: Path) -> None:
     by_pair_memmap = {(r[0], r[1]): r[3] for r in result_memmap}
     for pair, d in by_pair_inmem.items():
         assert abs(d - by_pair_memmap[pair]) < 1e-6
+
+
+def test_scan_parallel_zarr_matches_inmemory(tmp_path: Path) -> None:
+    """The transposed (3,N,T) zarr-backed scan must match the in-memory scan."""
+    zarr = pytest.importorskip("zarr")
+
+    from src.propagate.cache import TrajectoryView
+
+    n_ast = 25
+    elements = _make_elements(n_ast)
+    time_grid = np.linspace(2457200.5, 2457230.5, 31)
+    positions_inmem = _propagate_grid_inmemory(elements, time_grid)
+
+    result_inmem = scan_parallel(
+        elements,
+        time_grid,
+        pairs=None,
+        threshold_au=0.5,
+        leaf_size=10,
+        n_workers=2,
+        chunk_size_days=10.0,
+        positions=positions_inmem,
+    )
+
+    # Build a transposed (3, N, T) zarr directly — mirrors what cache.py
+    # produces — and wrap it in TrajectoryView for the scan.
+    T, N, _ = positions_inmem.shape
+    zarr_path = tmp_path / "traj.zarr"
+    z = zarr.open(
+        str(zarr_path),
+        mode="w",
+        shape=(3, N, T),
+        chunks=(3, N, min(16, T)),  # forces multiple chunks across T
+        dtype="float32",
+    )
+    z[:] = np.ascontiguousarray(np.transpose(positions_inmem, (2, 1, 0)))
+    positions_view = TrajectoryView(zarr.open(str(zarr_path), mode="r"))
+
+    result_zarr = scan_parallel(
+        elements,
+        time_grid,
+        pairs=None,
+        threshold_au=0.5,
+        leaf_size=10,
+        n_workers=2,
+        chunk_size_days=10.0,
+        positions=positions_view,
+    )
+
+    pairs_inmem = {(r[0], r[1]) for r in result_inmem}
+    pairs_zarr = {(r[0], r[1]) for r in result_zarr}
+    assert pairs_inmem == pairs_zarr
+
+    by_pair_inmem = {(r[0], r[1]): r[3] for r in result_inmem}
+    by_pair_zarr = {(r[0], r[1]): r[3] for r in result_zarr}
+    for pair, d in by_pair_inmem.items():
+        assert abs(d - by_pair_zarr[pair]) < 1e-6

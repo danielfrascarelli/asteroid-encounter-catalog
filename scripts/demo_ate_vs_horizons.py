@@ -39,7 +39,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-_TARGET_NUMBER = 18105                      # MPC number for 2000 NT3
+_TARGET_NUMBER = 18105  # MPC number for 2000 NT3
 _ENCOUNTER_DATE = "2016-06-08T00:00:00"
 _HALF_WINDOW_DAYS = 180.0
 _BLACKOUT_DAYS = 7.0
@@ -65,9 +65,7 @@ def fetch_gaia(archive_url: str, target: int, d_min: float, d_max: float) -> pl.
     return df
 
 
-def horizons_barycentric_xyz(
-    target: int, jd_tdb: np.ndarray, rate_limit_s: float
-) -> np.ndarray:
+def horizons_barycentric_xyz(target: int, jd_tdb: np.ndarray, rate_limit_s: float) -> np.ndarray:
     """Query JPL Horizons for the asteroid's barycentric ICRS position at each epoch.
 
     Returns an (N, 3) array in AU.  Splits long requests into chunks of 100
@@ -208,9 +206,7 @@ def main() -> int:
         for axis, key in [("ΔRA", "dra"), ("ΔDec", "ddec")]:
             mb = sb[f"mu_{key}"]
             ma = sa[f"mu_{key}"]
-            se = np.sqrt(
-                (sb[f"std_{key}"] ** 2) / sb["n"] + (sa[f"std_{key}"] ** 2) / sa["n"]
-            )
+            se = np.sqrt((sb[f"std_{key}"] ** 2) / sb["n"] + (sa[f"std_{key}"] ** 2) / sa["n"])
             t = (ma - mb) / se if se > 0 else float("inf")
             logger.info(
                 "Δ(after − before) on %s = %+8.2f ± %5.2f mas   t = %+5.2fσ",
