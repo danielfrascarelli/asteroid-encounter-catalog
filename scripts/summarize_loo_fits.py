@@ -62,10 +62,7 @@ def main() -> int:
         logger.error("No valid fit files found.")
         return 1
 
-    df = (
-        pl.DataFrame(rows)
-        .sort("chi2_red_window", nulls_last=True)
-    )
+    df = pl.DataFrame(rows).sort("chi2_red_window", nulls_last=True)
 
     out_path = _OUTPUT_DIR / "loo_batch_results.csv"
     df.write_csv(out_path)

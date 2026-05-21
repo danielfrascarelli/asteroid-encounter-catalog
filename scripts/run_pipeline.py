@@ -218,8 +218,7 @@ def main() -> int:
         widen_au = v_max_au_per_day * (coarse_step_hours / 24.0)
         query_radius_au = det.threshold_au + widen_au
         logger.info(
-            "Coarse Δt=%.1fh × v_max=%.1f km/s → widening +%.5f AU "
-            "(query radius %.5f AU)",
+            "Coarse Δt=%.1fh × v_max=%.1f km/s → widening +%.5f AU " "(query radius %.5f AU)",
             coarse_step_hours,
             det.max_relative_velocity_km_s,
             widen_au,

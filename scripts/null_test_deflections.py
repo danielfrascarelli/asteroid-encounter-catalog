@@ -160,7 +160,13 @@ def main() -> int:
 
         logger.info(
             "[%d/%d] (%d) + (%d) %s — real %s, FAKE %s",
-            i + 1, n, perturber, target_no, target_des, real_date, fake_date,
+            i + 1,
+            n,
+            perturber,
+            target_no,
+            target_des,
+            real_date,
+            fake_date,
         )
 
         # Use the fake date to set the window
@@ -175,13 +181,19 @@ def main() -> int:
             continue
         if obs.height == 0:
             logger.info("  no Gaia transits at fake date")
-            rows.append({
-                "perturber_number": perturber, "target_number": target_no,
-                "target_designation": target_des, "real_date": real_date,
-                "fake_date": fake_date, "n_transits": 0,
-                "t_fake_ra": float("nan"), "t_fake_dec": float("nan"),
-                "detected_fake": False,
-            })
+            rows.append(
+                {
+                    "perturber_number": perturber,
+                    "target_number": target_no,
+                    "target_designation": target_des,
+                    "real_date": real_date,
+                    "fake_date": fake_date,
+                    "n_transits": 0,
+                    "t_fake_ra": float("nan"),
+                    "t_fake_dec": float("nan"),
+                    "detected_fake": False,
+                }
+            )
             continue
 
         epochs_days = obs["epoch"].to_numpy()
@@ -197,7 +209,9 @@ def main() -> int:
         ra_obs = obs["ra"].to_numpy().astype(float)
         dec_obs = obs["dec"].to_numpy().astype(float)
         deg = np.pi / 180.0
-        dra_mas = ((ra_obs - ra_pred + 540.0) % 360.0 - 180.0) * np.cos(dec_pred * deg) * 3_600_000.0
+        dra_mas = (
+            ((ra_obs - ra_pred + 540.0) % 360.0 - 180.0) * np.cos(dec_pred * deg) * 3_600_000.0
+        )
         ddec_mas = (dec_obs - dec_pred) * 3_600_000.0
 
         fake_jd_tdb = float(Time(fake_date, scale="utc").tdb.jd)
@@ -207,24 +221,29 @@ def main() -> int:
 
         t_ra = _t_welch(dra_mas, before, after)
         t_dec = _t_welch(ddec_mas, before, after)
-        detected_fake = (
-            (math.isfinite(t_ra) and abs(t_ra) >= 3.0)
-            or (math.isfinite(t_dec) and abs(t_dec) >= 3.0)
+        detected_fake = (math.isfinite(t_ra) and abs(t_ra) >= 3.0) or (
+            math.isfinite(t_dec) and abs(t_dec) >= 3.0
         )
 
-        rows.append({
-            "perturber_number": perturber,
-            "target_number": target_no,
-            "target_designation": target_des,
-            "real_date": real_date,
-            "fake_date": fake_date,
-            "n_transits": obs.height,
-            "t_fake_ra": t_ra,
-            "t_fake_dec": t_dec,
-            "detected_fake": detected_fake,
-        })
-        logger.info("  t_fake_RA = %+.2fσ  t_fake_Dec = %+.2fσ  → %s",
-                    t_ra, t_dec, "DETECTED" if detected_fake else "no")
+        rows.append(
+            {
+                "perturber_number": perturber,
+                "target_number": target_no,
+                "target_designation": target_des,
+                "real_date": real_date,
+                "fake_date": fake_date,
+                "n_transits": obs.height,
+                "t_fake_ra": t_ra,
+                "t_fake_dec": t_dec,
+                "detected_fake": detected_fake,
+            }
+        )
+        logger.info(
+            "  t_fake_RA = %+.2fσ  t_fake_Dec = %+.2fσ  → %s",
+            t_ra,
+            t_dec,
+            "DETECTED" if detected_fake else "no",
+        )
 
     out = pl.DataFrame(rows)
     args.output.parent.mkdir(parents=True, exist_ok=True)

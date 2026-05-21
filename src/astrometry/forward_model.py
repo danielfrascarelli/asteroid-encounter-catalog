@@ -40,8 +40,15 @@ def forward_model(
     gaia_xyz_bary: np.ndarray,
     *,
     include_planets: tuple[str, ...] = (
-        "sun", "mercury", "venus", "earth", "mars",
-        "jupiter", "saturn", "uranus", "neptune",
+        "sun",
+        "mercury",
+        "venus",
+        "earth",
+        "mars",
+        "jupiter",
+        "saturn",
+        "uranus",
+        "neptune",
     ),
     include_background: bool = False,
     background_elements: dict[str, dict] | None = None,
@@ -103,9 +110,7 @@ def forward_model(
     obs_jd_tdb = np.asarray(obs_jd_tdb, dtype=float)
     gaia_xyz_bary = np.asarray(gaia_xyz_bary, dtype=float)
     if gaia_xyz_bary.shape != (len(obs_jd_tdb), 3):
-        raise ValueError(
-            f"gaia_xyz_bary shape {gaia_xyz_bary.shape} != ({len(obs_jd_tdb)}, 3)"
-        )
+        raise ValueError(f"gaia_xyz_bary shape {gaia_xyz_bary.shape} != ({len(obs_jd_tdb)}, 3)")
 
     # Build the integration grid: a uniform set of nodes covering
     # [min(obs) − bracket, max(obs) + bracket] with at least n_bracket_points

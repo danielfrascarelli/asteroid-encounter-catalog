@@ -39,7 +39,6 @@ from __future__ import annotations
 import argparse
 import logging
 import math
-import sys
 from pathlib import Path
 
 import polars as pl
@@ -57,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_INPUT = Path("data/output/mass_candidates.csv")
 _DEFAULT_OUTPUT = Path("data/output/gaia_observations_check.csv")
-_MIN_OBS_EACH_SIDE = 3   # classical mass-det minimum (3 transits before + 3 after)
+_MIN_OBS_EACH_SIDE = 3  # classical mass-det minimum (3 transits before + 3 after)
 
 # Gaia DR3 SSO `epoch` column is "days since J2010.0 TCB" (Julian Date - 2455197.5),
 # despite the column metadata claiming it is a JD.  Empirically: Ceres observations
@@ -68,6 +67,7 @@ _J2010_TCB_JD = 2455197.5
 # ---------------------------------------------------------------------------
 # Time helpers
 # ---------------------------------------------------------------------------
+
 
 def _date_utc_to_days_since_j2010(date_utc: str) -> float:
     """Convert ISO UTC string to *days since J2010.0 TCB*.
@@ -87,6 +87,7 @@ def _days_since_j2010_to_iso(days: float) -> str:
 # ---------------------------------------------------------------------------
 # Gaia TAP query
 # ---------------------------------------------------------------------------
+
 
 def fetch_gaia_observations(
     archive_url: str,
@@ -139,6 +140,7 @@ def fetch_gaia_observations(
 # ---------------------------------------------------------------------------
 # Analysis
 # ---------------------------------------------------------------------------
+
 
 def _is_missing_number(value: object) -> bool:
     if value is None:
@@ -209,15 +211,9 @@ def analyze_candidates(
         d_blackout_lo = d_center - blackout_days
         d_blackout_hi = d_center + blackout_days
 
-        before = target_obs.filter(
-            (pl.col("epoch") >= d_lo) & (pl.col("epoch") < d_blackout_lo)
-        )
-        after = target_obs.filter(
-            (pl.col("epoch") > d_blackout_hi) & (pl.col("epoch") <= d_hi)
-        )
-        in_window = target_obs.filter(
-            (pl.col("epoch") >= d_lo) & (pl.col("epoch") <= d_hi)
-        )
+        before = target_obs.filter((pl.col("epoch") >= d_lo) & (pl.col("epoch") < d_blackout_lo))
+        after = target_obs.filter((pl.col("epoch") > d_blackout_hi) & (pl.col("epoch") <= d_hi))
+        in_window = target_obs.filter((pl.col("epoch") >= d_lo) & (pl.col("epoch") <= d_hi))
 
         n_before = before.height
         n_after = after.height
@@ -229,9 +225,7 @@ def analyze_candidates(
         last_date = (
             _days_since_j2010_to_iso(float(in_window["epoch"].max())) if n_total > 0 else None
         )
-        median_g = (
-            float(in_window["g_mag"].median()) if n_total > 0 else None
-        )
+        median_g = float(in_window["g_mag"].median()) if n_total > 0 else None
 
         viable_obs = n_before >= _MIN_OBS_EACH_SIDE and n_after >= _MIN_OBS_EACH_SIDE
 
@@ -252,8 +246,14 @@ def analyze_candidates(
                 "last_obs_date": last_date,
                 "median_g_mag": median_g,
                 "viable_obs": viable_obs,
-                "note": "" if viable_obs else (
-                    "no Gaia observations" if n_total == 0 else "insufficient bracketing transits"
+                "note": (
+                    ""
+                    if viable_obs
+                    else (
+                        "no Gaia observations"
+                        if n_total == 0
+                        else "insufficient bracketing transits"
+                    )
                 ),
             }
         )
@@ -264,6 +264,7 @@ def analyze_candidates(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
@@ -348,10 +349,7 @@ def main() -> int:
 
     # Also write the publishable subset: viable_obs == True, sorted by deflection.
     publishable_path = args.output.parent / "publishable_mass_candidates.csv"
-    publishable = (
-        result.filter(pl.col("viable_obs"))
-        .sort("deflection_muas", descending=True)
-    )
+    publishable = result.filter(pl.col("viable_obs")).sort("deflection_muas", descending=True)
     publishable.write_csv(publishable_path)
     logger.info(
         "Wrote %d publishable candidates (viable_obs == True) → %s",

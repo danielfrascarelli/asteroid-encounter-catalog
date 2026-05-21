@@ -303,9 +303,7 @@ def refine_candidates(
         # sequential I/O on the positions array.
         assert positions is not None and time_grid is not None
         t_coarses = np.array([c[2] for c in candidates])
-        k0s = np.clip(
-            np.searchsorted(time_grid, t_coarses), 1, len(time_grid) - 2
-        ).astype(int)
+        k0s = np.clip(np.searchsorted(time_grid, t_coarses), 1, len(time_grid) - 2).astype(int)
         order = np.argsort(k0s, kind="stable")
 
         _prev_k0 = -1
@@ -320,13 +318,18 @@ def refine_candidates(
             if k0 != _prev_k0:
                 _slab = positions[k0 - 1 : k0 + 2]  # memmap view; sort ensures locality
                 _prev_k0 = k0
+            assert _slab is not None  # _prev_k0=-1 forces the first branch
 
             p_i = _slab[:, idx_i]
             p_j = _slab[:, idx_j]
             d3 = np.linalg.norm(p_i - p_j, axis=1)
             t_min, d_min = _quadratic_min(
-                float(time_grid[k0 - 1]), float(time_grid[k0]), float(time_grid[k0 + 1]),
-                float(d3[0]), float(d3[1]), float(d3[2]),
+                float(time_grid[k0 - 1]),
+                float(time_grid[k0]),
+                float(time_grid[k0 + 1]),
+                float(d3[0]),
+                float(d3[1]),
+                float(d3[2]),
             )
 
             if d_min > threshold_au:

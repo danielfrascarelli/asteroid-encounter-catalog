@@ -107,28 +107,28 @@ _PLANET_GMS: dict[str, float] = {
 _MAJOR_ASTEROIDS: dict[str, tuple[int, float]] = {
     # name: (MPC number, mass in M_sun)
     # Tier 1 — Big-4 (high-confidence, < 5% uncertainty)
-    "ceres":        (1,    4.723e-10),  # [D] Dawn; GM=62.628 km³/s²
-    "pallas":       (2,    1.059e-10),  # [G] Goffin 2014
-    "vesta":        (4,    1.302e-10),  # [D] Dawn; GM=17.288 km³/s²
-    "hygiea":       (10,   4.397e-11),  # [Ba] Baer 2017
+    "ceres": (1, 4.723e-10),  # [D] Dawn; GM=62.628 km³/s²
+    "pallas": (2, 1.059e-10),  # [G] Goffin 2014
+    "vesta": (4, 1.302e-10),  # [D] Dawn; GM=17.288 km³/s²
+    "hygiea": (10, 4.397e-11),  # [Ba] Baer 2017
     # Tier 2 — Extended (D > 200 km; uncertainty ~20–40%)
-    "interamnia":   (704,  1.131e-11),  # [Ba] Baer 2011; D=316 km
-    "europa_ast":   (52,   1.413e-11),  # [G]  Goffin 2014; D=300 km
-    "davida":       (511,  1.131e-11),  # [G]  Goffin 2014; D=289 km
-    "eunomia":      (15,   9.452e-12),  # [G]  Goffin 2014; D=255 km
-    "euphrosyne":   (31,   4.892e-12),  # [C]  Carry 2012; D=268 km ρ≈2.0
-    "psyche":       (16,   8.496e-12),  # [C]  Shepard 2017; D=226 km M-type
-    "cybele":       (65,   7.240e-12),  # [C]  Carry 2012; D=237 km
-    "sylvia":       (87,   7.461e-12),  # [B]  Marchis 2005; D=261 km (triple)
-    "juno":         (3,    7.541e-12),  # [G]  Goffin 2014; D=234 km S-type
+    "interamnia": (704, 1.131e-11),  # [Ba] Baer 2011; D=316 km
+    "europa_ast": (52, 1.413e-11),  # [G]  Goffin 2014; D=300 km
+    "davida": (511, 1.131e-11),  # [G]  Goffin 2014; D=289 km
+    "eunomia": (15, 9.452e-12),  # [G]  Goffin 2014; D=255 km
+    "euphrosyne": (31, 4.892e-12),  # [C]  Carry 2012; D=268 km ρ≈2.0
+    "psyche": (16, 8.496e-12),  # [C]  Shepard 2017; D=226 km M-type
+    "cybele": (65, 7.240e-12),  # [C]  Carry 2012; D=237 km
+    "sylvia": (87, 7.461e-12),  # [B]  Marchis 2005; D=261 km (triple)
+    "juno": (3, 7.541e-12),  # [G]  Goffin 2014; D=234 km S-type
     # Tier 3 — Smaller binaries (D > 150 km; uncertainty ~5–15%)
-    "camilla":      (107,  5.631e-12),  # [B]  Marchis 2008; D=223 km
-    "iris":         (7,    4.394e-12),  # [G]  Goffin 2014; D=200 km
-    "bamberga":     (324,  5.682e-12),  # [C]  Carry 2012; D=228 km
-    "kalliope":     (22,   4.078e-12),  # [B]  Marchis 2003; D=166 km
-    "eugenia":      (45,   2.931e-12),  # [B]  Merline 1999; D=185 km
-    "hermione":     (121,  2.756e-12),  # [B]  Marchis 2005; D=187 km
-    "fortuna":      (19,   4.344e-12),  # [G]  Goffin 2014; D=211 km
+    "camilla": (107, 5.631e-12),  # [B]  Marchis 2008; D=223 km
+    "iris": (7, 4.394e-12),  # [G]  Goffin 2014; D=200 km
+    "bamberga": (324, 5.682e-12),  # [C]  Carry 2012; D=228 km
+    "kalliope": (22, 4.078e-12),  # [B]  Marchis 2003; D=166 km
+    "eugenia": (45, 2.931e-12),  # [B]  Merline 1999; D=185 km
+    "hermione": (121, 2.756e-12),  # [B]  Marchis 2005; D=187 km
+    "fortuna": (19, 4.344e-12),  # [G]  Goffin 2014; D=211 km
 }
 
 

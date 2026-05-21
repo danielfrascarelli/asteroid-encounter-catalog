@@ -61,8 +61,13 @@ def _bench(data_TN3, out_dir, label, *, t_chunk, filters, clevel=5):
     compressor = Blosc(cname="zstd", clevel=clevel, shuffle=Blosc.BITSHUFFLE)
     t0 = time.monotonic()
     z = zarr.open(
-        str(out_dir), mode="w", shape=data_3NT.shape, chunks=chunks,
-        dtype=data_3NT.dtype.str, compressor=compressor, filters=filters,
+        str(out_dir),
+        mode="w",
+        shape=data_3NT.shape,
+        chunks=chunks,
+        dtype=data_3NT.dtype.str,
+        compressor=compressor,
+        filters=filters,
     )
     z[:] = data_3NT
     write_t = time.monotonic() - t0
@@ -80,8 +85,14 @@ def _bench(data_TN3, out_dir, label, *, t_chunk, filters, clevel=5):
     on_disk = _on_disk(out_dir)
     raw = data_TN3.nbytes
     ratio = raw / max(on_disk, 1)
-    log.info("%-60s ratio=%6.2fx  write=%5.1fs  slab[200]=%5.2fs  max|Δ|=%.2e AU",
-             label, ratio, write_t, slab_t, max_err)
+    log.info(
+        "%-60s ratio=%6.2fx  write=%5.1fs  slab[200]=%5.2fs  max|Δ|=%.2e AU",
+        label,
+        ratio,
+        write_t,
+        slab_t,
+        max_err,
+    )
     return ratio, slab_t, max_err
 
 
@@ -101,21 +112,33 @@ def main():
 
     # Pure Delta (no precision loss)
     for t_chunk in (64, 128, 256, 512, 1024):
-        _bench(data, out_root / f"T_delta_tc{t_chunk}",
-               f"(3,N,{t_chunk}) Delta(t) zstd5 bitshuffle",
-               t_chunk=t_chunk, filters=[Delta(dtype="float32")])
+        _bench(
+            data,
+            out_root / f"T_delta_tc{t_chunk}",
+            f"(3,N,{t_chunk}) Delta(t) zstd5 bitshuffle",
+            t_chunk=t_chunk,
+            filters=[Delta(dtype="float32")],
+        )
 
     # Delta + BitRound
     for keepbits in (16, 12, 10, 8):
-        _bench(data, out_root / f"T_br{keepbits}_delta_tc256",
-               f"(3,N,256) BitRound({keepbits})+Delta(t) zstd5 bitshuffle",
-               t_chunk=256, filters=[BitRound(keepbits=keepbits), Delta(dtype="float32")])
+        _bench(
+            data,
+            out_root / f"T_br{keepbits}_delta_tc256",
+            f"(3,N,256) BitRound({keepbits})+Delta(t) zstd5 bitshuffle",
+            t_chunk=256,
+            filters=[BitRound(keepbits=keepbits), Delta(dtype="float32")],
+        )
 
     # Filter order matters! Try Delta-first (so BitRound rounds delta values)
     for keepbits in (16, 12, 10, 8):
-        _bench(data, out_root / f"T_delta_br{keepbits}_tc256",
-               f"(3,N,256) Delta(t)+BitRound({keepbits}) zstd5 bitshuffle  [delta first]",
-               t_chunk=256, filters=[Delta(dtype="float32"), BitRound(keepbits=keepbits)])
+        _bench(
+            data,
+            out_root / f"T_delta_br{keepbits}_tc256",
+            f"(3,N,256) Delta(t)+BitRound({keepbits}) zstd5 bitshuffle  [delta first]",
+            t_chunk=256,
+            filters=[Delta(dtype="float32"), BitRound(keepbits=keepbits)],
+        )
 
 
 if __name__ == "__main__":

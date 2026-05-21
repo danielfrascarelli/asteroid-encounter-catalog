@@ -38,7 +38,6 @@ from __future__ import annotations
 import argparse
 import logging
 import math
-import sys
 import time
 from pathlib import Path
 
@@ -59,14 +58,14 @@ logger = logging.getLogger(__name__)
 # Physics constants
 # ---------------------------------------------------------------------------
 
-_G = 6.674e-11                # N m² / kg²
-_AU_M = 1.495978707e11        # meters per AU
-_RAD_TO_MUAS = 2.06265e11     # μas per radian  (= 180/π × 3600 × 1e6)
+_G = 6.674e-11  # N m² / kg²
+_AU_M = 1.495978707e11  # meters per AU
+_RAD_TO_MUAS = 2.06265e11  # μas per radian  (= 180/π × 3600 × 1e6)
 
 # Known perturber masses (Dawn mission gravity science).
 _MASS_KG: dict[int, float] = {
-    1: 9.384e20,   # (1) Ceres
-    4: 2.591e20,   # (4) Vesta
+    1: 9.384e20,  # (1) Ceres
+    4: 2.591e20,  # (4) Vesta
 }
 _NAME: dict[int, str] = {1: "Ceres", 4: "Vesta"}
 
@@ -238,9 +237,7 @@ def validate_cat_a(
                 time.sleep(rate_limit_s)
 
         deflection_muas = compute_deflection_muas(mass_kg, rel_vel_km_s, our_dist_au)
-        viable = bool(
-            math.isfinite(deflection_muas) and deflection_muas >= _GAIA_PRECISION_MUAS
-        )
+        viable = bool(math.isfinite(deflection_muas) and deflection_muas >= _GAIA_PRECISION_MUAS)
         logger.info(
             "  expected deflection = %.1f μas  (viable signal: %s)",
             deflection_muas,
@@ -251,9 +248,12 @@ def validate_cat_a(
             {
                 "perturber_number": perturber,
                 "perturber_name": perturber_name,
-                "target_number": int(target_no) if target_no is not None and not (
-                    isinstance(target_no, float) and math.isnan(target_no)
-                ) else None,
+                "target_number": (
+                    int(target_no)
+                    if target_no is not None
+                    and not (isinstance(target_no, float) and math.isnan(target_no))
+                    else None
+                ),
                 "target_designation": target_designation,
                 "date_utc": date_utc,
                 "our_dist_au": our_dist_au,

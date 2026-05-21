@@ -54,7 +54,7 @@ class _PositionsWindow:
         from src.propagate.cache import TrajectoryView
 
         if isinstance(positions, TrajectoryView):
-            self._positions = np.asarray(positions[self._start:int(stop)])
+            self._positions = np.asarray(positions[self._start : int(stop)])
             self._eager = True
         else:
             self._positions = positions
@@ -62,8 +62,8 @@ class _PositionsWindow:
 
     def __getitem__(self, idx: int) -> np.ndarray:
         if self._eager:
-            return self._positions[int(idx)]
-        return self._positions[self._start + int(idx)]
+            return np.asarray(self._positions[int(idx)])
+        return np.asarray(self._positions[self._start + int(idx)])
 
 
 def _init_worker(

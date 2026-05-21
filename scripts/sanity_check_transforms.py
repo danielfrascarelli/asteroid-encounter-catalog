@@ -56,9 +56,7 @@ _GAIA_OBSERVER = "500@-139479"
 _DEG_TO_RAD = np.pi / 180.0
 
 
-def fetch_gaia_observations(
-    archive_url: str, target: int, n: int = 10
-) -> pl.DataFrame:
+def fetch_gaia_observations(archive_url: str, target: int, n: int = 10) -> pl.DataFrame:
     """Pull *n* Gaia observations of *target*, well-spaced in time."""
     adql = (
         f"SELECT TOP {n} number_mp, epoch, ra, dec, x_gaia, y_gaia, z_gaia "
@@ -74,7 +72,9 @@ def fetch_gaia_observations(
     return df
 
 
-def horizons_predict(target: int, jd_tdb_arr: np.ndarray, rate_limit: float) -> tuple[np.ndarray, np.ndarray]:
+def horizons_predict(
+    target: int, jd_tdb_arr: np.ndarray, rate_limit: float
+) -> tuple[np.ndarray, np.ndarray]:
     """Apparent RA/Dec from Gaia as predicted by JPL Horizons."""
     h = Horizons(
         id=str(target),
@@ -178,7 +178,10 @@ def main() -> int:
     elements = row.row(0, named=True)
     logger.info(
         "Elements: a=%.4f AU  e=%.4f  i=%.2f°  epoch_jd=%.1f",
-        elements["a_au"], elements["e"], elements["i_deg"], elements["epoch_jd"],
+        elements["a_au"],
+        elements["e"],
+        elements["i_deg"],
+        elements["epoch_jd"],
     )
 
     # Our prediction (with and without light-time)
@@ -191,10 +194,11 @@ def main() -> int:
 
     # Compute residuals (Horizons - ours) in mas
     deg = _DEG_TO_RAD
+
     def _shift_mas(ra1, dec1, ra2, dec2):
         dra = ((ra1 - ra2 + 540.0) % 360.0 - 180.0) * np.cos(dec2 * deg) * 3_600_000.0
         ddec = (dec1 - dec2) * 3_600_000.0
-        sep = np.sqrt(dra ** 2 + ddec ** 2)
+        sep = np.sqrt(dra**2 + ddec**2)
         return dra, ddec, sep
 
     dra_us, ddec_us, sep_us = _shift_mas(ra_us, dec_us, ra_horiz, dec_horiz)
@@ -205,12 +209,16 @@ def main() -> int:
     logger.info("  WITHOUT light-time correction:")
     logger.info(
         "    median sep = %.0f mas    median |ΔRA| = %.0f mas    median |ΔDec| = %.0f mas",
-        np.median(sep_nolt), np.median(np.abs(dra_nolt)), np.median(np.abs(ddec_nolt)),
+        np.median(sep_nolt),
+        np.median(np.abs(dra_nolt)),
+        np.median(np.abs(ddec_nolt)),
     )
     logger.info("  WITH light-time correction:")
     logger.info(
         "    median sep = %.0f mas    median |ΔRA| = %.0f mas    median |ΔDec| = %.0f mas",
-        np.median(sep_us), np.median(np.abs(dra_us)), np.median(np.abs(ddec_us)),
+        np.median(sep_us),
+        np.median(np.abs(dra_us)),
+        np.median(np.abs(ddec_us)),
     )
     logger.info(
         "  Improvement from light-time: %.1fx",
@@ -249,7 +257,9 @@ def main() -> int:
         logger.warning("")
         logger.warning("⚠️  MARGINAL: median residual %.0f mas (expected < 50). ", median_sep)
         logger.warning("    This may be due to Kepler 2-body drift over multi-year span,")
-        logger.warning("    NOT a transform bug. To verify, repeat with an epoch close to MPCORB epoch.")
+        logger.warning(
+            "    NOT a transform bug. To verify, repeat with an epoch close to MPCORB epoch."
+        )
         return 0
     else:
         logger.error("")

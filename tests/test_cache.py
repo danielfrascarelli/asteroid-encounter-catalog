@@ -141,8 +141,8 @@ def test_zarr_cache_writes_transposed_compressed_chunked_array(
     pytest.importorskip("zarr")
     from numcodecs import BitRound, Blosc, Delta
 
-    from src.propagate.cache import TrajectoryView
     import src.propagate.nbody as nbody
+    from src.propagate.cache import TrajectoryView
 
     elements = pl.DataFrame({"number": [1, 2]})
     time_grid = np.array([2457000.5, 2457001.5, 2457002.5], dtype=np.float64)
@@ -215,13 +215,11 @@ def test_zarr_cache_writes_transposed_compressed_chunked_array(
 def test_trajectory_view_indexing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """TrajectoryView maps ``[t]`` and ``[k0:k1]`` against the transposed zarr."""
     pytest.importorskip("zarr")
-    from src.propagate.cache import TrajectoryView
     import src.propagate.nbody as nbody
+    from src.propagate.cache import TrajectoryView
 
     elements = pl.DataFrame({"number": [1, 2, 3]})
-    time_grid = np.array(
-        [2457000.5, 2457001.5, 2457002.5, 2457003.5, 2457004.5], dtype=np.float64
-    )
+    time_grid = np.array([2457000.5, 2457001.5, 2457002.5, 2457003.5, 2457004.5], dtype=np.float64)
     expected = np.arange(45, dtype=np.float32).reshape(5, 3, 3)
 
     def fake(elements, time_grid, *, out, **kwargs):
@@ -256,8 +254,8 @@ def test_open_trajectory_for_worker_round_trip(
 ) -> None:
     """A worker re-opening the cached zarr sees an equivalent TrajectoryView."""
     pytest.importorskip("zarr")
-    from src.propagate.cache import TrajectoryView, open_trajectory_for_worker
     import src.propagate.nbody as nbody
+    from src.propagate.cache import TrajectoryView, open_trajectory_for_worker
 
     elements = pl.DataFrame({"number": [1, 2]})
     time_grid = np.array([2457000.5, 2457001.5, 2457002.5], dtype=np.float64)

@@ -45,13 +45,13 @@ _CONFIG_PATH = Path("config.yaml")
 
 # Gaia time reference: epoch column = BJD_TCB − J2010.0
 _J2010_TCB_JD: float = 2455197.5
-_GAIA_START_JD_TCB: float = 2456863.5   # 2014-07-25
-_GAIA_END_JD_TCB: float = 2457910.5     # 2017-05-28
+_GAIA_START_JD_TCB: float = 2456863.5  # 2014-07-25
+_GAIA_END_JD_TCB: float = 2457910.5  # 2017-05-28
 
 # Coverage windows (days relative to encounter)
-_PRE_MIN_DAYS: float = 30.0    # at least 30 d before (for clean pre-arc)
-_PRE_MAX_DAYS: float = 365.0   # up to 1 year before
-_POST_MIN_DAYS: float = 5.0    # skip first 5 d (too close to encounter numerically)
+_PRE_MIN_DAYS: float = 30.0  # at least 30 d before (for clean pre-arc)
+_PRE_MAX_DAYS: float = 365.0  # up to 1 year before
+_POST_MIN_DAYS: float = 5.0  # skip first 5 d (too close to encounter numerically)
 _POST_MAX_DAYS: float = 180.0  # up to 6 months after
 _WIN_HALF_DAYS: float = 180.0  # ±window for n_window_transits
 
@@ -71,6 +71,7 @@ _CHUNK_SIZE: int = 200
 def _date_to_gaia_epoch(date_utc: str) -> float:
     """Convert ISO date string to Gaia epoch units (BJD_TCB − J2010.0)."""
     from astropy.time import Time
+
     jd_utc = float(Time(date_utc, format="iso", scale="utc").jd)
     return jd_utc - _J2010_TCB_JD
 
@@ -127,8 +128,9 @@ def main() -> None:
     if all_frames:
         gaia_all = pl.concat(all_frames)
     else:
-        gaia_all = pl.DataFrame({"number_mp": pl.Series([], dtype=pl.Int64),
-                                  "epoch": pl.Series([], dtype=pl.Float64)})
+        gaia_all = pl.DataFrame(
+            {"number_mp": pl.Series([], dtype=pl.Int64), "epoch": pl.Series([], dtype=pl.Float64)}
+        )
 
     logger.info(
         "Total Gaia transits fetched: %d across %d unique target asteroids",
@@ -157,24 +159,26 @@ def main() -> None:
         epochs = gaia_by_number.get(target_num)
 
         if epochs is None or len(epochs) == 0:
-            results.append({
-                "perturber_number": perturber_num,
-                "perturber_name": perturber_name,
-                "target_number": target_num,
-                "target_designation": target_desg,
-                "date_utc": date_utc,
-                "dist_au": dist_au,
-                "deflection_score": deflection_score,
-                "has_gaia_data": False,
-                "n_total_transits": 0,
-                "n_pre_transits": 0,
-                "n_post_transits": 0,
-                "n_window_transits": 0,
-                "nearest_pre_days": None,
-                "nearest_post_days": None,
-                "viable_coverage": False,
-                "note": "target has no Gaia DR3 transits",
-            })
+            results.append(
+                {
+                    "perturber_number": perturber_num,
+                    "perturber_name": perturber_name,
+                    "target_number": target_num,
+                    "target_designation": target_desg,
+                    "date_utc": date_utc,
+                    "dist_au": dist_au,
+                    "deflection_score": deflection_score,
+                    "has_gaia_data": False,
+                    "n_total_transits": 0,
+                    "n_pre_transits": 0,
+                    "n_post_transits": 0,
+                    "n_window_transits": 0,
+                    "nearest_pre_days": None,
+                    "nearest_post_days": None,
+                    "viable_coverage": False,
+                    "note": "target has no Gaia DR3 transits",
+                }
+            )
             continue
 
         delta = epochs - enc_epoch  # positive = after encounter
@@ -207,24 +211,26 @@ def main() -> None:
             note_parts.append(f"post: {n_post}<{_MIN_POST_TRANSITS}")
         note = "; ".join(note_parts) if note_parts else "ok"
 
-        results.append({
-            "perturber_number": perturber_num,
-            "perturber_name": perturber_name,
-            "target_number": target_num,
-            "target_designation": target_desg,
-            "date_utc": date_utc,
-            "dist_au": dist_au,
-            "deflection_score": deflection_score,
-            "has_gaia_data": True,
-            "n_total_transits": int(len(epochs)),
-            "n_pre_transits": n_pre,
-            "n_post_transits": n_post,
-            "n_window_transits": n_win,
-            "nearest_pre_days": nearest_pre,
-            "nearest_post_days": nearest_post,
-            "viable_coverage": viable,
-            "note": note,
-        })
+        results.append(
+            {
+                "perturber_number": perturber_num,
+                "perturber_name": perturber_name,
+                "target_number": target_num,
+                "target_designation": target_desg,
+                "date_utc": date_utc,
+                "dist_au": dist_au,
+                "deflection_score": deflection_score,
+                "has_gaia_data": True,
+                "n_total_transits": int(len(epochs)),
+                "n_pre_transits": n_pre,
+                "n_post_transits": n_post,
+                "n_window_transits": n_win,
+                "nearest_pre_days": nearest_pre,
+                "nearest_post_days": nearest_post,
+                "viable_coverage": viable,
+                "note": note,
+            }
+        )
 
     result_df = (
         pl.DataFrame(results)

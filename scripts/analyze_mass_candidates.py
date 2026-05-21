@@ -46,7 +46,6 @@ from __future__ import annotations
 import argparse
 import logging
 import math
-import sys
 import time
 from pathlib import Path
 
@@ -67,12 +66,12 @@ logger = logging.getLogger(__name__)
 # Physics constants
 # ---------------------------------------------------------------------------
 
-_G = 6.674e-11                # N m² / kg²
-_AU_M = 1.495978707e11        # meters per AU
-_RAD_TO_MUAS = 2.06265e11     # μas per radian
+_G = 6.674e-11  # N m² / kg²
+_AU_M = 1.495978707e11  # meters per AU
+_RAD_TO_MUAS = 2.06265e11  # μas per radian
 
 # Average MBA density for mass-from-diameter estimates.
-_RHO_KG_M3 = 1500.0           # 1.5 g/cm³
+_RHO_KG_M3 = 1500.0  # 1.5 g/cm³
 
 # Gaia single-transit astrometric precision for a typical MBA.
 _GAIA_PRECISION_MUAS = 100.0
@@ -223,11 +222,7 @@ def analyze_candidates(
     df = pl.read_csv(encounters_path)
     logger.info("Total novel encounters: %d", df.height)
 
-    cat_b = (
-        df.filter(pl.col("mass_unknown"))
-        .sort("deflection_score", descending=True)
-        .head(top_n)
-    )
+    cat_b = df.filter(pl.col("mass_unknown")).sort("deflection_score", descending=True).head(top_n)
     logger.info(
         "Category B (mass_unknown == true): selecting top %d by deflection_score",
         cat_b.height,
@@ -244,9 +239,8 @@ def analyze_candidates(
         target_designation = row["designation_2"]
         target_diameter_km = (
             float(row["diameter_2_km"])
-            if row["diameter_2_km"] is not None and not (
-                isinstance(row["diameter_2_km"], float) and math.isnan(row["diameter_2_km"])
-            )
+            if row["diameter_2_km"] is not None
+            and not (isinstance(row["diameter_2_km"], float) and math.isnan(row["diameter_2_km"]))
             else float("nan")
         )
         date_utc = row["date_utc"]
@@ -296,7 +290,12 @@ def analyze_candidates(
         )
 
         # Special highlight for the closest known encounter in the catalog.
-        if perturber == 111 and isinstance(target_designation, str) and "2000" in target_designation and "nt3" in target_designation.lower():
+        if (
+            perturber == 111
+            and isinstance(target_designation, str)
+            and "2000" in target_designation
+            and "nt3" in target_designation.lower()
+        ):
             logger.info(
                 "  >>> NOTE: (111) Ate + 2000 NT3 is the closest encounter in the "
                 "catalog (≈ 4.72e-4 AU). Prime mass-determination target."
@@ -362,9 +361,7 @@ def analyze_candidates(
         result.height,
     )
     if gaia_numbers is not None:
-        n_observed = int(
-            result.filter(pl.col("gaia_has_target") == True).height  # noqa: E712
-        )
+        n_observed = int(result.filter(pl.col("gaia_has_target") == True).height)  # noqa: E712
         logger.info("Targets present in Gaia SSO catalog: %d / %d", n_observed, result.height)
         n_both = int(
             result.filter(
@@ -388,9 +385,7 @@ def analyze_candidates(
     for r in result.head(min(10, result.height)).iter_rows(named=True):
         pert_label = f"({r['perturber_number']}) {r['perturber_name']}"
         gaia_lbl = (
-            "?"
-            if r["gaia_has_target"] is None
-            else ("yes" if r["gaia_has_target"] else "no")
+            "?" if r["gaia_has_target"] is None else ("yes" if r["gaia_has_target"] else "no")
         )
         logger.info(
             "%3d  %-22s  %-18s  %-19s  %10.6f  %10.1f  %6s  %5s",

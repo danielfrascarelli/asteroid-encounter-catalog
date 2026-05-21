@@ -108,8 +108,9 @@ def main() -> int:
     args = p.parse_args()
 
     det = pl.read_csv(args.detections)
-    logger.info("Computing specificity for %d candidates over %d offsets",
-                det.height, len(_OFFSETS))
+    logger.info(
+        "Computing specificity for %d candidates over %d offsets", det.height, len(_OFFSETS)
+    )
 
     rows: list[dict] = []
     for r in det.iter_rows(named=True):
@@ -163,8 +164,9 @@ def main() -> int:
     # Summary
     n_specific = int(out["encounter_specific"].sum())
     logger.info("")
-    logger.info("Encounter-specific detections (specificity > 2 BIC units): %d / %d",
-                n_specific, out.height)
+    logger.info(
+        "Encounter-specific detections (specificity > 2 BIC units): %d / %d", n_specific, out.height
+    )
 
     logger.info("")
     logger.info("Top 20 by max_specificity:")

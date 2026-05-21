@@ -37,6 +37,7 @@ _BLACKOUT_DAYS = 7.0
 
 def analyze_with_offset(residual_csv: Path, offset_days: float, axis: str = "dra_mas") -> dict:
     import numpy as np
+
     df = pl.read_csv(residual_csv)
     days = df["days_from_encounter"].to_numpy()
     y = df[axis].to_numpy()
@@ -123,12 +124,12 @@ def main() -> int:
 
     # Summary
     finite = out.filter(pl.col("dbic_real_ra").is_finite())
-    n_real_strong = int(finite.filter(
-        (pl.col("dbic_real_ra") > 6) | (pl.col("dbic_real_dec") > 6)
-    ).height)
-    n_fake_strong = int(finite.filter(
-        (pl.col("dbic_fake_ra") > 6) | (pl.col("dbic_fake_dec") > 6)
-    ).height)
+    n_real_strong = int(
+        finite.filter((pl.col("dbic_real_ra") > 6) | (pl.col("dbic_real_dec") > 6)).height
+    )
+    n_fake_strong = int(
+        finite.filter((pl.col("dbic_fake_ra") > 6) | (pl.col("dbic_fake_dec") > 6)).height
+    )
     logger.info("")
     logger.info("NULL TEST RESULT (step offset = %+.0f days):", args.offset_days)
     logger.info("  Real encounter epoch:  %d / %d strong (ΔBIC>6)", n_real_strong, finite.height)
@@ -137,7 +138,8 @@ def main() -> int:
         excess = n_real_strong - n_fake_strong
         logger.info(
             "  → REAL excess of %d detections (%.0f%%) — encounter is the right epoch ✓",
-            excess, 100 * excess / max(1, finite.height),
+            excess,
+            100 * excess / max(1, finite.height),
         )
     else:
         logger.warning("  → No real-vs-fake excess — the step is not encounter-specific")

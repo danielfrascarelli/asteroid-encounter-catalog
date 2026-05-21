@@ -47,14 +47,20 @@ def _stream_read_time(positions, label: str) -> tuple[float, float]:
         # touch the data to defeat lazy paging
         checksum += float(slab[0, 0])
     dt = time.monotonic() - t0
-    log.info("[%s] step-by-step read %d slabs in %.2fs (%.1f slabs/s)",
-             label, positions.shape[0], dt, positions.shape[0] / dt)
+    log.info(
+        "[%s] step-by-step read %d slabs in %.2fs (%.1f slabs/s)",
+        label,
+        positions.shape[0],
+        dt,
+        positions.shape[0] / dt,
+    )
     return dt, checksum
 
 
 def _stream_read_lru(zarr_path: str, n_steps: int, label: str) -> tuple[float, float]:
     """Step-by-step read via the production worker path (LRUStoreCache)."""
     from src.propagate.cache import open_trajectory_for_worker
+
     view = open_trajectory_for_worker(zarr_path)
     t0 = time.monotonic()
     checksum = 0.0
@@ -62,8 +68,13 @@ def _stream_read_lru(zarr_path: str, n_steps: int, label: str) -> tuple[float, f
         slab = np.asarray(view[k])
         checksum += float(slab[0, 0])
     dt = time.monotonic() - t0
-    log.info("[%s] step-by-step LRU read %d slabs in %.2fs (%.1f slabs/s)",
-             label, n_steps, dt, n_steps / dt)
+    log.info(
+        "[%s] step-by-step LRU read %d slabs in %.2fs (%.1f slabs/s)",
+        label,
+        n_steps,
+        dt,
+        n_steps / dt,
+    )
     return dt, checksum
 
 
@@ -72,14 +83,21 @@ def main() -> int:
     p.add_argument("--n-asteroids", type=int, default=20_000)
     p.add_argument("--years", type=float, default=3.0)
     p.add_argument("--step-hours", type=float, default=12.0)
-    p.add_argument("--dt-hours", type=float, default=1.0,
-                   help="REBOUND WHFast integrator step (independent of grid)")
+    p.add_argument(
+        "--dt-hours",
+        type=float,
+        default=1.0,
+        help="REBOUND WHFast integrator step (independent of grid)",
+    )
     p.add_argument("--semimajor-min-au", type=float, default=2.0)
     p.add_argument("--semimajor-max-au", type=float, default=3.5)
     p.add_argument("--n-workers", type=int, default=4)
     p.add_argument("--cache-dir", type=str, default="data/cache/bench_zarr")
-    p.add_argument("--keep-cache", action="store_true",
-                   help="Don't wipe the cache dir before running (skip computation if cached)")
+    p.add_argument(
+        "--keep-cache",
+        action="store_true",
+        help="Don't wipe the cache dir before running (skip computation if cached)",
+    )
     args = p.parse_args()
 
     cache_dir = Path(args.cache_dir)
@@ -106,8 +124,12 @@ def main() -> int:
         semimajor_min_au=args.semimajor_min_au,
         semimajor_max_au=args.semimajor_max_au,
     )
-    log.info("Loaded %d asteroids from MPCORB after a∈[%.2f,%.2f]",
-             len(elements), args.semimajor_min_au, args.semimajor_max_au)
+    log.info(
+        "Loaded %d asteroids from MPCORB after a∈[%.2f,%.2f]",
+        len(elements),
+        args.semimajor_min_au,
+        args.semimajor_max_au,
+    )
     if len(elements) > args.n_asteroids:
         elements = elements.head(args.n_asteroids)
     log.info("Using subset of %d asteroids", len(elements))
@@ -116,8 +138,12 @@ def main() -> int:
     log.info("Grid: %d steps Δt=%.2fh from JD %.3f", len(grid), args.step_hours, t_start_jd)
 
     raw_bytes = len(grid) * len(elements) * 3 * 4
-    log.info("Uncompressed payload: %.2f GB (T=%d N=%d float32)",
-             raw_bytes / 1e9, len(grid), len(elements))
+    log.info(
+        "Uncompressed payload: %.2f GB (T=%d N=%d float32)",
+        raw_bytes / 1e9,
+        len(grid),
+        len(elements),
+    )
 
     rebound_kwargs = dict(
         include_planets=["sun", "jupiter", "saturn"],
@@ -154,8 +180,7 @@ def main() -> int:
     mm_write_time = time.monotonic() - t0
     mm_path = cache_dir / f"trajectory_{cache_key}.npy"
     mm_bytes = mm_path.stat().st_size
-    log.info("[memmap] write+integrate: %.2fs, on-disk %.2f GB",
-             mm_write_time, mm_bytes / 1e9)
+    log.info("[memmap] write+integrate: %.2fs, on-disk %.2f GB", mm_write_time, mm_bytes / 1e9)
 
     # ============================================================
     # Format 2: zarr
@@ -175,8 +200,7 @@ def main() -> int:
     zarr_write_time = time.monotonic() - t0
     zarr_dir = cache_dir / f"trajectory_{cache_key}.zarr"
     zarr_bytes = _zarr_dir_size_bytes(zarr_dir)
-    log.info("[zarr] write+integrate: %.2fs, on-disk %.2f GB",
-             zarr_write_time, zarr_bytes / 1e9)
+    log.info("[zarr] write+integrate: %.2fs, on-disk %.2f GB", zarr_write_time, zarr_bytes / 1e9)
 
     # ============================================================
     # Read benches
@@ -208,8 +232,7 @@ def main() -> int:
             bit_exact = False
             max_diff = max(max_diff, float(np.max(np.abs(a - b))))
     if bit_exact:
-        log.info("memmap[k] == zarr[k] bit-exact at %d sampled timesteps ✓",
-                 len(sample_idxs))
+        log.info("memmap[k] == zarr[k] bit-exact at %d sampled timesteps ✓", len(sample_idxs))
     else:
         log.warning("Mismatch detected: max abs diff over samples = %.3e", max_diff)
 
@@ -218,21 +241,34 @@ def main() -> int:
     # ============================================================
     ratio = raw_bytes / max(zarr_bytes, 1)
     log.info("=" * 60)
-    log.info("SUMMARY  (N=%d × T=%d, raw=%.2f GB)",
-             len(elements), len(grid), raw_bytes / 1e9)
+    log.info("SUMMARY  (N=%d × T=%d, raw=%.2f GB)", len(elements), len(grid), raw_bytes / 1e9)
     log.info("=" * 60)
-    log.info("  memmap on-disk:    %8.2f GB   write %7.1fs   read         %6.2fs",
-             mm_bytes / 1e9, mm_write_time, mm_read_time)
-    log.info("  zarr on-disk:      %8.2f GB   write %7.1fs   read (raw)   %6.2fs",
-             zarr_bytes / 1e9, zarr_write_time, zarr_read_time)
-    log.info("                                                 read (LRU)   %6.2fs",
-             zarr_lru_time)
+    log.info(
+        "  memmap on-disk:    %8.2f GB   write %7.1fs   read         %6.2fs",
+        mm_bytes / 1e9,
+        mm_write_time,
+        mm_read_time,
+    )
+    log.info(
+        "  zarr on-disk:      %8.2f GB   write %7.1fs   read (raw)   %6.2fs",
+        zarr_bytes / 1e9,
+        zarr_write_time,
+        zarr_read_time,
+    )
+    log.info("                                                 read (LRU)   %6.2fs", zarr_lru_time)
     log.info("  compression ratio (raw/zarr):         %.2fx", ratio)
-    log.info("  zarr/memmap write overhead:           %+.1f%%",
-             100.0 * (zarr_write_time - mm_write_time) / max(mm_write_time, 1e-9))
-    log.info("  zarr+LRU/memmap read overhead:        %+.1f%%",
-             100.0 * (zarr_lru_time - mm_read_time) / max(mm_read_time, 1e-9))
-    log.info("  bit-exact:                            %s", "yes" if bit_exact else "NO (lossy via BitRound)")
+    log.info(
+        "  zarr/memmap write overhead:           %+.1f%%",
+        100.0 * (zarr_write_time - mm_write_time) / max(mm_write_time, 1e-9),
+    )
+    log.info(
+        "  zarr+LRU/memmap read overhead:        %+.1f%%",
+        100.0 * (zarr_lru_time - mm_read_time) / max(mm_read_time, 1e-9),
+    )
+    log.info(
+        "  bit-exact:                            %s",
+        "yes" if bit_exact else "NO (lossy via BitRound)",
+    )
     return 0
 
 

@@ -276,9 +276,7 @@ class TrajectoryView:
 
     def __init__(self, z: Any, decompressed_chunk_lru: int = 2) -> None:
         if z.ndim != 3 or z.shape[0] != 3:
-            raise ValueError(
-                f"TrajectoryView expects on-disk shape (3, N, T); got {z.shape}"
-            )
+            raise ValueError(f"TrajectoryView expects on-disk shape (3, N, T); got {z.shape}")
         self._z = z
         # Logical shape exposed to consumers
         self.shape: tuple[int, int, int] = (int(z.shape[2]), int(z.shape[1]), 3)
@@ -570,7 +568,7 @@ def load_or_compute_trajectory(
     cache_key: str,
     rebound_kwargs: dict[str, Any],
     cache_format: str = "zarr",
-):
+) -> np.ndarray | TrajectoryView:
     """Return a logical ``(T, N, 3)`` float32 trajectory, materialising it if necessary.
 
     Look-up order:

@@ -37,11 +37,20 @@ def _run(elements, grid, rebound_kwargs, snap_path, cache_dir, cache_format):
     )
     t0 = time.monotonic()
     positions = propagate_full_grid(
-        elements, grid, method="rebound", rebound_kwargs=rebound_kwargs,
-        cache_dir=str(cache_dir), cache_key=key, cache_format=cache_format,
+        elements,
+        grid,
+        method="rebound",
+        rebound_kwargs=rebound_kwargs,
+        cache_dir=str(cache_dir),
+        cache_key=key,
+        cache_format=cache_format,
     )
-    log.info("[%s] propagation %.1fs  shape=%s", cache_format,
-             time.monotonic() - t0, positions.shape if positions is not None else None)
+    log.info(
+        "[%s] propagation %.1fs  shape=%s",
+        cache_format,
+        time.monotonic() - t0,
+        positions.shape if positions is not None else None,
+    )
 
     # Wider query radius for Strategy A coarse grid (12h × 25 km/s margin).
     v_max_au_per_day = 25.0 * 86_400.0 / 1.495_978_707e8
@@ -50,7 +59,8 @@ def _run(elements, grid, rebound_kwargs, snap_path, cache_dir, cache_format):
 
     t0 = time.monotonic()
     cat = detect_encounters(
-        elements, grid,
+        elements,
+        grid,
         threshold_au=0.05,
         semimajor_diff_max_au=0.5,
         inclination_diff_max_deg=30.0,
@@ -87,8 +97,9 @@ def main() -> int:
     snap = select_for_window(snapshots, t_start_jd, t_start_jd + args.years * 365.25)
     log.info("Snapshot %s", snap.path.name)
 
-    elements = parse_mpcorb(snap.path, only_numbered=True,
-                            semimajor_min_au=2.0, semimajor_max_au=3.5)
+    elements = parse_mpcorb(
+        snap.path, only_numbered=True, semimajor_min_au=2.0, semimajor_max_au=3.5
+    )
     elements = elements.head(args.n_asteroids)
     log.info("Using %d asteroids", len(elements))
 
@@ -121,16 +132,21 @@ def main() -> int:
     log.info("=" * 60)
     log.info("memmap pairs: %d", len(set_mm))
     log.info("zarr   pairs: %d", len(set_zr))
-    log.info("common:       %d  (memmap-only %d, zarr-only %d)",
-             len(common), len(only_mm), len(only_zr))
+    log.info(
+        "common:       %d  (memmap-only %d, zarr-only %d)", len(common), len(only_mm), len(only_zr)
+    )
 
     # Per-pair distance difference
     if common:
         d_mm = {pair_key(r): r["dist_au"] for r in cat_mm.iter_rows(named=True)}
         d_zr = {pair_key(r): r["dist_au"] for r in cat_zr.iter_rows(named=True)}
         diffs = np.array([d_mm[p] - d_zr[p] for p in common])
-        log.info("distance Δ:   mean %.2e AU  max |Δ| %.2e AU  std %.2e AU",
-                 float(diffs.mean()), float(np.max(np.abs(diffs))), float(diffs.std()))
+        log.info(
+            "distance Δ:   mean %.2e AU  max |Δ| %.2e AU  std %.2e AU",
+            float(diffs.mean()),
+            float(np.max(np.abs(diffs))),
+            float(diffs.std()),
+        )
 
     # Major bodies sanity (will only show if subset is large enough)
     for n in (1, 2, 4, 10):

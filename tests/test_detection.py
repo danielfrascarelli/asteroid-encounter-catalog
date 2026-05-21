@@ -380,7 +380,9 @@ def test_pipeline_output_sorted_by_dist(three_asteroids: pl.DataFrame) -> None:
 def test_pipeline_output_schema(
     three_asteroids: pl.DataFrame, single_step_grid: np.ndarray
 ) -> None:
-    result = detect_encounters(three_asteroids, single_step_grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS)
+    result = detect_encounters(
+        three_asteroids, single_step_grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS
+    )
     assert result.schema == {
         "number_1": pl.Int32,
         "number_2": pl.Int32,
@@ -433,6 +435,8 @@ def test_pipeline_refinement_disabled(
 def test_pipeline_designation_preserved(
     three_asteroids: pl.DataFrame, single_step_grid: np.ndarray
 ) -> None:
-    result = detect_encounters(three_asteroids, single_step_grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS)
+    result = detect_encounters(
+        three_asteroids, single_step_grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS
+    )
     assert result["designation_1"][0] == "Ceres"
     assert result["designation_2"][0] == "Near"

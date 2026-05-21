@@ -89,8 +89,10 @@ def main() -> int:
 
     det = pl.read_csv(args.detections)
     detected = det.filter(pl.col("detection") == "yes")
-    logger.info("Detected perturbers in our pipeline (≥3σ): %d unique",
-                detected["perturber_number"].n_unique())
+    logger.info(
+        "Detected perturbers in our pipeline (≥3σ): %d unique",
+        detected["perturber_number"].n_unique(),
+    )
 
     perturbers = detected.select(["perturber_number", "perturber_name"]).unique(
         subset=["perturber_number"]
@@ -133,7 +135,9 @@ def main() -> int:
             srcs.append("Fienga")
         if r["in_galad_2002"]:
             srcs.append("Galád")
-        logger.info("  (%d) %-20s  [%s]", r["perturber_number"], r["perturber_name"], "+".join(srcs))
+        logger.info(
+            "  (%d) %-20s  [%s]", r["perturber_number"], r["perturber_name"], "+".join(srcs)
+        )
     logger.info("")
     logger.info("Genuinely novel (potential new mass determinations):")
     for r in out.filter(pl.col("genuinely_novel")).iter_rows(named=True):
