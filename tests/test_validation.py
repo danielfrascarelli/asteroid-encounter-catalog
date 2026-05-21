@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import polars as pl
@@ -12,9 +13,11 @@ from src.catalog.query import filter_encounters, load_catalog, top_encounters
 from src.catalog.schema import CATALOG_COLUMNS, CATALOG_SCHEMA
 from src.catalog.writer import write_catalog
 
-# Paths to real output files (skipped on CI where data is absent)
+# Paths to real output files. These are opt-in because they depend on local
+# generated artifacts, not on repository fixtures.
 _CATALOG_PATH = Path("data/output/encounters_characterized.parquet")
 _SIDECAR_PATH = _CATALOG_PATH.parent / (_CATALOG_PATH.stem + "_metadata.json")
+_RUN_REAL_CATALOG_TESTS = os.environ.get("RUN_REAL_CATALOG_TESTS") == "1"
 
 
 # ---------------------------------------------------------------------------
@@ -189,11 +192,14 @@ class TestWriter:
 
 
 # ---------------------------------------------------------------------------
-# Regression tests — real catalog (skipped on CI)
+# Regression tests — real catalog (opt-in; skipped in unit-test runs)
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(not _CATALOG_PATH.exists(), reason="Real catalog not available in CI")
+@pytest.mark.skipif(
+    not _RUN_REAL_CATALOG_TESTS or not _CATALOG_PATH.exists(),
+    reason="Set RUN_REAL_CATALOG_TESTS=1 and provide the real catalog output",
+)
 class TestRealCatalog:
     def test_catalog_non_empty(self) -> None:
         df = load_catalog(_CATALOG_PATH)
@@ -247,7 +253,10 @@ class TestRealCatalog:
         assert 0.1 < frac < 0.9
 
 
-@pytest.mark.skipif(not _SIDECAR_PATH.exists(), reason="Metadata sidecar not available in CI")
+@pytest.mark.skipif(
+    not _RUN_REAL_CATALOG_TESTS or not _SIDECAR_PATH.exists(),
+    reason="Set RUN_REAL_CATALOG_TESTS=1 and provide the metadata sidecar output",
+)
 class TestRealSidecar:
     def test_valid_json(self) -> None:
         data = json.loads(_SIDECAR_PATH.read_text())

@@ -29,6 +29,22 @@ jobs:
       - name: pytest
         run: pytest tests/ -v
 
+  # ── Docker Compose tests ───────────────────────────────────────────────────
+  docker-compose-test:
+    name: Docker Compose Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Docker Compose version
+        run: docker compose version
+
+      - name: Build test image
+        run: docker compose build pipeline
+
+      - name: pytest via Docker Compose
+        run: docker compose run --rm test pytest tests/ -v
+
   # ── Lint ───────────────────────────────────────────────────────────────────
   lint:
     name: Lint (ruff)
