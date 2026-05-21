@@ -38,6 +38,8 @@ integration using GMs from the JPL Small-Body Database (units of M_sun).
 from __future__ import annotations
 
 import logging
+import multiprocessing as mp
+import os
 from collections.abc import Iterator
 from functools import lru_cache
 
@@ -50,6 +52,9 @@ from astropy.time import Time
 from src.propagate.kepler import kepler_to_cartesian
 
 logger = logging.getLogger(__name__)
+
+_TARGET_SHARD_BYTES = 256 * 1024 * 1024
+_AUTO_NBODY_WORKER_CAP = 8
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -266,6 +271,115 @@ def _vectorised_kepler_state(
     return p_now, vel
 
 
+def resolve_nbody_workers(n_workers: int | str | None) -> int:
+    """Resolve an N-body worker count."""
+    if n_workers is None:
+        return 1
+    if n_workers == "auto":
+        return min(os.cpu_count() or 1, _AUTO_NBODY_WORKER_CAP)
+    return max(1, int(n_workers))
+
+
+def choose_nbody_shard_size(
+    n_steps: int,
+    n_asteroids: int,
+    requested: int | None = None,
+) -> int:
+    """Return an asteroid shard size with bounded per-worker output memory."""
+    if requested is not None:
+        return max(1, min(int(requested), n_asteroids))
+    bytes_per_asteroid = max(1, int(n_steps)) * 3 * np.dtype(np.float32).itemsize
+    shard = max(1, _TARGET_SHARD_BYTES // bytes_per_asteroid)
+    return max(1, min(int(shard), n_asteroids))
+
+
+def _nbody_worker_task(args: tuple) -> tuple[int, int, np.ndarray]:
+    """Integrate one asteroid shard and return its local trajectory."""
+    (
+        start,
+        stop,
+        elements_shard,
+        time_grid,
+        include_planets,
+        integrator,
+        dt_days,
+        epoch_jd,
+    ) = args
+    for var in (
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "NUMEXPR_MAX_THREADS",
+    ):
+        os.environ.setdefault(var, "1")
+    shard_out = propagate_grid_nbody(
+        elements_shard,
+        time_grid,
+        include_planets=include_planets,
+        include_major_asteroids=False,
+        integrator=integrator,
+        dt_days=dt_days,
+        epoch_jd=epoch_jd,
+        n_workers=1,
+    )
+    return int(start), int(stop), shard_out
+
+
+def _propagate_grid_nbody_parallel(
+    elements: pl.DataFrame,
+    time_grid: np.ndarray,
+    *,
+    include_planets: list[str],
+    integrator: str,
+    dt_days: float,
+    epoch_jd: float,
+    out: np.ndarray,
+    n_workers: int,
+    worker_shard_size: int | None,
+) -> np.ndarray:
+    """Parallel shard dispatcher for massless-test-particle propagation."""
+    n_ast = len(elements)
+    n_steps = len(time_grid)
+    shard_size = choose_nbody_shard_size(n_steps, n_ast, worker_shard_size)
+    shards = [(start, min(start + shard_size, n_ast)) for start in range(0, n_ast, shard_size)]
+    nw = min(max(1, n_workers), len(shards))
+    logger.info(
+        "N-body parallel propagation: %d workers | %d shards | shard_size≈%d asteroids",
+        nw,
+        len(shards),
+        shard_size,
+    )
+
+    tasks = [
+        (
+            start,
+            stop,
+            elements.slice(start, stop - start),
+            time_grid,
+            include_planets,
+            integrator,
+            dt_days,
+            epoch_jd,
+        )
+        for start, stop in shards
+    ]
+
+    from tqdm import tqdm
+
+    ctx = mp.get_context("forkserver")
+    with ctx.Pool(processes=nw) as pool:
+        for start, stop, shard_out in tqdm(
+            pool.imap_unordered(_nbody_worker_task, tasks),
+            total=len(tasks),
+            desc="N-body shards",
+            unit="shard",
+            leave=False,
+        ):
+            out[:, start:stop, :] = shard_out
+    logger.info("N-body parallel propagation finished: output shape %s", out.shape)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Public propagator
 # ---------------------------------------------------------------------------
@@ -281,6 +395,8 @@ def propagate_grid_nbody(
     dt_days: float = 1.0,
     epoch_jd: float | None = None,
     out: np.ndarray | None = None,
+    n_workers: int | str = 1,
+    worker_shard_size: int | None = None,
 ) -> np.ndarray:
     """Integrate *elements* across *time_grid* with planetary perturbers.
 
@@ -310,6 +426,13 @@ def propagate_grid_nbody(
         Initial epoch for the integration in JD TDB.  Defaults to the
         ``epoch_jd`` column of *elements* (which is uniform within a single
         MPCORB snapshot).
+    n_workers:
+        Number of asteroid-shard worker processes.  ``1`` preserves the serial
+        REBOUND path; ``"auto"`` uses up to 8 processes to avoid excessive
+        memory pressure from in-flight trajectory shards.
+    worker_shard_size:
+        Optional asteroid count per worker task.  Defaults to a size that keeps
+        each returned ``float32`` shard near 256 MiB.
 
     Returns
     -------
@@ -358,14 +481,44 @@ def propagate_grid_nbody(
         raise ValueError(f"Unknown planet names in include_planets: {unknown}")
 
     logger.info(
-        "N-body propagation: %d asteroids | %d steps | dt=%.3f d | integrator=%s | planets=%s | major_asteroids=%s",
+        "N-body propagation: %d asteroids | %d steps | dt=%.3f d | integrator=%s | planets=%s | major_asteroids=%s | workers=%s",
         n_ast,
         n_steps,
         dt_days,
         integrator,
         ",".join(planet_names),
         include_major_asteroids,
+        n_workers,
     )
+
+    expected = (n_steps, n_ast, 3)
+    if out is not None:
+        if out.shape != expected:
+            raise ValueError(f"out has shape {out.shape}, expected {expected}")
+        if out.dtype != np.float32:
+            raise ValueError(f"out has dtype {out.dtype}, expected float32")
+
+    resolved_workers = resolve_nbody_workers(n_workers)
+    if resolved_workers > 1:
+        if include_major_asteroids:
+            logger.warning(
+                "Parallel N-body propagation disabled because include_major_asteroids=True; "
+                "massive asteroid perturbers require a single shared simulation in this implementation."
+            )
+        else:
+            if out is None:
+                out = np.empty(expected, dtype=np.float32)
+            return _propagate_grid_nbody_parallel(
+                elements,
+                time_grid,
+                include_planets=planet_names,
+                integrator=integrator,
+                dt_days=dt_days,
+                epoch_jd=float(epoch_jd),
+                out=out,
+                n_workers=resolved_workers,
+                worker_shard_size=worker_shard_size,
+            )
 
     sim = rebound.Simulation()
     sim.units = ("AU", "days", "Msun")
@@ -479,13 +632,7 @@ def propagate_grid_nbody(
     # the explicit safe_mode flag was removed in the 5.0 API refactor.
 
     if out is None:
-        out = np.empty((n_steps, n_ast, 3), dtype=np.float32)
-    else:
-        expected = (n_steps, n_ast, 3)
-        if out.shape != expected:
-            raise ValueError(f"out has shape {out.shape}, expected {expected}")
-        if out.dtype != np.float32:
-            raise ValueError(f"out has dtype {out.dtype}, expected float32")
+        out = np.empty(expected, dtype=np.float32)
 
     # Snapshot the initial state so we can re-run the simulation backward
     # without rebuilding it from scratch.  REBOUND stores particle state by

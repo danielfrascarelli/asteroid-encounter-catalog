@@ -56,6 +56,45 @@ def test_out_parameter_writes_in_place() -> None:
     assert np.any(buf != 0.0)
 
 
+def test_parallel_matches_serial() -> None:
+    """Asteroid-shard parallel propagation must match the serial path."""
+    t_grid = np.linspace(_EPOCH_JD - 2.0, _EPOCH_JD + 2.0, 5)
+    elems = _elements(6)
+    serial = propagate_grid_nbody(
+        elems,
+        t_grid,
+        include_planets=["sun"],
+        integrator="ias15",
+        n_workers=1,
+    )
+    parallel = propagate_grid_nbody(
+        elems,
+        t_grid,
+        include_planets=["sun"],
+        integrator="ias15",
+        n_workers=2,
+        worker_shard_size=2,
+    )
+    np.testing.assert_allclose(parallel, serial, rtol=0.0, atol=1e-6)
+
+
+def test_parallel_out_parameter_writes_in_place() -> None:
+    """Parallel propagation writes shard results into the provided output array."""
+    t_grid = np.linspace(_EPOCH_JD, _EPOCH_JD + 2.0, 3)
+    buf = np.zeros((3, 5, 3), dtype=np.float32)
+    result = propagate_grid_nbody(
+        _elements(5),
+        t_grid,
+        include_planets=["sun"],
+        integrator="ias15",
+        out=buf,
+        n_workers=2,
+        worker_shard_size=2,
+    )
+    assert result is buf
+    assert np.any(buf != 0.0)
+
+
 def test_empty_elements_returns_empty() -> None:
     """Empty elements DF → shape (T, 0, 3)."""
     t_grid = np.linspace(_EPOCH_JD, _EPOCH_JD + 2.0, 3)

@@ -133,6 +133,11 @@ propagation:
   # vuelve al propagador Kepler en una ventana fina alrededor de cada candidato.
   # null = comportamiento original (bulk cache al fine step).
   coarse_step_hours: 12.0
+  # Strategy B — On-disk format for the bulk trajectory cache.
+  # "zarr"   (default): chunked Blosc-zstd-bitshuffled array (~5× compression on
+  #                     float32 trajectories; lazy chunked reads).
+  # "memmap" (legacy):  raw float32 .npy memory-mapped from disk.
+  cache_format: "zarr"
   reference_frame: "barycentric"     # "barycentric" o "heliocentric"
   cache_results: true                # Guardar grilla propagada en data/cache/
 

@@ -92,6 +92,7 @@ def propagate_full_grid(
     rebound_kwargs: dict | None = None,
     cache_dir: str | None = None,
     cache_key: str | None = None,
+    cache_format: str = "zarr",
 ) -> np.ndarray | None:
     """Pre-compute the full ``(T, N, 3)`` trajectory or return None for streaming Kepler.
 
@@ -141,6 +142,7 @@ def propagate_full_grid(
                 cache_dir=cache_dir,
                 cache_key=cache_key,
                 rebound_kwargs=rebound_kwargs,
+                cache_format=cache_format,
             )
         from src.propagate.nbody import propagate_grid_nbody
 

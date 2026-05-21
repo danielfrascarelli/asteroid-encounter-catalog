@@ -155,6 +155,8 @@ def main() -> int:
             coarse_step_hours,
         )
 
+    par = cfg.parallel
+
     # --- Propagation (N-body branch precomputes the trajectory) ---
     positions = None
     if cfg.propagation.method.lower() == "rebound":
@@ -168,6 +170,7 @@ def main() -> int:
             "include_planets": cfg.propagation.rebound.include_planets,
             "include_major_asteroids": cfg.propagation.rebound.include_major_asteroids,
             "integrator": cfg.propagation.rebound.integrator,
+            "n_workers": par.n_workers if par.enabled else 1,
             # The integrator step stays at the fine resolution to preserve
             # accuracy; only the snapshot cadence (the time_grid spacing) is
             # coarsened. This is the standard trick — full N-body precision
@@ -194,6 +197,7 @@ def main() -> int:
             rebound_kwargs=rebound_kwargs,
             cache_dir=cache_dir,
             cache_key=cache_key,
+            cache_format=cfg.propagation.cache_format,
         )
         logger.info(
             "Propagation done in %.1fs — trajectory shape %s",
@@ -203,7 +207,6 @@ def main() -> int:
 
     # --- Detection ---
     det = cfg.detection
-    par = cfg.parallel
     n_workers = par.n_workers if par.enabled else 1
 
     # Strategy A: widen the KD-tree query radius to cover encounters whose
