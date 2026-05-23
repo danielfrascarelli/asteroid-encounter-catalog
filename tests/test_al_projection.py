@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from scripts.fit_mass_gaia_loo import (
+from scripts.mass.fit_mass_gaia_loo import (
     _best_mpcorb_snapshot,
     _mass_from_h,
     al_residuals_and_weights,

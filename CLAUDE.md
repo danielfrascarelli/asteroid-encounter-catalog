@@ -204,14 +204,22 @@ Todo se ejecuta dentro de Docker. No se requiere Python local.
 docker compose build
 
 # Descarga inicial de datos
-docker compose run --rm pipeline python -m scripts.download_mpcorb
-docker compose run --rm pipeline python -m scripts.download_gaia_sso
+docker compose run --rm pipeline python -m scripts.ingest.download_mpcorb
+docker compose run --rm pipeline python -m scripts.ingest.download_gaia_sso
 
 # Pipeline completo
-docker compose run --rm pipeline python -m scripts.run_pipeline --config config.yaml
+docker compose run --rm pipeline python -m scripts.pipeline.run_pipeline --config config.yaml
 
 # Solo detección (asume propagación ya hecha)
-docker compose run --rm pipeline python -m scripts.detect_encounters --start 2014-07-25 --end 2017-05-28
+docker compose run --rm pipeline python -m scripts.pipeline.detect_deflections
+
+# Fitting de masas
+docker compose run --rm pipeline python -m scripts.mass.fit_mass_gaia_loo
+docker compose run --rm pipeline python -m scripts.mass.summarize_loo_fits
+
+# Validación contra literatura
+docker compose run --rm pipeline python -m scripts.validate.validate_goffin_2014
+docker compose run --rm pipeline python -m scripts.validate.validate_literature
 
 # Dashboard
 docker compose up dashboard      # abre http://localhost:8501
@@ -226,6 +234,18 @@ docker compose run --rm pipeline black .
 
 # Shell interactivo dentro del contenedor
 docker compose run --rm pipeline bash
+```
+
+### Estructura de scripts
+
+```
+scripts/
+├── ingest/      # descarga de datos externos (MPCORB, Gaia SSO, literatura)
+├── pipeline/    # ejecución del pipeline (detección, caracterización, masas)
+├── mass/        # fitting y análisis de masas (LOO, linear, perturbers)
+├── validate/    # validación contra literatura y JPL Horizons
+├── bench/       # benchmarks de rendimiento y experimentos
+└── dev/         # sanity checks, demos y tests de desarrollo
 ```
 
 ---
