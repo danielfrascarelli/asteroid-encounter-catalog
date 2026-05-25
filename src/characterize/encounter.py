@@ -175,6 +175,9 @@ def characterize_catalog(
     # ------------------------------------------------------------------ #
     # 7. Earth positions and solar elongation                             #
     # ------------------------------------------------------------------ #
+    # get_earth_positions_au returns heliocentric ecliptic J2000 to match
+    # kepler_to_cartesian (which produced pos1, pos2 above) — both vectors
+    # live in the same frame, so subtractions and dot products are valid.
     logger.info("Fetching Earth positions from astropy ephemeris…")
     jd_arr = df["jd_tdb"].to_numpy()
     earth_pos = get_earth_positions_au(jd_arr)  # (N, 3)
