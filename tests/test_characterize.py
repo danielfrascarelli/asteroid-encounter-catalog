@@ -12,6 +12,7 @@ from src.characterize.geometry import (
 )
 from src.characterize.observability import (
     apparent_mag_hg,
+    get_earth_positions_au,
     is_gaia_observable,
     solar_elongation_deg,
 )
@@ -144,6 +145,44 @@ class TestSolarElongation:
         enc = np.array([[2.0, 0.0, 0.0], [-2.0, 0.0, 0.0]])
         elong = solar_elongation_deg(enc, earth)
         assert len(elong) == 2
+
+
+class TestEarthPositions:
+    """Regression tests for the heliocentric ecliptic J2000 frame.
+
+    The previous implementation returned barycentric ICRS (equatorial), which
+    made downstream solar elongation and apparent magnitude computations
+    invalid because they were combined with heliocentric ecliptic asteroid
+    positions from ``kepler_to_cartesian``.  These tests pin the corrected
+    frame so the bug cannot regress silently.
+    """
+
+    def test_earth_lies_near_ecliptic_plane(self) -> None:
+        # In heliocentric ecliptic J2000, Earth's orbit defines the plane,
+        # so |z| must be < ~1e-3 AU (perturbations from other planets only).
+        # In the buggy barycentric ICRS frame, Earth's z at solstice would
+        # be |z| ≈ sin(23.44°) ≈ 0.4 AU — three orders of magnitude larger.
+        jd = np.array(
+            [
+                2451545.0,  # J2000.0 epoch (perihelion-ish, |z| small either way)
+                2451545.0 + 90.0,  # ~April equinox + quarter (near boreal solstice)
+                2451545.0 + 180.0,
+                2451545.0 + 270.0,
+            ]
+        )
+        earth = get_earth_positions_au(jd)
+        assert earth.shape == (4, 3)
+        assert np.all(np.abs(earth[:, 2]) < 1e-3), (
+            f"Earth z out of ecliptic plane: {earth[:, 2]} — "
+            "frame is probably still ICRS instead of ecliptic"
+        )
+
+    def test_earth_distance_is_one_au(self) -> None:
+        jd = np.array([2451545.0, 2451545.0 + 180.0])
+        earth = get_earth_positions_au(jd)
+        r = np.linalg.norm(earth, axis=1)
+        # Earth's heliocentric distance varies in [0.983, 1.017] AU.
+        assert np.all(np.abs(r - 1.0) < 0.02), f"Earth-Sun distance unexpected: {r}"
 
 
 class TestApparentMag:
