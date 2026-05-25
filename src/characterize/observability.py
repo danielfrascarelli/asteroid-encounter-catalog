@@ -35,6 +35,11 @@ def get_earth_positions_au(jd_tdb: np.ndarray) -> np.ndarray:
     2. Rotates by the J2000 obliquity about the X axis to obtain heliocentric
        mean ecliptic J2000.
 
+    Input ``jd_tdb`` is deduplicated before calling astropy: in the refined
+    encounter catalog there are ~3.7× more rows than unique epochs, and the
+    astropy ephemeris call dominates wall time at catalog scale.  Results
+    are then scattered back to the original ordering.
+
     Parameters
     ----------
     jd_tdb:
@@ -45,7 +50,9 @@ def get_earth_positions_au(jd_tdb: np.ndarray) -> np.ndarray:
     np.ndarray of shape (N, 3)
         Heliocentric ecliptic J2000 positions in AU.
     """
-    t = Time(jd_tdb, format="jd", scale="tdb")
+    jd_arr = np.asarray(jd_tdb, dtype=float)
+    uniq, inv = np.unique(jd_arr, return_inverse=True)
+    t = Time(uniq, format="jd", scale="tdb")
     earth_bary = get_body_barycentric("earth", t)
     sun_bary = get_body_barycentric("sun", t)
     dx = (earth_bary.x - sun_bary.x).to("AU").value
@@ -54,10 +61,11 @@ def get_earth_positions_au(jd_tdb: np.ndarray) -> np.ndarray:
     # ICRS (equatorial J2000) → ecliptic J2000: rotation about +X by ε.
     cos_e = np.cos(_OBLIQ_J2000_RAD)
     sin_e = np.sin(_OBLIQ_J2000_RAD)
-    x_ec = dx
-    y_ec = cos_e * dy + sin_e * dz
-    z_ec = -sin_e * dy + cos_e * dz
-    return np.stack([x_ec, y_ec, z_ec], axis=-1)
+    x_ec_u = dx
+    y_ec_u = cos_e * dy + sin_e * dz
+    z_ec_u = -sin_e * dy + cos_e * dz
+    # Scatter unique results back to the original ordering.
+    return np.stack([x_ec_u[inv], y_ec_u[inv], z_ec_u[inv]], axis=-1)
 
 
 def solar_elongation_deg(
