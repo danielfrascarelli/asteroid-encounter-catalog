@@ -8,7 +8,7 @@ not necessarily what was actually used for the historical file.  Verify the
 config dates match the parquet timestamp before trusting the sidecar.
 
 Usage:
-    docker compose run --rm pipeline python -m scripts.generate_detection_sidecar \\
+    docker compose run --rm pipeline python -m scripts.pipeline.generate_detection_sidecar \\
         --catalog data/output/encounters_catalog_rebound_005au.parquet
 """
 
