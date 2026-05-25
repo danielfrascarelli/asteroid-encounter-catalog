@@ -1,0 +1,174 @@
+# Frozen run — geometric close-encounter catalog
+
+> Canonical reference for the close-encounter catalog generated under the Gaia
+> DR3 observation window (2014-07-25 → 2017-05-28).  Everything claimed in
+> follow-up analyses (figures, tables, papers, dashboards) should refer to the
+> values in this document.
+
+## TL;DR
+
+| field | value |
+|---|---|
+| catalog file | `data/output/encounters_catalog_rebound_005au.parquet` |
+| catalog SHA-256 | `b0272be7aab649b4f01d85f79011c72074f3c01b7695613ce033cd16bb0fb5e6` |
+| size on disk | 2,806,825,159 B (2.6 GiB) |
+| rows | **72,236,904** |
+| threshold | 0.05 AU |
+| provenance sidecar | `data/output/encounters_catalog_rebound_005au_provenance.json` |
+| MPCORB snapshot used | `MPCORB_20160217.DAT` (SHA-256 prefix `3e44e7d36b59a7ff`) |
+| scan method | rebound (whfast, Sun + Jupiter + Saturn, dt = 1 h) |
+| coarse grid | Δt = 12 h |
+| refine method | **Kepler** (forced by tiered mode) on Δt = 120 s window of ±2 h |
+| prefilter | enabled — \|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30° (see caveats) |
+| pipeline code | latest perf branch, frame-fix and provenance-sidecar PRs in flight |
+
+## What this run **is**
+
+A geometric close-approach catalog: every pair of numbered asteroids whose
+heliocentric ecliptic 3-D positions came within 0.05 AU of each other at any
+point inside the Gaia DR3 observation window, refined by Kepler propagation
+on a 120-second sub-grid centred on each candidate minimum.
+
+It is the catalog the audit names as the **safe publication target**:
+
+> The safest publishable target, after fixes and reruns, would be a geometric
+> close-encounter candidate catalog, not mass determinations.
+> — `SCIENTIFIC_AUDIT.md`
+
+## What this run is **not**
+
+- **Not a mass catalog.**  41 candidate pairs in
+  `data/output/publishable_mass_candidates.csv` are flagged for *follow-up*
+  mass-fitting, not mass *measurements*.  The mass-fitting layer
+  (`scripts/fit_mass_gaia_loo.py` and friends) is exploratory and has
+  ~arcsecond systematic residuals.  Reported masses elsewhere in this repo
+  (e.g. (111) Ate) are prototypes pending the joint orbit + mass refactor
+  flagged as audit blocker #6.
+- **Not a fully N-body-refined catalog.**  Despite the filename containing
+  `rebound`, the *final* reported distances come from the Kepler refiner
+  (see `refine.forced_by_tiered = true` in the sidecar).  The rebound
+  trajectory was used for the coarse scan; the sub-grid refinement is
+  two-body.
+- **Not strictly complete.**  The heuristic prefilter
+  (\|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30°) can in principle miss high-eccentricity
+  crossing orbits.  Quantifying recall on a high-e/high-i subset is audit
+  blocker #2 and is **not** included in this freeze.
+
+## Inputs
+
+| input | path | SHA-256 prefix | size |
+|---|---|---|---|
+| MPCORB snapshot | `data/raw/mpcorb_archive/MPCORB_20160217.DAT` | `3e44e7d36b59a7ff` | 305 MiB |
+| Gaia DR3 SSO observations | `data/raw/gaia_sso.parquet` | (16,000 rows used for validation only) | 905 KiB |
+| Gaia DR3 SSO orbits | `data/raw/gaia_orbits.parquet` | (used for downstream characterization) | 4.9 MiB |
+| MPCORB metadata sidecar | `data/raw/MPCORB.json` | `47d55f34c28b448f` | — |
+
+The MPCORB snapshot from 2016-02-17 was selected because its osculating
+epoch sits at the centre of the Gaia DR3 observation window, minimising
+the propagation distance for Kepler refinement.
+
+## Configuration (frozen)
+
+Full machine-readable copy lives in
+`data/output/encounters_catalog_rebound_005au_provenance.json` under the
+`config` key.  Key parameters:
+
+```yaml
+observation_window:    2014-07-25 → 2017-05-28  (Gaia DR3 SSO)
+threshold_au:          0.05
+time_step_hours:       1.0          # fine grid for refinement
+coarse_step_hours:     12.0         # bulk N-body cache
+fine_step_seconds:     60.0         # Kepler refinement sub-grid
+window_hours:          2.0          # ±2 h around each scan minimum
+propagation.method:    rebound      # whfast, Sun+Jupiter+Saturn
+prefilter:             enabled, Δa≤0.5 AU, Δi≤30°
+subset:                only_numbered = true
+```
+
+## Claims (numbers from this run)
+
+### Encounter counts by separation
+
+| distance bound | encounters | fraction |
+|---|---:|---:|
+| d < 0.001 AU |     26,038 | 0.04 % |
+| d < 0.005 AU |    704,413 | 0.98 % |
+| d < 0.010 AU |  2,833,425 | 3.92 % |
+| d < 0.020 AU | 11,403,496 | 15.79 % |
+| d < 0.030 AU | 25,779,325 | 35.69 % |
+| d < 0.040 AU | 46,035,452 | 63.73 % |
+| d < 0.050 AU | 72,236,904 | 100.00 % |
+
+### Major-body gate checks (must be present)
+
+| asteroid | encounters | closest approach (AU) |
+|---|---:|---:|
+| (1) Ceres   | 352 | 0.003819 |
+| (2) Pallas  |  47 | 0.006288 |
+| (4) Vesta   | 458 | 0.000936 |
+| (10) Hygiea | 162 | 0.005287 |
+
+All four required major bodies are present, satisfying the regression gate.
+
+### Top-10 closest encounters
+
+| body 1 | body 2 | JD (TDB) | d (AU) |
+|---|---|---:|---:|
+| (153222) 2000 YD43 | (238587) 2004 YX3   | 2457500 | 6.6 × 10⁻⁶ |
+| (15072) Landolt    | (387599) 2001 XF180 | 2457000 | 1.2 × 10⁻⁵ |
+| (270730) 2002 QE130| (366918) 2005 UC211 | 2457500 | 1.5 × 10⁻⁵ |
+| (161150) 2002 SL25 | (412792) 2014 PU21  | 2457600 | 1.6 × 10⁻⁵ |
+| (117065) 2004 KD9  | (439086) 2011 QP5   | 2457200 | 1.7 × 10⁻⁵ |
+| (52249) 1981 EK21  | (408138) 2013 CL75  | 2457700 | 1.7 × 10⁻⁵ |
+| (17067) 1999 GF19  | (236737) 2007 JC18  | 2457100 | 2.0 × 10⁻⁵ |
+| (435807) 2008 VV60 | (436353) 2010 JC112 | 2457400 | 2.4 × 10⁻⁵ |
+| (110273) 2001 SX251| (221390) 2005 YS34  | 2457100 | 2.5 × 10⁻⁵ |
+| (209619) 2005 AT19 | (304025) 2006 DR59  | 2457000 | 2.6 × 10⁻⁵ |
+
+These figures come from the Kepler refiner; positions from the rebound scan
+agreed to within ~10⁻⁷ AU (≈ 12 km) on the regression benchmark — see
+`monitoring/2026-05-23_pipeline_run.md`.
+
+## Caveats and known limitations (freeze-aware)
+
+- **Observability columns are computed elsewhere.**  `solar_elongation_deg`,
+  `gaia_observable`, and apparent magnitude are *not* on this parquet —
+  they live on `data/output/encounters_characterized.parquet`, which is a
+  characterisation of the smaller 158 k-row detection run, not this 72 M
+  catalog.  Re-characterising 72 M rows requires a streaming refactor that
+  is **not** part of this freeze.
+- **Frame fix landed after the catalog was written.**  PR #21 (audit
+  blocker #1) corrected the Earth-position frame in
+  `src.characterize.observability`.  The data in this parquet is unaffected
+  because the frame bug was downstream of detection; any future
+  characterisation of this catalog will use the corrected frame.
+- **Prefilter recall is unverified.**  Audit blocker #2 — high-eccentricity
+  pairs with \|Δa\| > 0.5 AU could be missing.  Do not claim "complete".
+- **MPCORB.DAT in `data/raw/` is the *current* download**, not the
+  snapshot used for this run.  Use `data/raw/mpcorb_archive/MPCORB_20160217.*`
+  when reproducing.
+
+## Reproducing this run
+
+```bash
+# 1. Restore the exact MPCORB snapshot
+cp data/raw/mpcorb_archive/MPCORB_20160217.DAT data/raw/MPCORB.DAT
+
+# 2. Use the local config that selects rebound mode + 0.05 AU threshold
+docker compose run --rm pipeline python -m scripts.run_pipeline \
+    --config config.local.yaml
+
+# 3. Bit-identical replay requires the same code commit and dependency
+#    versions listed in the provenance sidecar.
+```
+
+## Code commit
+
+This freeze documents output produced under the `perf/refine-kepler-cache`
+branch (HEAD at `06de6d0` when this catalog was written).  Subsequent
+fixes (#21 frame, #22 SSO epoch docs, #23 detection sidecar) do **not**
+change the data in this parquet — they only affect downstream
+characterisation, documentation, and future runs.
+
+Anything generated from this catalog (figures, derived tables) must cite
+both this freeze ID and the commit at *its own* generation time.
