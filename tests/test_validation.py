@@ -308,7 +308,7 @@ class TestGoffinLoadAndFilter:
         return path
 
     def test_loads_and_filters_to_gaia_window(self, tmp_path: Path) -> None:
-        from scripts.validate_goffin_2014 import _load_goffin
+        from scripts.validate.validate_goffin_2014 import _load_goffin
 
         path = self._make_goffin_parquet(tmp_path)
         df, col_map = _load_goffin(path, "2014-07-25", "2017-05-28")
@@ -316,7 +316,7 @@ class TestGoffinLoadAndFilter:
         assert len(df) == 3
 
     def test_col_map_has_required_keys(self, tmp_path: Path) -> None:
-        from scripts.validate_goffin_2014 import _load_goffin
+        from scripts.validate.validate_goffin_2014 import _load_goffin
 
         path = self._make_goffin_parquet(tmp_path)
         _df, col_map = _load_goffin(path, "2014-07-25", "2017-05-28")
@@ -324,7 +324,7 @@ class TestGoffinLoadAndFilter:
             assert key in col_map
 
     def test_dist_column_values_preserved(self, tmp_path: Path) -> None:
-        from scripts.validate_goffin_2014 import _load_goffin
+        from scripts.validate.validate_goffin_2014 import _load_goffin
 
         path = self._make_goffin_parquet(tmp_path)
         df, col_map = _load_goffin(path, "2014-07-25", "2017-05-28")

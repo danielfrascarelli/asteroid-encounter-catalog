@@ -40,7 +40,7 @@ It is the catalog the audit names as the **safe publication target**:
 - **Not a mass catalog.**  41 candidate pairs in
   `data/output/publishable_mass_candidates.csv` are flagged for *follow-up*
   mass-fitting, not mass *measurements*.  The mass-fitting layer
-  (`scripts/fit_mass_gaia_loo.py` and friends) is exploratory and has
+  (`scripts/mass/fit_mass_gaia_loo.py` and friends) is exploratory and has
   ~arcsecond systematic residuals.  Reported masses elsewhere in this repo
   (e.g. (111) Ate) are prototypes pending the joint orbit + mass refactor
   flagged as audit blocker #6.
@@ -155,7 +155,7 @@ agreed to within ~10⁻⁷ AU (≈ 12 km) on the regression benchmark — see
 cp data/raw/mpcorb_archive/MPCORB_20160217.DAT data/raw/MPCORB.DAT
 
 # 2. Use the local config that selects rebound mode + 0.05 AU threshold
-docker compose run --rm pipeline python -m scripts.run_pipeline \
+docker compose run --rm pipeline python -m scripts.pipeline.run_pipeline \
     --config config.local.yaml
 
 # 3. Bit-identical replay requires the same code commit and dependency
