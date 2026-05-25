@@ -8,17 +8,23 @@ so propagation to that window requires at most a few months rather than the
 
 Column mapping (Gaia → pipeline schema)
 -----------------------------------------
-``gaiadr3.sso_orbits``          pipeline column       unit
-------------------------------  --------------------  ---------------
-number_mp      (Int64)       →  number    (Int32)
-denomination   (String)      →  designation (Utf8)
-semi_major_axis (AU)         →  a_au       (Float64)
-eccentricity                 →  e          (Float64)
-inclination    (rad)         →  i_deg      (Float64)  × 180/π
-arg_perihelion (rad)         →  omega_deg  (Float64)  × 180/π
-long_asc_node  (rad)         →  Omega_deg  (Float64)  × 180/π
-mean_anomaly   (rad)         →  M_deg      (Float64)  × 180/π
-osc_epoch      (JD, TDB)     →  epoch_jd   (Float64)
+``gaiadr3.sso_orbits``                       pipeline column       unit
+-------------------------------------------  --------------------  ---------------
+number_mp      (Int64)                    →  number    (Int32)
+denomination   (String)                   →  designation (Utf8)
+semi_major_axis (AU)                      →  a_au       (Float64)
+eccentricity                              →  e          (Float64)
+inclination    (rad)                      →  i_deg      (Float64)  × 180/π
+arg_perihelion (rad)                      →  omega_deg  (Float64)  × 180/π
+long_asc_node  (rad)                      →  Omega_deg  (Float64)  × 180/π
+mean_anomaly   (rad)                      →  M_deg      (Float64)  × 180/π
+osc_epoch      (days since J2010.0 TCB)   →  epoch_jd   (Float64)  + 2455197.5
+
+The pipeline treats ``epoch_jd`` as JD in TDB scale downstream.  The exact
+result of the offset addition is JD_TCB, not JD_TDB; the TCB→TDB
+difference over the DR3 window is ~20 s, which is negligible at the
+~minute precision used in the catalog pipeline but should be applied
+explicitly via ``src.utils.time_utils.tcb_to_tdb`` for mass-fitting work.
 
 Download strategy
 -----------------
@@ -319,8 +325,12 @@ def load_gaia_orbits(path: str | Path) -> pl.DataFrame:
 
     Notes
     -----
-    ``epoch_jd`` is in TDB (Barycentric Dynamical Time), consistent with
-    the internal convention of the propagation and detection modules.
+    ``epoch_jd`` is the raw ``osc_epoch`` (days since J2010.0 TCB) plus
+    2455197.5, i.e. a JD in TCB.  Downstream propagation and detection
+    treat it as JD_TDB; the TCB→TDB drift over the DR3 window is ~20 s
+    and negligible at the minute-level grid precision used for the
+    catalog.  For mass-fitting work, apply
+    ``src.utils.time_utils.tcb_to_tdb`` explicitly.
     """
     path = Path(path)
     if not path.exists():
