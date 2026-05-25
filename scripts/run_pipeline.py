@@ -25,6 +25,7 @@ from pathlib import Path
 import polars as pl
 from astropy.time import Time
 
+from src.catalog.writer import write_detection_sidecar
 from src.detect.pipeline import detect_encounters
 from src.ingest.mpcorb import parse_mpcorb
 from src.ingest.mpcorb_archive import discover_snapshots, select_for_window
@@ -272,6 +273,23 @@ def main() -> int:
         results.write_csv(out_path)
 
     logger.info("Catalog saved → %s  (%d rows)", out_path, len(results))
+
+    # --- Provenance sidecar ---
+    # Records scan/refine method, time-grid params, prefilter, MPCORB hash, and
+    # git commit so the catalog can be audited without relying on the filename.
+    # The filename may say "rebound" while refine actually ran Kepler when tiered.
+    run_id = Time.now().utc.iso.replace(" ", "T").replace(":", "").replace("-", "")[:15] + "Z"
+    write_detection_sidecar(
+        out_path,
+        run_id=run_id,
+        n_encounters=len(results),
+        cfg=cfg,
+        mpcorb_path=Path(snap.path),
+        coarse_step_hours=coarse_step_hours,
+        fine_step_hours=fine_step_hours,
+        use_tiered=use_tiered,
+        force_kepler_refine=use_tiered,
+    )
 
     # --- Top encounters ---
     if len(results) > 0:
