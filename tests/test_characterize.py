@@ -164,7 +164,7 @@ class TestEarthPositions:
         # be |z| ≈ sin(23.44°) ≈ 0.4 AU — three orders of magnitude larger.
         jd = np.array(
             [
-                2451545.0,         # J2000.0 epoch (perihelion-ish, |z| small either way)
+                2451545.0,  # J2000.0 epoch (perihelion-ish, |z| small either way)
                 2451545.0 + 90.0,  # ~April equinox + quarter (near boreal solstice)
                 2451545.0 + 180.0,
                 2451545.0 + 270.0,
