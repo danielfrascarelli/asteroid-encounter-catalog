@@ -1,9 +1,17 @@
 """Download and cache Gaia DR3 SSO observations via TAP.
 
 The Gaia archive table ``gaiadr3.sso_observation`` contains one row per
-asteroid transit. The ``epoch`` column is in TCB (Barycentric Coordinate Time)
-as a Julian Date. All other processing converts to TDB via
-``src.utils.time_utils.tcb_to_tdb`` before use.
+asteroid transit. The ``epoch`` column is **days since J2010.0 TCB**
+(i.e. ``JD_TCB − 2455197.5``), NOT a raw Julian Date. To recover a full
+JD in TCB add ``J2010_TCB_JD = 2455197.5``; to convert to TDB then pass
+that JD through ``src.utils.time_utils.tcb_to_tdb``. Empirically the
+values in DR3 span ~1677 to ~2702, matching the observation window
+2014-07-25 to 2017-05-28.
+
+This convention is also enforced by callers such as
+``scripts/check_gaia_observations.py``, ``scripts/audit_gaia_coverage.py``,
+and ``scripts/fit_mass_gaia_loo.py``, which all define
+``_J2010_TCB_JD = 2455197.5`` and convert by subtraction.
 
 Download strategy
 -----------------
@@ -370,9 +378,10 @@ def load_gaia_sso(path: str | Path) -> pl.DataFrame:
 
     Notes
     -----
-    The ``epoch`` column is in TCB. Use
-    ``src.utils.time_utils.tcb_to_tdb`` to convert to TDB before
-    propagation.
+    The ``epoch`` column is **days since J2010.0 TCB**
+    (``JD_TCB − 2455197.5``), not a raw Julian Date. To get a full
+    JD_TCB add ``2455197.5``; to convert to TDB then pass the JD
+    through ``src.utils.time_utils.tcb_to_tdb``.
     """
     path = Path(path)
     if not path.exists():

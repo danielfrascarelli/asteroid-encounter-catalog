@@ -1,8 +1,9 @@
 """Download Gaia DR3 SSO observations from the Gaia Archive via TAP.
 
 Saves to data/raw/gaia_sso.parquet.
-The ``epoch`` column is in TCB (documented in the file and in the module
-docstring of src/ingest/gaia_sso.py).
+The ``epoch`` column is **days since J2010.0 TCB** (``JD_TCB − 2455197.5``),
+NOT a raw Julian Date. See the module docstring of ``src/ingest/gaia_sso.py``
+for the full convention and conversion recipes.
 
 Usage:
     docker compose run --rm pipeline python -m scripts.download_gaia_sso
