@@ -165,18 +165,24 @@ a = 3.16 AU     e = 0.37     i = 6.4°    →  q = 1.99 AU, Q = 4.33 AU
 
 Excentricidad 0.37 hace que Keet Seel cruce desde la zona Mars-crosser hasta casi la órbita de Júpiter en cada vuelta. Su trayectoria es **fuertemente perturbada por Júpiter** — exactamente lo que Kepler 2-cuerpos ignora. **Lección**: el catálogo Kepler es poco confiable para asteroides con e > 0.3 cuando uno necesita la distancia mínima exacta de un encuentro.
 
-### Validación literatura: idéntica a Kepler
+### Validación literatura — pre-fix vs post-fix de refine cache-aware
 
-| Par | Lit | Kepler | **Rebound** | ¿Mejoró? |
-|---|---:|---:|---:|---|
-| Fienga (48, 300) | 0.00840 | 0.00832 | 0.00832 | No (ya estaba a < 0.1 mAU) |
-| Fienga (804, 733) | 0.01380 | 0.01374 | 0.01374 | No |
-| Fienga (65, 976) | 0.03780 | 0.03782 | 0.03782 | No |
-| Fienga (1, 57) | 0.04370 | 0.04355 | 0.04355 | No |
-| **Galád (10, 4803)** ⚠️ | 0.01192 | 0.01071 | 0.01071 | **No — el outlier de 1.2 mAU PERSISTE** |
-| Galád (10, 10018) | 0.02374 | 0.02374 | 0.02374 | No |
-| Galád (10, 11328) | 0.02399 | 0.02363 | 0.02363 | No |
-| Galád (10, 20331) | 0.04164 | 0.04160 | 0.04160 | No |
+> ⚠️ Esta tabla muestra los valores que el catálogo rebound producía **antes**
+> del fix de cache-aware refinement descrito en la sección siguiente.  La
+> columna “Rebound (post-fix)” se agregó para reflejar la corrida con el bug
+> corregido.  En la corrida congelada (`FROZEN_RUN.md`), las cifras válidas
+> son las post-fix.
+
+| Par | Lit | Kepler | Rebound (pre-fix) | **Rebound (post-fix)** | ¿Mejoró? |
+|---|---:|---:|---:|---:|---|
+| Fienga (48, 300) | 0.00840 | 0.00832 | 0.00832 | 0.00832 | No (ya estaba a < 0.1 mAU) |
+| Fienga (804, 733) | 0.01380 | 0.01374 | 0.01374 | 0.01374 | No |
+| Fienga (65, 976) | 0.03780 | 0.03782 | 0.03782 | 0.03782 | No |
+| Fienga (1, 57) | 0.04370 | 0.04355 | 0.04355 | 0.04355 | No |
+| **Galád (10, 4803)** | 0.01192 | 0.01071 | 0.01071 | **0.011924** | **Sí — outlier resuelto** |
+| Galád (10, 10018) | 0.02374 | 0.02374 | 0.02374 | 0.02374 | No |
+| Galád (10, 11328) | 0.02399 | 0.02363 | 0.02363 | 0.02363 | No |
+| Galád (10, 20331) | 0.04164 | 0.04160 | 0.04160 | 0.04160 | No |
 
 ### Bug crítico encontrado y corregido en la primera corrida rebound
 

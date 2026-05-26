@@ -156,35 +156,47 @@ Ver `config.yaml` para la lista completa con comentarios.
 
 Ver `CLAUDE.md` para una descripción detallada de cada módulo.
 
-## 📊 Resultados (corrida de producción actual)
+## 📊 Resultados (corrida congelada)
+
+La corrida canónica está documentada en [`FROZEN_RUN.md`](FROZEN_RUN.md) — éste
+es el único documento que debe citarse para reproducir o referenciar el
+catálogo geométrico.
 
 | Métrica | Valor |
 |---------|-------|
-| Asteroides procesados | 433.880 numerados (MPCORB snapshot 2015-05-24) |
+| MPCORB snapshot | `MPCORB_20160217.DAT` |
 | Ventana temporal | 2014-07-25 → 2017-05-28 (Gaia DR3) |
-| Umbral de detección | **0.01 AU** (corrida de producción) |
-| **Encuentros detectados** | **119.546** |
-| Encuentro más cercano | **0.000025 AU** (≈ 3.695 km) |
-| Velocidad relativa (rango) | 0.032 – 25.23 km/s |
-| Diámetro cuerpo 1 (rango) | 1 – 795 km |
-| Cuerpos grandes confirmados | Ceres (74 enc.), Vesta (103 enc.), Hygiea (50 enc.) |
+| Umbral de detección | **0.05 AU** |
+| Scan / refine | rebound (whfast, Sun+Jupiter+Saturn) / Kepler |
+| **Encuentros detectados** | **72.236.904** |
+| Encuentro más cercano | **6.6 × 10⁻⁶ AU** (≈ 988 km) |
+| Encuentros < 0.001 AU | 26.038 |
+| Encuentros < 0.01 AU | 2.833.425 |
 
-> **Nota**: una corrida exploratoria previa con umbral 0.05 AU y ~99k asteroides (MPCORB sin
-> fix de números empaquetados) produjo 4.036.495 encuentros. La corrida de producción usa el
-> umbral más restrictivo 0.01 AU y el parser corregido (433k objetos). Ver
-> `encounters_characterized_metadata.json` para el hash exacto de inputs.
+Hashes de inputs/outputs y la tabla completa de claims en
+[`FROZEN_RUN.md`](FROZEN_RUN.md).
 
-### Encuentros destacados
+### Top-3 encuentros más cercanos
 
-| Rank | Cuerpo 1 | Cuerpo 2 | Distancia (AU) | Fecha | Vel (km/s) |
-|------|----------|----------|----------------|-------|------------|
-| 1 | 31489 (1999 CN53) | 81987 (2000 QE133) | 0.000025 | 2015-12-21 | 4.17 |
-| 2 | 44115 (1998 HQ23) | 82579 (2001 OV86) | 0.000029 | 2017-01-27 | 3.64 |
-| 3 | 33255 (1998 HB32) | 69766 (1998 QZ19) | 0.000041 | 2015-10-17 | 3.96 |
+| Rank | Cuerpo 1 | Cuerpo 2 | Distancia (AU) |
+|------|----------|----------|----------------|
+| 1 | (153222) 2000 YD43 | (238587) 2004 YX3 | 6.6 × 10⁻⁶ |
+| 2 | (15072) Landolt | (387599) 2001 XF180 | 1.2 × 10⁻⁵ |
+| 3 | (270730) 2002 QE130 | (366918) 2005 UC211 | 1.5 × 10⁻⁵ |
 
-### Nota sobre (2) Pallas
+### Notas
 
-Pallas tiene inclinación i = 34.9° (la mayor entre los asteroides masivos), lo que mantiene su órbita bien separada del plano del cinturón principal durante la ventana Gaia. A 0.05 AU se detectaron 9 encuentros con Pallas (el más cercano a 0.019 AU) — todos físicamente consistentes con su alta inclinación orbital.
+- El catálogo geométrico es el único output considerado publicable. El
+  archivo `publishable_mass_candidates.csv` (41 filas) son **candidatos**
+  para fitting de masas, no masas medidas; la capa de mass-fitting es
+  exploratoria (ver caveats en `FROZEN_RUN.md`).
+- El catálogo viejo `encounters_catalog.parquet` (158.672 filas, umbral
+  0.05 AU sobre un subset menor de asteroides) y su versión caracterizada
+  `encounters_characterized.parquet` quedan como referencia histórica;
+  la corrida congelada (72M) los reemplaza.
+- (2) Pallas (i = 34.9°) aparece con 47 encuentros en el catálogo (el más
+  cercano a 6.3 × 10⁻³ AU) — su alta inclinación orbital la mantiene
+  parcialmente separada del plano del cinturón.
 
 ## ✅ Validación
 

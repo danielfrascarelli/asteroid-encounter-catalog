@@ -6,15 +6,20 @@ The fundamental improvement over fit_perturber_mass.py and fit_mass_linear.py:
     Horizons orbits for small MBAs have ~100-600 mas systematic drift relative
     to Gaia observations. The perturbation signal (5-40 mas) is buried 10-100×.
 
-  Solution — LOO orbit fit:
+  Solution — LOO orbit fit (asymmetric, pre-encounter only):
     1. Fetch ALL Gaia DR3 observations of the target.
-    2. Phase A (LOO orbit): fit 6 orbital elements using observations OUTSIDE
-       the ±LOO_WINDOW_DAYS window around the encounter. With hundreds of
-       observations and an N-body model including all 8 planets, the orbit is
-       determined to Gaia's own precision (~few mas).
+    2. Phase A (orbit baseline): fit 6 orbital elements using **only pre-
+       encounter** observations more than LOO_WINDOW_DAYS days *before* the
+       encounter epoch.  Post-encounter data is deliberately excluded from
+       the baseline so the perturbation signal is not absorbed into the
+       fitted orbit.  With hundreds of pre-encounter observations and an
+       N-body model including all 8 planets, the orbit is determined to
+       Gaia's own precision (~few mas).
     3. Phase B (mass fit): using the LOO orbit, compute PREDICTED positions
-       inside the encounter window. Residuals = Gaia - prediction. Fit perturber
-       mass to explain the post-encounter excess above the pre-encounter baseline.
+       across the mass-fit window (encounter epoch onwards, including all
+       post-encounter data).  Residuals = Gaia − prediction.  Fit perturber
+       mass to explain the post-encounter excess above the (pre-encounter)
+       baseline.
 
   Why this works:
     - Gaia calibrates its own orbit with the same data it will test. No Horizons

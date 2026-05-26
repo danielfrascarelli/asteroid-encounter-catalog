@@ -19,8 +19,10 @@ For each candidate this script:
    in micro-arcseconds, where ``b`` is the closest-approach distance and
    ``v`` is the relative velocity at the encounter.
 
-3. Flags ``viable`` whenever δ ≥ 100 μas — the Gaia single-transit
-   astrometric precision for a typical MBA.
+3. Flags ``priority_by_impulse_score`` whenever δ ≥ 100 μas — the Gaia
+   single-transit astrometric precision for a typical MBA.  This is a
+   *priority* signal for follow-up mass-fitting, **not** a confirmation
+   that the encounter is dynamically observable.
 
 4. Optionally (``--with-jpl``) cross-checks the geometry against JPL Horizons
    with the same ±2-day / 30-min window used in the Cat A validator and
@@ -353,11 +355,11 @@ def analyze_candidates(
     logger.info("Wrote %d rows to %s", result.height, output_path)
 
     # Summary
-    n_viable = int(result["viable"].sum())
+    n_prio = int(result["priority_by_impulse_score"].sum())
     logger.info(
-        "Viable candidates (δ ≥ %.0f μas): %d / %d",
+        "Above-impulse-score-threshold candidates (δ ≥ %.0f μas): %d / %d",
         _GAIA_PRECISION_MUAS,
-        n_viable,
+        n_prio,
         result.height,
     )
     if gaia_numbers is not None:
@@ -365,11 +367,12 @@ def analyze_candidates(
         logger.info("Targets present in Gaia SSO catalog: %d / %d", n_observed, result.height)
         n_both = int(
             result.filter(
-                (pl.col("viable")) & (pl.col("gaia_has_target") == True)  # noqa: E712
+                (pl.col("priority_by_impulse_score"))
+                & (pl.col("gaia_has_target") == True)  # noqa: E712
             ).height
         )
         logger.info(
-            "Both viable AND observed by Gaia (prime targets): %d / %d",
+            "Both above-impulse-threshold AND observed by Gaia (prime targets): %d / %d",
             n_both,
             result.height,
         )
@@ -378,7 +381,7 @@ def analyze_candidates(
     logger.info("Top candidates (by deflection_score):")
     header = (
         f"{'rk':>3}  {'perturber':<22}  {'target':<18}  "
-        f"{'date':<19}  {'d_AU':>10}  {'δ_μas':>10}  {'viable':>6}  {'gaia':>5}"
+        f"{'date':<19}  {'d_AU':>10}  {'δ_μas':>10}  {'prio':>6}  {'gaia':>5}"
     )
     logger.info(header)
     logger.info("-" * len(header))
@@ -395,7 +398,7 @@ def analyze_candidates(
             r["date_utc"][:19],
             r["dist_au"],
             r["deflection_muas"],
-            "yes" if r["viable"] else "no",
+            "yes" if r["priority_by_impulse_score"] else "no",
             gaia_lbl,
         )
 

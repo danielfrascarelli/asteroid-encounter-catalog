@@ -36,45 +36,53 @@ _G = 6.674e-11
 _KM3_S2_TO_KG = 1e9 / _G  # GM in km³/s² → M in kg
 
 
+def _scalar(val: object) -> float | None:
+    """Best-effort extraction of a float from an SBDB value (may be a Quantity)."""
+    try:
+        if hasattr(val, "value"):
+            return float(val.value)  # type: ignore[attr-defined]
+        return float(val)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
 def query_sbdb(number: int) -> dict:
-    """Query JPL SBDB for asteroid *number*. Returns dict with name + gm if available."""
+    """Query JPL SBDB for asteroid *number*.
+
+    Returns a dict with both ``gm`` (in km³/s²) and ``mass_kg`` (in kg) as
+    independent fields.  SBDB's ``GM`` and ``Mass`` keys carry *different*
+    quantities in different units; conflating them and applying the GM→mass
+    conversion to a value that was already in kg gives results off by
+    ~1.5 × 10⁹ (the value of 1/G in SI).
+    """
     try:
         data = SBDB.query(str(number), phys=True)
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
 
-    out: dict = {"name": None, "gm": None, "gm_sig": None, "diameter": None}
+    out: dict = {
+        "name": None,
+        "gm": None,
+        "gm_sig": None,
+        "mass_kg": None,
+        "mass_kg_sig": None,
+        "diameter": None,
+    }
     obj = data.get("object", {})
     out["name"] = obj.get("fullname")
 
     phys = data.get("phys_par", {})
     if isinstance(phys, dict):
-        for key in ("GM", "Mass"):
-            if key in phys:
-                try:
-                    val = phys[key]
-                    if hasattr(val, "value"):
-                        out["gm"] = float(val.value)
-                    else:
-                        out["gm"] = float(val)
-                except (TypeError, ValueError):
-                    pass
-        for key in ("GM_sig", "Mass_sig"):
-            if key in phys:
-                try:
-                    val = phys[key]
-                    if hasattr(val, "value"):
-                        out["gm_sig"] = float(val.value)
-                    else:
-                        out["gm_sig"] = float(val)
-                except (TypeError, ValueError):
-                    pass
+        if "GM" in phys:
+            out["gm"] = _scalar(phys["GM"])
+        if "GM_sig" in phys:
+            out["gm_sig"] = _scalar(phys["GM_sig"])
+        if "Mass" in phys:
+            out["mass_kg"] = _scalar(phys["Mass"])
+        if "Mass_sig" in phys:
+            out["mass_kg_sig"] = _scalar(phys["Mass_sig"])
         if "diameter" in phys:
-            try:
-                val = phys["diameter"]
-                out["diameter"] = float(val.value) if hasattr(val, "value") else float(val)
-            except (TypeError, ValueError):
-                pass
+            out["diameter"] = _scalar(phys["diameter"])
     return out
 
 
@@ -116,7 +124,27 @@ def main() -> int:
         time.sleep(args.rate_limit)
 
         gm = info.get("gm")
-        mass_kg = (gm * _KM3_S2_TO_KG) if (gm is not None) else None
+        gm_sig = info.get("gm_sig")
+        mass_kg_direct = info.get("mass_kg")
+        mass_kg_sig_direct = info.get("mass_kg_sig")
+
+        # Prefer GM (derived from gravity, what SBDB usually has for asteroids).
+        # Fall back to ``Mass`` only when GM is absent.  Do NOT apply the
+        # km³/s² → kg conversion to ``Mass`` — that value is already in kg.
+        if gm is not None:
+            mass_kg = gm * _KM3_S2_TO_KG
+            mass_kg_sig = (gm_sig * _KM3_S2_TO_KG) if gm_sig is not None else None
+            mass_source = "GM"
+        elif mass_kg_direct is not None:
+            mass_kg = mass_kg_direct
+            mass_kg_sig = mass_kg_sig_direct
+            mass_source = "Mass"
+        else:
+            mass_kg = None
+            mass_kg_sig = None
+            mass_source = None
+
+        has_published_mass = mass_kg is not None
 
         rows.append(
             {
@@ -125,13 +153,12 @@ def main() -> int:
                 "sbdb_name": info.get("name"),
                 "gm_km3_s2": gm,
                 "mass_kg": mass_kg,
-                "mass_kg_sig": (
-                    info["gm_sig"] * _KM3_S2_TO_KG if info.get("gm_sig") is not None else None
-                ),
+                "mass_kg_sig": mass_kg_sig,
+                "mass_source": mass_source,
                 "diameter_km": info.get("diameter"),
-                "has_published_mass": gm is not None,
+                "has_published_mass": has_published_mass,
                 "detected_in_our_pipeline": r["detection"] == "yes",
-                "novel_candidate": (gm is None) and (r["detection"] == "yes"),
+                "novel_candidate": (not has_published_mass) and (r["detection"] == "yes"),
                 "sbdb_error": info.get("error"),
             }
         )
