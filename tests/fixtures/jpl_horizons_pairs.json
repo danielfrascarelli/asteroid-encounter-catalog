@@ -1,0 +1,112 @@
+{
+  "mpcorb_snapshot": "MPCORB_20160217.DAT",
+  "comparison_snapshot": "kepler_vs_nbody_comparison.parquet",
+  "refiner_settings": {
+    "window_hours": 12.0,
+    "sample_dt_seconds": 60.0,
+    "warmup_dt_seconds": 600.0,
+    "include_major_asteroids": true
+  },
+  "pairs": [
+    {
+      "number_1": 96599,
+      "number_2": 188686,
+      "label": "low-e main-belt, inclined",
+      "t_center_kepler_jd": 2457480.917444253,
+      "t_min_nbody_jd": 2457480.766055343,
+      "dist_au_nbody": 0.039876704894347796,
+      "horizons_p1_au": [
+        -1.861674212776838,
+        1.890698260039151,
+        -0.0739736073707709
+      ],
+      "horizons_p2_au": [
+        -1.899813271013339,
+        1.898113685030067,
+        -0.06499752851547823
+      ],
+      "horizons_dist_au": 0.039876638305899804,
+      "delta_refiner_minus_horizons_au": 6.658844799167785e-08
+    },
+    {
+      "number_1": 34717,
+      "number_2": 153349,
+      "label": "very high-e (NEA-like q < 1 AU)",
+      "t_center_kepler_jd": 2457165.917444253,
+      "t_min_nbody_jd": 2457165.8854997805,
+      "dist_au_nbody": 0.03401855965277182,
+      "horizons_p1_au": [
+        0.4280465331541717,
+        1.969144702191393,
+        0.1312905159104126
+      ],
+      "horizons_p2_au": [
+        0.4278914670925452,
+        1.964490083354273,
+        0.1649876035408997
+      ],
+      "horizons_dist_au": 0.03401739609051619,
+      "delta_refiner_minus_horizons_au": 1.1635622556294134e-06
+    },
+    {
+      "number_1": 47784,
+      "number_2": 310584,
+      "label": "low-e high-i (i > 15\u00b0)",
+      "t_center_kepler_jd": 2457868.0841109096,
+      "t_min_nbody_jd": 2457868.272305313,
+      "dist_au_nbody": 0.03962309624069098,
+      "horizons_p1_au": [
+        -2.886574068645955,
+        0.8102217885831333,
+        0.0742305371048164
+      ],
+      "horizons_p2_au": [
+        -2.855544921892028,
+        0.8346506437258916,
+        0.07739753853727328
+      ],
+      "horizons_dist_au": 0.039618263590619276,
+      "delta_refiner_minus_horizons_au": 4.832650071701083e-06
+    },
+    {
+      "number_1": 128402,
+      "number_2": 229088,
+      "label": "moderate-e Mars-grazing",
+      "t_center_kepler_jd": 2457146.974537697,
+      "t_min_nbody_jd": 2457146.9731487785,
+      "dist_au_nbody": 0.026636265349625887,
+      "horizons_p1_au": [
+        0.4850793051164339,
+        -1.855539849143283,
+        -0.02334878131375335
+      ],
+      "horizons_p2_au": [
+        0.4766282476792564,
+        -1.830780582063093,
+        -0.01833072861133256
+      ],
+      "horizons_dist_au": 0.02663874116918692,
+      "delta_refiner_minus_horizons_au": -2.4758195610319333e-06
+    },
+    {
+      "number_1": 26,
+      "number_2": 305582,
+      "label": "canonical low-e low-i main-belt",
+      "t_center_kepler_jd": 2456946.417444253,
+      "t_min_nbody_jd": 2456946.312583118,
+      "dist_au_nbody": 0.0004022580384108238,
+      "horizons_p1_au": [
+        2.476765901475892,
+        -0.9805196459641924,
+        -0.153134698774324
+      ],
+      "horizons_p2_au": [
+        2.477024176823179,
+        -0.9807117384755687,
+        -0.1533614110910666
+      ],
+      "horizons_dist_au": 0.0003937056800527384,
+      "delta_refiner_minus_horizons_au": 8.552358358085389e-06
+    }
+  ]
+}

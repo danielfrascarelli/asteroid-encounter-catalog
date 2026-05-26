@@ -89,4 +89,6 @@ testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
     "slow: marks tests as slow integration tests requiring REBOUND (deselect with -m 'not slow')",
+    "horizons: cross-check against JPL Horizons; requires network. Deselected by default (-m 'not horizons').",
 ]
+addopts = "-m 'not horizons'"
