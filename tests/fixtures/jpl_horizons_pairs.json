@@ -1,5 +1,6 @@
 {
   "mpcorb_snapshot": "MPCORB_20160217.DAT",
+  "comparison_snapshot": "kepler_vs_nbody_comparison.parquet",
   "refiner_settings": {
     "window_hours": 12.0,
     "sample_dt_seconds": 60.0,
@@ -11,101 +12,101 @@
       "number_1": 96599,
       "number_2": 188686,
       "label": "low-e main-belt, inclined",
-      "t_center_kepler_jd": 2457507.0,
-      "t_min_nbody_jd": 2457506.5,
-      "dist_au_nbody": 0.09308783328906182,
+      "t_center_kepler_jd": 2457480.917444253,
+      "t_min_nbody_jd": 2457480.766055343,
+      "dist_au_nbody": 0.039876704894347796,
       "horizons_p1_au": [
-        -2.058493903664136,
-        1.690379895758003,
-        -0.1529571095701065
+        -1.861674212776838,
+        1.890698260039151,
+        -0.0739736073707709
       ],
       "horizons_p2_au": [
-        -2.078529238450693,
-        1.692437695017931,
-        -0.06207282608468978
+        -1.899813271013339,
+        1.898113685030067,
+        -0.06499752851547823
       ],
-      "horizons_dist_au": 0.09308921614484235,
-      "delta_refiner_minus_horizons_au": -1.382855780523995e-06
+      "horizons_dist_au": 0.039876638305899804,
+      "delta_refiner_minus_horizons_au": 6.658844799167785e-08
     },
     {
       "number_1": 34717,
       "number_2": 153349,
       "label": "very high-e (NEA-like q < 1 AU)",
-      "t_center_kepler_jd": 2457198.0,
-      "t_min_nbody_jd": 2457197.5,
-      "dist_au_nbody": 0.30505857381292556,
+      "t_center_kepler_jd": 2457165.917444253,
+      "t_min_nbody_jd": 2457165.8854997805,
+      "dist_au_nbody": 0.03401855965277182,
       "horizons_p1_au": [
-        0.04837607060006364,
-        2.066250013590942,
-        0.1053060363266635
+        0.4280465331541717,
+        1.969144702191393,
+        0.1312905159104126
       ],
       "horizons_p2_au": [
-        0.1061074211373281,
-        1.766817703098027,
-        0.09805679829287936
+        0.4278914670925452,
+        1.964490083354273,
+        0.1649876035408997
       ],
-      "horizons_dist_au": 0.30503306190321783,
-      "delta_refiner_minus_horizons_au": 2.551190970773165e-05
+      "horizons_dist_au": 0.03401739609051619,
+      "delta_refiner_minus_horizons_au": 1.1635622556294134e-06
     },
     {
       "number_1": 47784,
       "number_2": 310584,
       "label": "low-e high-i (i > 15\u00b0)",
-      "t_center_kepler_jd": 2457863.0,
-      "t_min_nbody_jd": 2457863.4999999404,
-      "dist_au_nbody": 0.04077221533153342,
+      "t_center_kepler_jd": 2457868.0841109096,
+      "t_min_nbody_jd": 2457868.272305313,
+      "dist_au_nbody": 0.03962309624069098,
       "horizons_p1_au": [
-        -2.872139617288748,
-        0.8552837501831874,
-        0.06100799808103349
+        -2.886574068645955,
+        0.8102217885831333,
+        0.0742305371048164
       ],
       "horizons_p2_au": [
-        -2.840478556262142,
-        0.8776952092282052,
-        0.07355060084504648
+        -2.855544921892028,
+        0.8346506437258916,
+        0.07739753853727328
       ],
-      "horizons_dist_au": 0.04076779569651503,
-      "delta_refiner_minus_horizons_au": 4.4196350183906e-06
+      "horizons_dist_au": 0.039618263590619276,
+      "delta_refiner_minus_horizons_au": 4.832650071701083e-06
     },
     {
       "number_1": 128402,
       "number_2": 229088,
       "label": "moderate-e Mars-grazing",
-      "t_center_kepler_jd": 2457060.0,
-      "t_min_nbody_jd": 2457060.4999999404,
-      "dist_au_nbody": 0.26392037787983674,
+      "t_center_kepler_jd": 2457146.974537697,
+      "t_min_nbody_jd": 2457146.9731487785,
+      "dist_au_nbody": 0.026636265349625887,
       "horizons_p1_au": [
-        -0.6646093330852677,
-        -1.859255792410465,
-        -0.0474985786789822
+        0.4850793051164339,
+        -1.855539849143283,
+        -0.02334878131375335
       ],
       "horizons_p2_au": [
-        -0.6489437840182241,
-        -1.878262618894653,
-        0.2152738814468248
+        0.4766282476792564,
+        -1.830780582063093,
+        -0.01833072861133256
       ],
-      "horizons_dist_au": 0.26392429725423316,
-      "delta_refiner_minus_horizons_au": -3.919374396421649e-06
+      "horizons_dist_au": 0.02663874116918692,
+      "delta_refiner_minus_horizons_au": -2.4758195610319333e-06
     },
     {
-      "number_1": 128969,
-      "number_2": 192108,
-      "label": "canonical smoke test",
-      "t_center_kepler_jd": 2457893.450431061,
-      "t_min_nbody_jd": 2457893.635847687,
-      "dist_au_nbody": 0.01746782793301239,
+      "number_1": 26,
+      "number_2": 305582,
+      "label": "canonical low-e low-i main-belt",
+      "t_center_kepler_jd": 2456946.417444253,
+      "t_min_nbody_jd": 2456946.312583118,
+      "dist_au_nbody": 0.0004022580384108238,
       "horizons_p1_au": [
-        2.274919702428531,
-        -1.467613365364496,
-        0.06447186589027287
+        2.476765901475892,
+        -0.9805196459641924,
+        -0.153134698774324
       ],
       "horizons_p2_au": [
-        2.284749884249142,
-        -1.463470619032015,
-        0.05064412020006163
+        2.477024176823179,
+        -0.9807117384755687,
+        -0.1533614110910666
       ],
-      "horizons_dist_au": 0.017464288496091444,
-      "delta_refiner_minus_horizons_au": 3.5394369209476584e-06
+      "horizons_dist_au": 0.0003937056800527384,
+      "delta_refiner_minus_horizons_au": 8.552358358085389e-06
     }
   ]
 }

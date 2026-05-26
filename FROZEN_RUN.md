@@ -19,12 +19,12 @@ limits constrain what can be defensibly claimed from it:
    numbers are geometric values under a two-body model, not a full
    gravitational solution. **Measured error budget**
    ([docs/kepler_refine_error_report.md](docs/kepler_refine_error_report.md),
-   796 stratified pairs re-refined under full N-body):
-   median `|Δdist|` = **16 μAU**, p95 = **645 μAU**, p99 = **2.2 mAU**,
-   max = **5.6 mAU**. Error correlates with e_max and inversely with
+   964 stratified pairs re-refined under full N-body):
+   median `|Δdist|` = **12 μAU**, p95 = **678 μAU**, p99 = **2.5 mAU**,
+   max = **11.3 mAU**. Error correlates with e_max and inversely with
    q_min — the largest disagreements (>1 mAU) are concentrated in
    high-eccentricity pairs (e_max > 0.45) and NEA-like pairs
-   (q_min < 1.3 AU). None of the 796 sample pairs changes detection status
+   (q_min < 1.3 AU). None of the 964 sample pairs changes detection status
    when re-refined, but ranking *within* the closest mAU band is not
    stable.
 2. **Not complete.** The orbital prefilter (\|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30°)

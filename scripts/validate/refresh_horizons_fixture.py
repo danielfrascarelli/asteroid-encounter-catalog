@@ -21,6 +21,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import polars as pl
 from astropy.time import Time
 from astroquery.jplhorizons import Horizons
 
@@ -31,20 +32,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logger = logging.getLogger(__name__)
 
 MPCORB = Path("data/raw/mpcorb_archive/MPCORB_20160217.DAT")
+COMPARISON = Path("data/output/kepler_vs_nbody_comparison.parquet")
 FIXTURE = Path("tests/fixtures/jpl_horizons_pairs.json")
 
-# Hand-picked pairs covering different corners of orbital space.  Picked from
-# ``data/output/kepler_vs_nbody_comparison.parquet`` (964-pair sample); the
-# selection is deliberately diverse so a regression in the refiner is unlikely
-# to "hide" behind a single orbital regime.
+# Hand-picked pairs covering different corners of orbital space, all sourced
+# from ``data/output/kepler_vs_nbody_comparison.parquet`` (964-pair sample).
+# The ``t_center_kepler_jd`` used as the refiner anchor is **read at runtime**
+# from the parquet's ``t_min_kepler_jd`` for each pair, so the fixture stays
+# consistent with whatever A.3 sample is currently committed — no hardcoded
+# epochs that can drift when the sample is regenerated.
 #
-# Format: (number_1, number_2, kepler_t_min_jd, label).
-_PAIRS: list[tuple[int, int, float, str]] = [
-    (96599, 188686, 2457507.0, "low-e main-belt, inclined"),
-    (34717, 153349, 2457198.0, "very high-e (NEA-like q < 1 AU)"),
-    (47784, 310584, 2457863.0, "low-e high-i (i > 15°)"),
-    (128402, 229088, 2457060.0, "moderate-e Mars-grazing"),
-    (128969, 192108, 2457893.450431061, "canonical smoke test"),
+# Format: (number_1, number_2, label).
+_PAIRS: list[tuple[int, int, str]] = [
+    (96599, 188686, "low-e main-belt, inclined"),
+    (34717, 153349, "very high-e (NEA-like q < 1 AU)"),
+    (47784, 310584, "low-e high-i (i > 15°)"),
+    (128402, 229088, "moderate-e Mars-grazing"),
+    (26, 305582, "canonical low-e low-i main-belt"),
 ]
 
 
@@ -76,8 +80,12 @@ def main() -> int:
     elements = parse_mpcorb(MPCORB, only_numbered=True)
     rows = {int(r["number"]): r for r in elements.to_dicts()}
 
+    logger.info("Loading comparison parquet: %s", COMPARISON)
+    comparison = pl.read_parquet(COMPARISON)
+
     fixture: dict = {
         "mpcorb_snapshot": MPCORB.name,
+        "comparison_snapshot": COMPARISON.name,
         "refiner_settings": {
             "window_hours": 12.0,
             "sample_dt_seconds": 60.0,
@@ -87,11 +95,16 @@ def main() -> int:
         "pairs": [],
     }
 
-    for n1, n2, t_kepler, label in _PAIRS:
+    for n1, n2, label in _PAIRS:
         if n1 not in rows or n2 not in rows:
             logger.warning("Skipping (%d, %d): missing from MPCORB", n1, n2)
             continue
-        logger.info("Refining (%d, %d) — %s", n1, n2, label)
+        match = comparison.filter((pl.col("number_1") == n1) & (pl.col("number_2") == n2))
+        if match.height == 0:
+            logger.warning("Skipping (%d, %d): not present in %s", n1, n2, COMPARISON.name)
+            continue
+        t_kepler = float(match["t_min_kepler_jd"][0])
+        logger.info("Refining (%d, %d) — %s @ t_kepler=%.6f", n1, n2, label, t_kepler)
         result = refine_pair_nbody(
             elements_1=rows[n1],
             elements_2=rows[n2],
