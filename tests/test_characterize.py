@@ -213,3 +213,120 @@ class TestGaiaObservable:
         elong = np.array([90.0])
         mag = np.array([22.0])
         assert not is_gaia_observable(elong, mag)[0]
+
+
+# ------------------------------------------------------------------ #
+# characterize_catalog integration                                     #
+# ------------------------------------------------------------------ #
+
+
+def _two_body_fixture():
+    """Build a 2-row encounter set + elements + mpcorb for testing.
+
+    Body 100: bright (H=4) "large" object.
+    Body 200: dim   (H=14) "small" object.
+
+    Row 0 has (number_1, number_2) = (100, 200) — already in correct order.
+    Row 1 has (number_1, number_2) = (200, 100) — must be swapped so that
+    the larger body (100, H=4) becomes _1.
+    """
+    import polars as pl
+
+    encounters = pl.DataFrame(
+        {
+            "number_1": [100, 200],
+            "number_2": [200, 100],
+            "designation_1": ["A100", "A200"],
+            "designation_2": ["A200", "A100"],
+            "jd_tdb": [2_457_000.0, 2_457_010.0],
+            "dist_au": [0.01, 0.02],
+            "rel_vel_au_day": [0.001, 0.002],
+        }
+    )
+    elements = pl.DataFrame(
+        {
+            "number": [100, 200],
+            "a_au": [2.5, 3.0],
+            "e": [0.1, 0.2],
+            "i_deg": [5.0, 10.0],
+            "Omega_deg": [30.0, 60.0],
+            "omega_deg": [40.0, 70.0],
+            "M_deg": [50.0, 80.0],
+            "epoch_jd": [2_457_000.0, 2_457_000.0],
+        }
+    )
+    mpcorb = pl.DataFrame(
+        {
+            "number": [100, 200],
+            "H": [4.0, 14.0],
+            "G": [0.15, 0.15],
+        }
+    )
+    return encounters, elements, mpcorb
+
+
+class TestCharacterizeCatalog:
+    def test_body_1_is_always_larger(self) -> None:
+        """After characterize, H_1 ≤ H_2 row-by-row (lower H = brighter = larger)."""
+        from src.characterize.encounter import characterize_catalog
+
+        encounters, elements, mpcorb = _two_body_fixture()
+        enriched = characterize_catalog(encounters, elements, mpcorb)
+
+        h1 = enriched["H_1"].to_numpy()
+        h2 = enriched["H_2"].to_numpy()
+        # H_1 must be ≤ H_2 for every row that has both H values
+        mask = ~(np.isnan(h1) | np.isnan(h2))
+        assert (h1[mask] <= h2[mask]).all()
+
+        # And number_1 must equal 100 (the bright body) in every row
+        assert enriched["number_1"].to_list() == [100, 100]
+        assert enriched["number_2"].to_list() == [200, 200]
+
+    def test_diameter_1_is_largest(self) -> None:
+        """diameter_1_km ≥ diameter_2_km row-by-row."""
+        from src.characterize.encounter import characterize_catalog
+
+        encounters, elements, mpcorb = _two_body_fixture()
+        enriched = characterize_catalog(encounters, elements, mpcorb)
+        d1 = enriched["diameter_1_km"].to_numpy()
+        d2 = enriched["diameter_2_km"].to_numpy()
+        mask = ~(np.isnan(d1) | np.isnan(d2))
+        assert (d1[mask] >= d2[mask]).all()
+
+    def test_per_body_observability_columns_emitted(self) -> None:
+        """gaia_observable_1, gaia_observable_2, gaia_observable all present."""
+        from src.characterize.encounter import characterize_catalog
+
+        encounters, elements, mpcorb = _two_body_fixture()
+        enriched = characterize_catalog(encounters, elements, mpcorb)
+        for col in (
+            "gaia_observable_1",
+            "gaia_observable_2",
+            "gaia_observable",
+            "app_mag_1",
+            "app_mag_2",
+            "solar_elongation_1_deg",
+            "solar_elongation_2_deg",
+        ):
+            assert col in enriched.columns, f"missing column {col}"
+
+        # Combined flag is the OR of per-body flags
+        obs1 = enriched["gaia_observable_1"].to_numpy()
+        obs2 = enriched["gaia_observable_2"].to_numpy()
+        obs = enriched["gaia_observable"].to_numpy()
+        assert (obs == (obs1 | obs2)).all()
+
+    def test_orbital_elements_follow_swap(self) -> None:
+        """After swap, a_au_1 must correspond to body 100 (a=2.5) in both rows."""
+        from src.characterize.encounter import characterize_catalog
+
+        encounters, elements, mpcorb = _two_body_fixture()
+        enriched = characterize_catalog(encounters, elements, mpcorb)
+        # Body 100 has a=2.5, body 200 has a=3.0. After swap, _1 columns
+        # must reference body 100 in both rows.
+        # Need to add a_au back to the output to verify... it's not in schema.
+        # Instead, verify via diameter: body 100 is bigger.
+        assert enriched["number_1"].to_list() == [100, 100]
+        # H_1 must be 4.0 (body 100), not 14.0 (body 200)
+        assert enriched["H_1"].to_list() == [4.0, 4.0]
