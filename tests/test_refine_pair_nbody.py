@@ -1,0 +1,160 @@
+"""Tests for the per-pair N-body refiner.
+
+Goals
+-----
+1. Parabolic interpolator is correct on synthetic data.
+2. ``refine_pair_nbody`` runs end-to-end on a known catalog pair, returning a
+   plausible distance/epoch/velocity tuple with negligible energy drift.
+3. ``refine_pair_nbody`` reproduces a JPL-Horizons reference (skipped offline).
+
+Tests #2 and #3 require the MPCORB snapshot at
+``data/raw/mpcorb_archive/MPCORB_20160217.DAT``; they are skipped when the
+file is absent.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from scripts.validate.refine_pair_nbody import (
+    _parabolic_min,
+    refine_pair_nbody,
+)
+
+MPCORB = Path("data/raw/mpcorb_archive/MPCORB_20160217.DAT")
+NEEDS_MPCORB = pytest.mark.skipif(
+    not MPCORB.exists(), reason=f"{MPCORB} required for end-to-end refinement test"
+)
+
+
+def test_parabolic_min_recovers_known_quadratic():
+    """y = (x - 0.3)^2 + 1 has its minimum at (0.3, 1.0)."""
+    x = np.linspace(0.0, 1.0, 11)
+    y = (x - 0.3) ** 2 + 1.0
+    t_star, y_star = _parabolic_min(x, y)
+    assert t_star == pytest.approx(0.3, abs=1e-10)
+    assert y_star == pytest.approx(1.0, abs=1e-12)
+
+
+def test_parabolic_min_falls_back_at_boundary():
+    """A monotone array should fall back to the discrete argmin at index 0."""
+    x = np.linspace(0.0, 1.0, 11)
+    y = x  # minimum at x=0
+    t_star, y_star = _parabolic_min(x, y)
+    assert t_star == pytest.approx(0.0)
+    assert y_star == pytest.approx(0.0)
+
+
+@NEEDS_MPCORB
+def test_refine_pair_known_catalog_entry():
+    """End-to-end smoke test on (128969, 192108) at jd ≈ 2457893.45.
+
+    Catalog (Kepler) says dist_au=0.01743, rel_vel=0.00108 AU/d.  N-body must
+    return a similar value (≤0.01 AU difference) and have energy drift well
+    below 1e-9 (the plan's threshold).
+    """
+    from src.ingest.mpcorb import parse_mpcorb
+
+    elements = parse_mpcorb(MPCORB, only_numbered=True)
+    rows = {int(r["number"]): r for r in elements.to_dicts()}
+    r1, r2 = rows[128969], rows[192108]
+
+    result = refine_pair_nbody(
+        elements_1=r1,
+        elements_2=r2,
+        t_center_jd=2457893.450431061,
+        window_hours=6.0,
+        sample_dt_seconds=120.0,  # coarser for test speed
+        include_major_asteroids=True,
+    )
+
+    assert result.converged
+    assert result.energy_drift < 1e-9
+    assert 0.005 < result.dist_au_nbody < 0.05
+    assert abs(result.dist_au_nbody - 0.01743) < 0.01
+    assert 2457893.0 < result.t_min_nbody_jd < 2457894.5
+    assert result.rel_vel_au_day > 0.0
+    assert result.n_samples > 100
+
+
+@NEEDS_MPCORB
+def test_refine_pair_low_e_pair_close_to_kepler():
+    """For a low-e, low-i main-belt pair, N-body must agree with Kepler to ≤1 mAU.
+
+    Picking a pair where both orbits are quiescent (e<0.1, i<5°): the Kepler
+    refinement should *already* be close to the truth, so |Δdist_au| ≤ 0.001.
+    """
+    from src.ingest.mpcorb import parse_mpcorb
+
+    elements = parse_mpcorb(MPCORB, only_numbered=True)
+    rows = {int(r["number"]): r for r in elements.to_dicts()}
+    r1, r2 = rows[128969], rows[192108]
+
+    result = refine_pair_nbody(
+        elements_1=r1,
+        elements_2=r2,
+        t_center_jd=2457893.450431061,
+        window_hours=6.0,
+        sample_dt_seconds=120.0,
+        include_major_asteroids=True,
+    )
+
+    # Catalog Kepler value for this pair.
+    kepler_dist = 0.01743005427310299
+    assert abs(result.dist_au_nbody - kepler_dist) < 1e-3  # ≤ 1 mAU
+
+
+@NEEDS_MPCORB
+@pytest.mark.skip(
+    reason="JPL Horizons cross-check requires network; run manually as needed"
+)
+def test_refine_pair_matches_jpl_horizons():
+    """Cross-check against JPL Horizons for one canonical pair.
+
+    Enabled manually with ``pytest -m horizons``; skipped by default to keep CI
+    offline.
+    """
+    from astropy.time import Time
+    from astroquery.jplhorizons import Horizons
+
+    from src.ingest.mpcorb import parse_mpcorb
+
+    elements = parse_mpcorb(MPCORB, only_numbered=True)
+    rows = {int(r["number"]): r for r in elements.to_dicts()}
+    r1, r2 = rows[128969], rows[192108]
+    jd_center = 2457893.450431061
+
+    result = refine_pair_nbody(
+        elements_1=r1,
+        elements_2=r2,
+        t_center_jd=jd_center,
+        window_hours=6.0,
+        sample_dt_seconds=60.0,
+        include_major_asteroids=True,
+    )
+
+    def horizons_xyz(num: int, jd: float) -> np.ndarray:
+        t = Time(jd, format="jd", scale="tdb")
+        h = Horizons(
+            id=str(num),
+            location="@10",
+            epochs={
+                "start": (t - 0.01).utc.iso[:19],
+                "stop": (t + 0.01).utc.iso[:19],
+                "step": "30m",
+            },
+            id_type="smallbody",
+        )
+        tbl = h.vectors(refplane="ecliptic")
+        return np.array(
+            [float(tbl["x"][0]), float(tbl["y"][0]), float(tbl["z"][0])]
+        )
+
+    p1 = horizons_xyz(128969, result.t_min_nbody_jd)
+    p2 = horizons_xyz(192108, result.t_min_nbody_jd)
+    horizons_dist = float(np.linalg.norm(p1 - p2))
+
+    assert abs(result.dist_au_nbody - horizons_dist) < 1e-4

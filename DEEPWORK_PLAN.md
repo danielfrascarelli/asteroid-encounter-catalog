@@ -49,12 +49,12 @@ Ejemplo: `track1/stageA-kepler-vs-nbody-error`. **Nunca trabajar en `main`**.
 
 **Fecha de creación**: 2026-05-26
 **Última actualización**: 2026-05-26
-**Etapa activa**: ninguna (plan recién creado)
-**Próxima etapa a arrancar**: Track 1 / Stage A — caracterización del error Kepler vs N-body
+**Etapa activa**: Track 1 / Stage A (🟡 IN PROGRESS — A.1–A.4 listos, falta commit + PR)
+**Próxima etapa a arrancar**: revisar PR de Stage A → arrancar Stage B (refinamiento selectivo) con el criterio `q_min < 1.8 ∨ e_max > 0.3`
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
-| 1     | A: caracterizar error Kepler vs N-body | ⚪ PENDING | — | — | — | — | Bloquea decisión sobre B/C |
+| 1     | A: caracterizar error Kepler vs N-body | 🟡 IN PROGRESS | `track1/stageA-kepler-vs-nbody-error` | — | 2026-05-26 | — | A.1–A.4 completos. p99 \|Δdist\| = 2.2 mAU sobre 796 pares; el error escala con e y 1/q. Falta merge. |
 | 1     | B: refinamiento N-body selectivo | ⚪ PENDING | — | — | — | — | Depende de A |
 | 1     | C: refinamiento N-body universal | ⚪ PENDING | — | — | — | — | Probablemente no se hace; depende de B |
 | 2     | 1: joint fit órbita + masa | ⚪ PENDING | — | — | — | — | — |
@@ -87,10 +87,10 @@ o con perihelios bajos pueden discrepar de N-body en mAU.
 
 ### Stage A — Caracterizar el error Kepler vs N-body
 
-**Estado**: ⚪ PENDING
-**Branch**: (no creada todavía)
-**PR**: —
-**Estimación**: 1 semana (5 días-persona efectivos)
+**Estado**: 🟡 IN PROGRESS (A.1–A.4 done, falta merge)
+**Branch**: `track1/stageA-kepler-vs-nbody-error`
+**PR**: pendiente
+**Estimación original**: 1 semana — **real**: ~1 día (sample muy paralelizable)
 **Bloquea a**: Stage B, decisión de seguir con Track 1
 
 #### Objetivo
@@ -220,10 +220,20 @@ Luego seguir el sub-paso A.X que esté incompleto.
 
 | Sub-paso | Estado | Fecha | Comentario |
 |---|---|---|---|
-| A.1 sample | ⚪ | — | — |
-| A.2 refiner | ⚪ | — | — |
-| A.3 comparison run | ⚪ | — | — |
-| A.4 report | ⚪ | — | — |
+| A.1 sample | 🟢 done | 2026-05-26 | `scripts/validate/sample_for_nbody_check.py`; output `data/cache/nbody_validation/sample_1000.parquet` con 796 pares (cobertura: e hasta 0.69, i hasta 25°, dist hasta 0.05 AU). Pool intermedio de 500k (--pool-size) para evitar OOM en el join 72M×455k. |
+| A.2 refiner | 🟢 done | 2026-05-26 | `scripts/validate/refine_pair_nbody.py` + `tests/test_refine_pair_nbody.py`. WHFast warmup desde MPCORB epoch → IAS15 en ±12h con muestreo de 60s, ajuste parabólico del mínimo. Pytest 4/4 passed (1 horizons skip). |
+| A.3 comparison run | 🟢 done | 2026-05-26 | `scripts/validate/compare_kepler_vs_nbody.py`. 796/796 ok en ~9 s con 24 workers; ventana ±12h (la inicial ±6h truncaba la cola); max energy_drift 3.4e-14. Output: `data/output/kepler_vs_nbody_comparison.parquet`. |
+| A.4 report | 🟢 done | 2026-05-26 | `docs/kepler_refine_error_report.md` + `notebooks/nbody_error_characterization.ipynb`. p99 \|Δdist\| = 2.2 mAU; recomendación Stage B = subset `q_min < 1.8 ∨ e_max > 0.3` (~20% del catálogo). FROZEN_RUN.md actualizado. |
+
+**Resultados clave** (para informar Stage B):
+- Mediana `|Δdist|` = 16 μAU, p95 = 645 μAU, p99 = 2.2 mAU, max = 5.6 mAU.
+- El error escala con `e_max` (factor 12× entre e<0.10 y e>0.45) e inversamente con `q_min` (factor 10× entre q>2.6 y q<1.3).
+- 3.3% near-boundary: el verdadero mínimo N-body podría estar fuera de ±12h; subestimación del error en esos casos.
+- Ninguno de los 796 pares cambia status de detección al re-refinarse.
+
+**Cómo retomar**:
+1. Verde merge del PR de Stage A.
+2. Arrancar Stage B usando el criterio `q_min < 1.8 ∨ e_max > 0.3` derivado en A.4.
 
 ---
 
@@ -598,3 +608,4 @@ Cross-track:
 | Fecha | Cambio | Autor |
 |-------|--------|-------|
 | 2026-05-26 | Plan creado tras audit round 5. | DF |
+| 2026-05-26 | Stage A completa (A.1–A.4); WIP en branch listo para PR. p99 \|Δdist\| = 2.2 mAU; recomendación Stage B = subset (e_max>0.3 ∨ q_min<1.8). | DF |
