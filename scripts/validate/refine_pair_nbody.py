@@ -152,6 +152,11 @@ def refine_pair_nbody(
     elements_1, elements_2:
         Dicts with keys ``a_au, e, i_deg, Omega_deg, omega_deg, M_deg,
         epoch_jd`` (MPCORB row).  Both must share the same ``epoch_jd``.
+        An optional ``number`` key (MPC catalog number) is honoured: if
+        present, and it matches one of the major asteroids that would be
+        added as a perturber, that major is excluded from the perturber
+        list so the target is not double-counted as both a massive body
+        and a test particle.
     t_center_jd:
         Centre of the refinement window (typically the Kepler-refined
         encounter epoch, JD TDB).
@@ -210,10 +215,21 @@ def refine_pair_nbody(
 
     sun_pos_bary, sun_vel_bary = _planet_state_at("sun", epoch_jd)
 
+    # If either target is itself one of the major asteroids, exclude it from
+    # the perturber loop — otherwise it would appear twice (once as a massive
+    # body, once as a test particle) and the refined distance is garbage.
+    target_numbers: set[int] = set()
+    for ele in (elements_1, elements_2):
+        n = ele.get("number")
+        if n is not None:
+            target_numbers.add(int(n))
+
     if include_major_asteroids:
         _load_major_elements()
-        for name, (_, gm) in _MAJOR_ASTEROIDS.items():
+        for name, (number, gm) in _MAJOR_ASTEROIDS.items():
             if name not in {"ceres", "pallas", "vesta", "hygiea"}:
+                continue
+            if number in target_numbers:
                 continue
             elem = _MAJOR_ELEMENTS[name]
             p_helio, v_helio = _heliocentric_state(**elem, epoch_jd=epoch_jd)
@@ -248,8 +264,15 @@ def refine_pair_nbody(
         )
         p = p_h + p_sun_now
         v = v_h + v_sun_now
-        sim.add(m=0.0, x=float(p[0]), y=float(p[1]), z=float(p[2]),
-                vx=float(v[0]), vy=float(v[1]), vz=float(v[2]))
+        sim.add(
+            m=0.0,
+            x=float(p[0]),
+            y=float(p[1]),
+            z=float(p[2]),
+            vx=float(v[0]),
+            vy=float(v[1]),
+            vz=float(v[2]),
+        )
     idx_1 = n_active
     idx_2 = n_active + 1
 
@@ -352,8 +375,9 @@ def _cli() -> int:
     parser.add_argument("--no-major-asteroids", action="store_true")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
 
     from pathlib import Path
 

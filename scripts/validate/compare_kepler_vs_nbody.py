@@ -81,8 +81,12 @@ class _PairTask:
 _WORKER_CONFIG: dict = {}
 
 
-def _init_worker(window_hours: float, sample_dt_seconds: float,
-                 warmup_dt_seconds: float, include_major_asteroids: bool) -> None:
+def _init_worker(
+    window_hours: float,
+    sample_dt_seconds: float,
+    warmup_dt_seconds: float,
+    include_major_asteroids: bool,
+) -> None:
     """Pool initializer: pin one BLAS thread per worker and cache refiner kwargs."""
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
@@ -96,21 +100,37 @@ def _init_worker(window_hours: float, sample_dt_seconds: float,
 def _refine_one(task: _PairTask) -> dict:
     """Run one N-body refinement and return a result row (or an error row)."""
     elements_1 = dict(
-        a_au=task.a_1, e=task.e_1, i_deg=task.i_1,
-        Omega_deg=task.Omega_1, omega_deg=task.omega_1, M_deg=task.M_1,
+        number=task.number_1,
+        a_au=task.a_1,
+        e=task.e_1,
+        i_deg=task.i_1,
+        Omega_deg=task.Omega_1,
+        omega_deg=task.omega_1,
+        M_deg=task.M_1,
         epoch_jd=task.epoch_1,
     )
     elements_2 = dict(
-        a_au=task.a_2, e=task.e_2, i_deg=task.i_2,
-        Omega_deg=task.Omega_2, omega_deg=task.omega_2, M_deg=task.M_2,
+        number=task.number_2,
+        a_au=task.a_2,
+        e=task.e_2,
+        i_deg=task.i_2,
+        Omega_deg=task.Omega_2,
+        omega_deg=task.omega_2,
+        M_deg=task.M_2,
         epoch_jd=task.epoch_2,
     )
     row = {
         "number_1": task.number_1,
         "number_2": task.number_2,
         "bin_id": task.bin_id,
-        "a_1": task.a_1, "e_1": task.e_1, "i_1": task.i_1, "q_1": task.q_1,
-        "a_2": task.a_2, "e_2": task.e_2, "i_2": task.i_2, "q_2": task.q_2,
+        "a_1": task.a_1,
+        "e_1": task.e_1,
+        "i_1": task.i_1,
+        "q_1": task.q_1,
+        "a_2": task.a_2,
+        "e_2": task.e_2,
+        "i_2": task.i_2,
+        "q_2": task.q_2,
         "delta_a_au": task.delta_a_au,
         "dist_au_kepler": task.dist_au_kepler,
         "t_min_kepler_jd": task.jd_tdb_kepler,
@@ -167,13 +187,22 @@ def _build_tasks(sample: pl.DataFrame) -> list[_PairTask]:
                 jd_tdb_kepler=float(r["jd_tdb"]),
                 dist_au_kepler=float(r["dist_au"]),
                 rel_vel_kepler=float(r["rel_vel_au_day"]),
-                a_1=float(r["a_1"]), e_1=float(r["e_1"]), i_1=float(r["i_1"]),
-                Omega_1=float(r["Omega_1"]), omega_1=float(r["omega_1"]),
-                M_1=float(r["M_1"]), epoch_1=float(r["epoch_1"]),
-                a_2=float(r["a_2"]), e_2=float(r["e_2"]), i_2=float(r["i_2"]),
-                Omega_2=float(r["Omega_2"]), omega_2=float(r["omega_2"]),
-                M_2=float(r["M_2"]), epoch_2=float(r["epoch_2"]),
-                q_1=float(r["q_1"]), q_2=float(r["q_2"]),
+                a_1=float(r["a_1"]),
+                e_1=float(r["e_1"]),
+                i_1=float(r["i_1"]),
+                Omega_1=float(r["Omega_1"]),
+                omega_1=float(r["omega_1"]),
+                M_1=float(r["M_1"]),
+                epoch_1=float(r["epoch_1"]),
+                a_2=float(r["a_2"]),
+                e_2=float(r["e_2"]),
+                i_2=float(r["i_2"]),
+                Omega_2=float(r["Omega_2"]),
+                omega_2=float(r["omega_2"]),
+                M_2=float(r["M_2"]),
+                epoch_2=float(r["epoch_2"]),
+                q_1=float(r["q_1"]),
+                q_2=float(r["q_2"]),
                 delta_a_au=float(r["delta_a_au"]),
             )
         )
@@ -185,16 +214,27 @@ def main() -> int:
     parser.add_argument("--sample", type=Path, default=SAMPLE)
     parser.add_argument("--out", type=Path, default=OUT)
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 4) - 4))
-    parser.add_argument("--window-hours", type=float, default=12.0,
-                        help="Half-width of the N-body refinement window (hours). "
-                             "Default 12h: a smoke run showed Kepler t_min offsets up "
-                             "to 4h, so a 6h window risks clipping the true minimum.")
+    parser.add_argument(
+        "--window-hours",
+        type=float,
+        default=12.0,
+        help="Half-width of the N-body refinement window (hours). "
+        "Default 12h: a smoke run showed Kepler t_min offsets up "
+        "to 4h, so a 6h window risks clipping the true minimum.",
+    )
     parser.add_argument("--sample-dt-seconds", type=float, default=60.0)
     parser.add_argument("--warmup-dt-seconds", type=float, default=600.0)
-    parser.add_argument("--no-major-asteroids", action="store_true",
-                        help="Disable Ceres/Pallas/Vesta/Hygiea as massive bodies.")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Optional: process only the first N pairs (smoke testing).")
+    parser.add_argument(
+        "--no-major-asteroids",
+        action="store_true",
+        help="Disable Ceres/Pallas/Vesta/Hygiea as massive bodies.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Optional: process only the first N pairs (smoke testing).",
+    )
     args = parser.parse_args()
 
     logger.info("Reading sample: %s", args.sample)
@@ -238,13 +278,17 @@ def main() -> int:
         dt = ok["delta_t_min_hours"].abs()
         logger.info(
             "|Δdist_au|   median=%.6f  p95=%.6f  p99=%.6f  max=%.6f",
-            float(dd.median()), float(dd.quantile(0.95)),
-            float(dd.quantile(0.99)), float(dd.max()),
+            float(dd.median()),
+            float(dd.quantile(0.95)),
+            float(dd.quantile(0.99)),
+            float(dd.max()),
         )
         logger.info(
             "|Δt_min_h|   median=%.4f  p95=%.4f  p99=%.4f  max=%.4f",
-            float(dt.median()), float(dt.quantile(0.95)),
-            float(dt.quantile(0.99)), float(dt.max()),
+            float(dt.median()),
+            float(dt.quantile(0.95)),
+            float(dt.quantile(0.99)),
+            float(dt.max()),
         )
         drift = ok["nbody_energy_drift"]
         logger.info("energy_drift max=%.2e", float(drift.max()))
@@ -252,7 +296,9 @@ def main() -> int:
         logger.info(
             "near_boundary (|Δt| > 0.95 × window): %d / %d (%.1f%%) — "
             "true minimum may lie outside the integration window for these pairs",
-            n_boundary, len(ok), 100.0 * n_boundary / max(1, len(ok)),
+            n_boundary,
+            len(ok),
+            100.0 * n_boundary / max(1, len(ok)),
         )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
