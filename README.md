@@ -220,7 +220,7 @@ El pipeline se valida en tres niveles:
 ### 1. Tests de regresión (CI)
 
 ```bash
-docker compose run --rm test pytest tests/ -v   # 198 tests, todos pasan
+docker compose run --rm test pytest tests/ -v   # ~300 tests, todos pasan (regresión, no validación científica completa)
 ```
 
 ### 2. Cross-match contra catálogos publicados

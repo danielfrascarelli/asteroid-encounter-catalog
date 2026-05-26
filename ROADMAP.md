@@ -18,10 +18,18 @@
 - **Propagación N-body** ([src/propagate/nbody.py](src/propagate/nbody.py)): REBOUND con WHFast, Sol+Júpiter+Saturno como cuerpos masivos, asteroides como test particles. Opcional: Ceres/Vesta/Pallas/Hygiea como perturbadores (`config.propagation.rebound.include_major_asteroids`). Integra 100k asteroides × 25k pasos en ~9 min.
 - **Cache de trayectorias** ([src/propagate/cache.py](src/propagate/cache.py)): persiste `(T, N, 3)` float32 en `np.memmap` (29.5 GB para 100k×25k), cache hit en <1 s. La integración streamea directo al disco para evitar OOM.
 
-**Bugs conocidos:** ninguno conocido en `main`.
+**Bugs / limitaciones conocidos en `main`** (no son "bugs de código" todos — varios son limitaciones científicas explícitas; ver [FROZEN_RUN.md](FROZEN_RUN.md) para el alcance defensible del catálogo congelado):
+
+- **Refinamiento final es Kepler 2-cuerpos, no N-body.** En modo tiered el KD-tree usa rebound, pero el sub-grid fino que produce la distancia mínima reportada corre `kepler_to_cartesian` ([src/detect/pipeline.py](src/detect/pipeline.py)). Las distancias finales del catálogo congelado son geométricas bajo Kepler.
+- **Completitud no cuantificada.** El prefiltro orbital (\|Δa\|≤0.5 AU, \|Δi\|≤30°) es heurístico — su recall en la cola de alta e/i no está medido (audit blocker #2).
+- **Validación de precisión limitada por cadencia.** Los cross-checks contra JPL Horizons toman `argmin` a 30 min – 1 h. El claim de "0 μAU MAE" es a esa cadencia sobre ~8 pares, no una prueba global.
+- **Capa de masas exploratoria, no publicable.** `scripts/mass/fit_mass_gaia_loo.py` da χ²_red mediano ≈ 425, masas 100–10⁴× sobreestimadas, y specificity 0/41. El forward model absorbe drift orbital, no aísla la perturbación gravitacional.
 
 *Resueltos en PR #23 (2026-05-18)*:
 - `src/detect/parallel.py`: (a) pairs del prefilter grandes → volcado a tempfile + memmap en workers en lugar de pickle; (b) `positions=memmap` con N=100k+ → compartido vía filename+shape, sin serializar el array de 30 GB.
+
+*Resueltos en PR de audit round 5*:
+- `src/characterize/encounter.py`: el detector emitía pares por orden de índice (i<j), no por masa, pero análisis downstream asumían `_1` = perturber. Ahora `characterize_catalog` reordena cada par para que `_1` sea siempre el cuerpo más grande (menor H), y emite observabilidad Gaia per-body (`gaia_observable_1`, `gaia_observable_2`) en lugar de un único flag basado en midpoint + `H_1`.
 
 **Para detalle completo de cada fase, ver secciones siguientes.**
 
