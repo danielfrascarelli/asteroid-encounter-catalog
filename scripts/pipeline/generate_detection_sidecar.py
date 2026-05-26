@@ -50,6 +50,25 @@ def main() -> int:
     n = df.select(pl.len()).collect().item()
     logger.info("Catalog %s has %d rows", catalog_path.name, n)
 
+    # Gate check on the existing catalog so the sidecar persists QA status.
+    gate_present: dict[int, dict[str, float]] = {}
+    gate_missing: list[int] = []
+    for body in (1, 2, 4, 10):  # Ceres, Pallas, Vesta, Hygiea
+        hits = (
+            df.filter((pl.col("number_1") == body) | (pl.col("number_2") == body))
+            .select(pl.min("dist_au").alias("closest"), pl.len().alias("n"))
+            .collect()
+        )
+        n_hits = int(hits["n"][0])
+        if n_hits == 0:
+            gate_missing.append(body)
+        else:
+            gate_present[body] = {
+                "n_encounters": n_hits,
+                "closest_au": float(hits["closest"][0]),
+            }
+    gate_checks = {"present": gate_present, "missing": gate_missing}
+
     # Resolve MPCORB snapshot from config (mirror logic in run_pipeline)
     tw = cfg.time_window
     t_start_jd = Time(tw.start, scale=tw.scale).tdb.jd
@@ -82,6 +101,7 @@ def main() -> int:
         fine_step_hours=fine_step_hours,
         use_tiered=use_tiered,
         force_kepler_refine=use_tiered,
+        gate_checks=gate_checks,
     )
     logger.info(
         "Sidecar written: %s  (backfilled from current config — verify timestamps match)",

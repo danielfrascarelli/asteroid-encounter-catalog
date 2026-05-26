@@ -68,6 +68,7 @@ def write_detection_sidecar(
     fine_step_hours: float | None = None,
     use_tiered: bool = False,
     force_kepler_refine: bool = False,
+    gate_checks: dict[str, Any] | None = None,
 ) -> Path:
     """Write a provenance sidecar JSON next to a *detection* catalog parquet.
 
@@ -97,6 +98,12 @@ def write_detection_sidecar(
         Whether the bulk grid ran at ``coarse_step_hours`` while refinement used Kepler.
     force_kepler_refine:
         Whether refinement was forced to Kepler regardless of scan method.
+    gate_checks:
+        Result of the major-body gate check (Ceres / Pallas / Vesta / Hygiea
+        presence + closest-approach).  When provided, persisted into the
+        sidecar as ``gate_checks``, with ``failed`` set to ``True`` if any
+        required body is missing.  Downstream consumers can use that flag
+        to decide whether a run is publishable.
 
     Returns
     -------
@@ -143,6 +150,11 @@ def write_detection_sidecar(
             "path": str(mpcorb_path),
             "sha256_prefix": _hash_file(mpcorb_path),
             "size_bytes": mpcorb_path.stat().st_size,
+        }
+    if gate_checks is not None:
+        meta["gate_checks"] = {
+            **gate_checks,
+            "failed": bool(gate_checks.get("missing")),
         }
 
     sidecar = catalog_path.parent / (catalog_path.stem + "_provenance.json")

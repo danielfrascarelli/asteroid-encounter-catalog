@@ -49,17 +49,47 @@ def _apply_subset(df: pl.DataFrame, cfg) -> pl.DataFrame:
     return df
 
 
-def _verify_major_bodies(results: pl.DataFrame) -> None:
-    """Log which required bodies appear in the catalog."""
+def _verify_major_bodies(results: pl.DataFrame) -> dict:
+    """Log which required bodies appear in the catalog and return a QA dict.
+
+    Each major body that is missing from the output is also recorded in the
+    returned dict so the provenance sidecar can persist the gate-check status.
+    Downstream consumers can check ``gate_checks.missing`` to decide whether
+    the run is publishable — a non-empty list means at least one required
+    body (Ceres / Pallas / Vesta / Hygiea) did not appear at the configured
+    threshold, which usually indicates a subset filter, a bug, or an MPCORB
+    snapshot too far from the observation window.
+
+    Returns
+    -------
+    dict
+        ``{"present": {body: {"n_encounters": int, "closest_au": float}},
+            "missing": [body, ...]}``
+    """
+    present: dict[int, dict[str, float]] = {}
+    missing: list[int] = []
     for n in _REQUIRED_BODIES:
         hits = results.filter((pl.col("number_1") == n) | (pl.col("number_2") == n))
         if len(hits) == 0:
-            logger.warning("Gate check FAILED: (%d) has no encounters in catalog.", n)
+            missing.append(n)
+            logger.error("Gate check FAILED: (%d) has no encounters in catalog.", n)
         else:
-            closest = hits["dist_au"].min()
+            closest = float(hits["dist_au"].min())  # type: ignore[arg-type]
+            present[n] = {"n_encounters": len(hits), "closest_au": closest}
             logger.info(
                 "Gate check OK: (%d) — %d encounters, closest %.6f AU", n, len(hits), closest
             )
+    if missing:
+        logger.error(
+            "Gate check summary: %d / %d required bodies present.  Missing: %s.  "
+            "Catalog still written, but the provenance sidecar records the "
+            "failure; do not treat this run as publishable without explaining "
+            "the missing bodies.",
+            len(present),
+            len(_REQUIRED_BODIES),
+            missing,
+        )
+    return {"present": present, "missing": missing}
 
 
 def main() -> int:
@@ -260,7 +290,7 @@ def main() -> int:
     )
 
     # --- Gate check: major bodies ---
-    _verify_major_bodies(results)
+    gate_checks = _verify_major_bodies(results)
 
     # --- Save ---
     out_dir = Path(cfg.paths.output)
@@ -289,6 +319,7 @@ def main() -> int:
         fine_step_hours=fine_step_hours,
         use_tiered=use_tiered,
         force_kepler_refine=use_tiered,
+        gate_checks=gate_checks,
     )
 
     # --- Top encounters ---

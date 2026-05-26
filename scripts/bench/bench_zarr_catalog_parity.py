@@ -2,8 +2,10 @@
 
 Runs the detection pipeline twice on the same subset, once per cache backend,
 and compares the resulting encounter catalogs.  Acceptable difference is
-bounded by the BitRound precision of the zarr backend (≈4.5 km at keepbits=16)
-which is dwarfed by the 0.05-AU threshold.
+bounded by the BitRound precision of the zarr backend (~4,488 km half-quantum
+at keepbits=16) — about three orders of magnitude tighter than the 0.05-AU
+(~7.48 × 10⁶ km) threshold, which makes it safe for the coarse scan but NOT
+for sub-micro-AU validation work.
 """
 
 from __future__ import annotations

@@ -55,11 +55,11 @@ docker compose build
 
 ```bash
 # 1. MPCORB — elementos orbitales (actuales, ~90 MB comprimidos)
-docker compose run --rm pipeline python -m scripts.download_mpcorb
+docker compose run --rm pipeline python -m scripts.ingest.download_mpcorb
 
 # 2. Snapshot histórico 2015 (recomendado: reduce error Kepler de ~30 mAU a <1 mAU)
 # El pipeline auto-selecciona el snapshot con época más cercana al centro de la ventana.
-docker compose run --rm pipeline python -m scripts.download_mpcorb_historical --year 2015 --month 6
+docker compose run --rm pipeline python -m scripts.ingest.download_mpcorb_historical --year 2015 --month 6
 ```
 
 > **Nota**: `download_gaia_sso` no es requerido para el pipeline de detección. El pipeline lee únicamente MPCORB.
@@ -68,11 +68,12 @@ docker compose run --rm pipeline python -m scripts.download_mpcorb_historical --
 
 ```bash
 # Detección + caracterización completa (todos los asteroides numerados)
-docker compose run --rm pipeline python -m scripts.run_pipeline
-docker compose run --rm pipeline python -m scripts.characterize_catalog
+docker compose run --rm pipeline python -m scripts.pipeline.run_pipeline
+docker compose run --rm pipeline python -m scripts.pipeline.characterize_catalog
 ```
 
-Produce `data/output/encounters_characterized.parquet` (~119k filas) y el sidecar de metadatos.
+Produce `data/output/encounters_characterized.parquet` y el sidecar de metadatos.
+Para los counts y hashes de la corrida congelada, ver [`FROZEN_RUN.md`](FROZEN_RUN.md).
 
 ### Subset rápido para pruebas
 
@@ -81,8 +82,8 @@ Produce `data/output/encounters_characterized.parquet` (~119k filas) y el sideca
 cp config.yaml config.local.yaml
 # editar config.local.yaml → subset.max_asteroids: 5000
 
-docker compose run --rm pipeline python -m scripts.run_pipeline --config config.local.yaml
-docker compose run --rm pipeline python -m scripts.characterize_catalog --config config.local.yaml
+docker compose run --rm pipeline python -m scripts.pipeline.run_pipeline --config config.local.yaml
+docker compose run --rm pipeline python -m scripts.pipeline.characterize_catalog --config config.local.yaml
 ```
 
 ### Explorar resultados
@@ -218,12 +219,12 @@ Dos catálogos independientes de encuentros conocidos se descargan automáticame
 Para correr:
 
 ```bash
-docker compose run --rm pipeline python -m scripts.download_fienga_2003
-docker compose run --rm pipeline python -m scripts.download_galad_2002
+docker compose run --rm pipeline python -m scripts.ingest.download_fienga_2003
+docker compose run --rm pipeline python -m scripts.ingest.download_galad_2002
 
 # Después del pipeline:
-docker compose run --rm pipeline python -m scripts.validate_fienga_2003
-docker compose run --rm pipeline python -m scripts.validate_galad_2002
+docker compose run --rm pipeline python -m scripts.validate.validate_fienga_2003
+docker compose run --rm pipeline python -m scripts.validate.validate_galad_2002
 ```
 
 Resultados a 0.05 AU sobre el catálogo Kepler de 4M encuentros: **100% match** (4/4 Fienga + 4/4 Galád en la ventana Gaia).

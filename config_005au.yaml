@@ -153,7 +153,7 @@ detection:
 
   refinement:
     enabled: true                    # Refinar candidatos con sub-grid temporal
-    fine_time_step_seconds: 60.0     # Resolución del sub-grid (típico: 1 minuto)
+    fine_time_step_seconds: 120.0    # Alineado con config.yaml — ver el comentario allí
     window_hours: 2.0                # Ventana alrededor del mínimo grueso
 
 
