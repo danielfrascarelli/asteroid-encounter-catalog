@@ -207,7 +207,7 @@ Para los pocos casos en que los elementos MPCORB siguen siendo un cuello de bote
 1. **Parallel scan se cuelga con subset chico + prefilter activo** (n_workers > 1). Causa: pickle de array de pares de tamaño grande vía `initargs` del `Pool`. **Fix aplicado**: cuando `pairs.nbytes > 1 MB` se guarda en tempfile y workers lo memmapean (mismo patrón que `positions=memmap`).
 2. **Refinement single-threaded**: 4M candidatos toman ~13 min sin paralelizar. Trivialmente paralelizable (cada candidato es independiente). Mejora futura.
 3. **`config_005au.yaml`** existe pero no está montado en docker-compose (sólo `config.yaml` y `config.local.yaml`). Usar `config.local.yaml` con override es la práctica recomendada por ahora.
-4. **Outlier (10, 4803) de 1.2 mAU**: explicado por error de orbital elements (no Kepler vs N-body). Resolver fetcheando elementos JPL para perturbadores grandes (ver sección 5).
+4. **Outlier histórico (10, 4803) Hygiea–Birkle de 1.2 mAU** — **resuelto** por el fix cache-aware en `refine_candidates` (ver sección "Bug crítico encontrado y corregido"), que interpola sobre el cache N-body en vez de re-propagar con Kepler.  Post-fix el valor es 0.011924 AU = JPL; la tabla de validación post-fix lo refleja.  Una mejora futura sub-mAU adicional con elementos JPL para perturbadores grandes sigue siendo deseable (ver sección 5), pero ya no es un bug pendiente.
 
 ---
 

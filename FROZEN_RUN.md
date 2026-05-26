@@ -20,7 +20,7 @@
 | coarse grid | Δt = 12 h |
 | refine method | **Kepler** (forced by tiered mode) on Δt = 120 s window of ±2 h |
 | prefilter | enabled — \|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30° (see caveats) |
-| pipeline code | latest perf branch, frame-fix and provenance-sidecar PRs in flight |
+| pipeline code | `main` at commit `b1c4d9a` (audit rounds 1+2 merged) plus the `fine_time_step_seconds=120` setting backported to `config.yaml` so this catalog is reproducible from current main with the same config |
 
 ## What this run **is**
 
@@ -166,9 +166,26 @@ docker compose run --rm pipeline python -m scripts.pipeline.run_pipeline \
 
 This freeze documents output produced under the `perf/refine-kepler-cache`
 branch (HEAD at `06de6d0` when this catalog was written).  Subsequent
-fixes (#21 frame, #22 SSO epoch docs, #23 detection sidecar) do **not**
-change the data in this parquet — they only affect downstream
-characterisation, documentation, and future runs.
+audit fixes merged to `main` do **not** change the data in this parquet:
+
+| PR | What changed | Effect on this catalog |
+|---|---|---|
+| #21 | Earth frame in `src/characterize/observability.py` (ICRS → helio ecliptic) | None — bug was downstream of detection |
+| #22 | Gaia SSO epoch convention in docstrings only | None — code already correct |
+| #23 | `write_detection_sidecar` and backfill script | None — adds the sidecar that documents this catalog |
+| #24 | This document | — |
+| #25 | Scripts moved into `ingest/`, `pipeline/`, etc. | None — same code, different paths |
+| #26 | Audit round-2 cleanups (docstrings, MPCORB-snapshot selection in characterize) | None — affects future runs |
+
+To reproduce the catalog from current `main`:
+
+1. Restore the MPCORB snapshot:
+   `cp data/raw/mpcorb_archive/MPCORB_20160217.DAT data/raw/MPCORB.DAT`
+2. Use the default `config.yaml` (which now has
+   `fine_time_step_seconds: 120`, matching what produced this catalog).
+3. Bit-identical replay still requires the same dependency versions
+   listed in the provenance sidecar.
 
 Anything generated from this catalog (figures, derived tables) must cite
-both this freeze ID and the commit at *its own* generation time.
+both this freeze (catalog SHA `b0272be7…`) and the code commit at *its own*
+generation time.

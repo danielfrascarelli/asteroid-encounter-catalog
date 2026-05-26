@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from scripts.step_model_test import _fit_linear, _fit_linear_step, bic
+from scripts.dev.step_model_test import _fit_linear, _fit_linear_step, bic
 
 logging.basicConfig(
     level=logging.INFO,
