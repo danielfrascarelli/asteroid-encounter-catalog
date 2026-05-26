@@ -25,6 +25,19 @@ _SCRIPTS_ROOT = _REPO_ROOT / "scripts"
 
 _SUBPKGS = ("ingest", "pipeline", "mass", "validate", "bench", "dev")
 
+# Scripts whose module body runs heavy I/O or network calls at import time
+# instead of being guarded by ``if __name__ == "__main__":``.  Excluded from
+# the smoke test because they cannot be imported in CI without their data
+# dependencies (and even with the data, importing them DOES the work).
+# Listed explicitly so adding a new offender is visible: the smoke test fails
+# and forces a decision (guard the script or extend this list with a reason).
+_SKIP_EXACT: set[str] = {
+    # SCIENTIFIC_AUDIT.md calls this "old/rough … Top-5 script at module
+    # import time; not suitable as formal validation."  Reads the catalog
+    # parquet and queries JPL Horizons on import.
+    "scripts.validate.validate_jpl",
+}
+
 
 def _discover_modules() -> list[str]:
     mods: list[str] = []
@@ -35,7 +48,10 @@ def _discover_modules() -> list[str]:
         for p in sorted(d.glob("*.py")):
             if p.name == "__init__.py":
                 continue
-            mods.append(f"scripts.{sub}.{p.stem}")
+            mod = f"scripts.{sub}.{p.stem}"
+            if mod in _SKIP_EXACT:
+                continue
+            mods.append(mod)
     return mods
 
 
