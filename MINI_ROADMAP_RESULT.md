@@ -19,7 +19,12 @@ pair (165) Loreley + (31067) 1996_tf50:
 
 The two-phase fit (orbit from pre-encounter obs + mass from post-encounter
 obs) recovers Loreley's mass to within factor ~3 of the literature value
-— **a publishable-quality result for asteroid-mass precision standards**.
+— a **prototype** that demonstrates the approach works on a known case.
+It is **not** a publishable result: the forward model has ~arcsecond
+systematic residuals, the Gaia AL covariance is approximated, and there
+is no joint orbit + mass null test.  Treat this as a method check, not a
+mass measurement.  See audit blocker #6 for the work needed before
+masses can be claimed.
 
 ---
 
@@ -183,9 +188,13 @@ These remaining fixes are Phase 2-3 of the full ROADMAP_TO_MASSES.md.
 
 ## Conclusion
 
-**Go**. The mini-roadmap shows the method is viable. The ~12× calibration
-error is bounded and addressable, not a fundamental issue. With ~1 additional
-week (the four fixes listed above), the pipeline should be ready to apply
-to the 24 novel-perturber candidates and produce a publishable mass catalog.
+**Method viable, not yet publishable.**  The mini-roadmap demonstrates the
+two-phase fit recovers a known mass to within ~3×, which validates the
+*approach*.  The four fixes listed above would shrink the calibration
+error further, but producing a publishable mass catalog also requires
+work that is *not* in this roadmap: a full joint orbit + mass framework
+with the real Gaia AL covariance, validation against multiple known
+perturbers, and independent null tests against non-encounter epochs.
+That is audit blocker #6 and is open-ended (weeks, not days).
 
 This validates the science direction of ROADMAP_TO_MASSES.md.

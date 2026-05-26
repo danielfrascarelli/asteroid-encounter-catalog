@@ -19,9 +19,12 @@ to ~2× by zero-padding low mantissa bits but no more.
 
 Storing the array transposed as ``(3, N, T)`` puts the per-asteroid, per-coord
 time series contiguous in memory.  Trajectories are smooth in *time*, so
-``numcodecs.Delta`` followed by Blosc-zstd-bitshuffle yields ~6.7× compression
-losslessly with ``BitRound(keepbits=16)`` — max position error 30 µAU ≈ 4.5
-km, six orders of magnitude tighter than the 0.05-AU encounter threshold.
+``numcodecs.Delta`` followed by Blosc-zstd-bitshuffle yields ~6.7× compression.
+Adding ``BitRound(keepbits=16)`` is **lossy**: max position error ~30 µAU
+(half-quantum at exponent 2), which is ≈ 4,488 km — about three orders of
+magnitude tighter than the 0.05-AU (~7.48 × 10⁶ km) encounter threshold.
+This is acceptable for the coarse scan with a widened query radius, but
+**not** suitable for sub-micro-AU validation or for mass-fitting work.
 
 Consumers still see the logical ``(T, N, 3)`` interface via
 :class:`TrajectoryView`, an adapter that maps ``positions[t]`` and
@@ -84,8 +87,11 @@ _CACHE_VERSION = 2
 _DEFAULT_T_CHUNK = 256
 
 # Mantissa bits kept by the BitRound filter.  For values up to ~5 AU (exponent
-# bit = 2), keepbits=16 gives max error 2^(2-16) = 6e-5 AU ≈ 9 km — five
-# orders of magnitude tighter than the 0.05-AU encounter detection threshold.
+# bit = 2), keepbits=16 gives quantum 2^(2-16) = 6.1e-5 AU per unit ≈ 8,976 km
+# (full quantum) or ≈ 4,488 km (half-quantum max round-off).  That is about
+# three orders of magnitude tighter than the 0.05-AU encounter threshold,
+# acceptable for the coarse scan with a widened query radius but NOT for
+# sub-micro-AU validation.
 _DEFAULT_BITROUND_KEEPBITS = 16
 
 # Default per-worker LRU cache size.  At chunks=(3, N=150k, 256) ≈ 440 MiB raw

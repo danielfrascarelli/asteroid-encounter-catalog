@@ -4,9 +4,15 @@ Reads the detection output (encounters_catalog.parquet), characterizes each
 encounter, and writes an enriched catalog (encounters_characterized.parquet)
 along with a JSON metadata sidecar.
 
+MPCORB snapshot selection: same logic as ``scripts.pipeline.run_pipeline`` —
+the snapshot whose epoch is closest to the observation-window centre is used,
+not the current ``data/raw/MPCORB.DAT``.  This keeps provenance consistent
+between detection and characterisation.  ``--mpcorb`` overrides the
+auto-selection if needed.
+
 Usage:
-    docker compose run --rm pipeline python -m scripts.characterize_catalog
-    docker compose run --rm pipeline python -m scripts.characterize_catalog --config config.yaml
+    docker compose run --rm pipeline python -m scripts.pipeline.characterize_catalog
+    docker compose run --rm pipeline python -m scripts.pipeline.characterize_catalog --config config.yaml
 """
 
 from __future__ import annotations
@@ -19,11 +25,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
+from astropy.time import Time
 
 from src.catalog.writer import write_catalog
 from src.characterize.encounter import characterize_catalog
 from src.ingest.gaia_orbits import load_gaia_orbits
 from src.ingest.mpcorb import parse_mpcorb
+from src.ingest.mpcorb_archive import discover_snapshots, select_for_window
 from src.utils.config import load_config
 
 logging.basicConfig(
@@ -60,6 +68,15 @@ def main() -> int:
         default=None,
         help="Override output catalog path (default: data/output/encounters_characterized.parquet)",
     )
+    parser.add_argument(
+        "--mpcorb",
+        default=None,
+        help=(
+            "Explicit MPCORB.DAT path to use.  Default: auto-select the "
+            "archived snapshot whose epoch is closest to the window centre, "
+            "matching what scripts.pipeline.run_pipeline does."
+        ),
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -77,8 +94,32 @@ def main() -> int:
     orbits_path = Path(cfg.paths.raw) / "gaia_orbits.parquet"
     elements = load_gaia_orbits(orbits_path)
 
-    # --- Load MPCORB ---
-    mpcorb_path = Path(cfg.paths.raw) / "MPCORB.DAT"
+    # --- Resolve MPCORB snapshot ---
+    # If --mpcorb wasn't passed, mirror run_pipeline's logic: pick the archived
+    # snapshot whose epoch is closest to the observation-window centre.  This
+    # avoids the silent inconsistency where characterisation uses a newer
+    # MPCORB.DAT than the one that produced the detection catalog.
+    if args.mpcorb is not None:
+        mpcorb_path = Path(args.mpcorb)
+    else:
+        tw = cfg.time_window
+        t_start = Time(tw.start, scale=tw.scale).tdb.jd
+        t_end = Time(tw.end, scale=tw.scale).tdb.jd
+        snapshots = discover_snapshots(Path(cfg.paths.raw))
+        if snapshots:
+            snap = select_for_window(snapshots, t_start, t_end)
+            mpcorb_path = Path(snap.path)
+            logger.info(
+                "Auto-selected MPCORB snapshot %s (epoch %s)",
+                mpcorb_path.name,
+                Time(snap.epoch_jd, format="jd", scale="tdb").utc.iso[:10],
+            )
+        else:
+            mpcorb_path = Path(cfg.paths.raw) / "MPCORB.DAT"
+            logger.warning(
+                "No archived snapshots found under %s; falling back to MPCORB.DAT",
+                cfg.paths.raw,
+            )
     logger.info("Parsing MPCORB: %s", mpcorb_path)
     mpcorb = parse_mpcorb(str(mpcorb_path))
 

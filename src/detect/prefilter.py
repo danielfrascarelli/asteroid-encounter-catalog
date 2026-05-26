@@ -1,10 +1,19 @@
-"""Orbital prefilter — eliminates asteroid pairs that cannot physically encounter.
+"""Orbital prefilter — heuristic pair reduction before the KD-tree scan.
 
-Two asteroids are considered incompatible if their semimajor axes differ by
-more than *semimajor_diff_max_au* OR their inclinations differ by more than
-*inclination_diff_max_deg*.  These are cheap geometric orbital criteria that
-eliminate the vast majority of N*(N-1)/2 pairs before the expensive KD-tree
-scan.
+Two asteroids are dropped from the candidate list if their semimajor axes
+differ by more than *semimajor_diff_max_au* OR their inclinations differ by
+more than *inclination_diff_max_deg*.  These are cheap heuristic criteria —
+they are **not** a proof of geometric impossibility: high-eccentricity or
+high-inclination crossing orbits can come within the encounter threshold
+even when Δa or Δi is large, so a real encounter can be missed by this
+filter.
+
+Empirically the criteria eliminate the vast majority of N*(N-1)/2 pairs
+without affecting recall on the MBA population that dominates the catalog,
+but completeness on the high-e tail has not been quantified (audit blocker
+#2).  For N > 5000 the caller in :mod:`src.detect.pipeline` skips the
+prefilter entirely and relies on the cKDTree spatial query at the
+configured threshold radius — which IS exact under the propagation model.
 """
 
 from __future__ import annotations
