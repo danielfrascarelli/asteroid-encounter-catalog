@@ -2,7 +2,7 @@
 
 Generalises ``demo_ate_clean.py`` to any subset of the candidate catalog.
 For each (perturber, target, date) tuple in
-``data/output/publishable_mass_candidates.csv``:
+``data/output/mass_followup_candidates.csv``:
 
   1. Pull Gaia DR3 transits of the target in ±180 days of the encounter.
   2. Query JPL Horizons for the apparent RA/Dec of the target as observed
@@ -52,7 +52,7 @@ _HALF_WINDOW_DAYS = 180.0
 _BLACKOUT_DAYS = 7.0
 _J2010_TCB_JD = 2455197.5
 _GAIA_OBSERVER = "500@-139479"
-_DEFAULT_INPUT = Path("data/output/publishable_mass_candidates.csv")
+_DEFAULT_INPUT = Path("data/output/mass_followup_candidates.csv")
 _DEFAULT_OUTPUT = Path("data/output/deflection_detections.csv")
 _PER_CANDIDATE_RESIDUALS_DIR = Path("data/output/deflection_residuals")
 

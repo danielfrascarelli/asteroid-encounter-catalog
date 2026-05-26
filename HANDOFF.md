@@ -95,7 +95,7 @@ El objetivo científico: pesar asteroides cuya masa no se conoce todavía.
 - `cat_a_jpl_validation.csv` — 7 filas, validación Cat A contra JPL
 - `mass_candidates.csv` — 100 candidatos Cat B rankeados por deflexión
 - `gaia_observations_check.csv` — 100 candidatos con conteo de transits Gaia antes/después
-- `publishable_mass_candidates.csv` — **41 candidatos viables**, ordenados por δ
+- `mass_followup_candidates.csv` — **41 candidatos viables**, ordenados por δ
 - `ate_2000nt3_residuals.csv` — residuales con propagación Kepler 2-cuerpos (intento 1, ~875 arcsec)
 - `ate_2000nt3_vs_horizons.csv` — residuales contra JPL Horizons vectors (intento 2, ~11 arcsec)
 - `ate_2000nt3_clean.csv` — residuales contra Horizons apparent ephemerides desde Gaia (intento 3, ~800 mas, **detección marginal 3σ**)
@@ -125,7 +125,7 @@ Top 3 destacados:
 | 2 | **(111) Ate** | 2000_nt3 | 2016-06-08 | 4.906 | 39 / 37 | **18.6** ← brillante |
 | 3 | **(241) Germania** | 2000_jc23 | 2016-06-27 | 3.495 | 29 / **204** | 19.5 |
 
-Ver lista completa en `data/output/publishable_mass_candidates.csv`.
+Ver lista completa en `data/output/mass_followup_candidates.csv`.
 
 ---
 

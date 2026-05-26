@@ -159,42 +159,56 @@ Ver `CLAUDE.md` para una descripción detallada de cada módulo.
 
 ## 📊 Resultados (corrida congelada)
 
-La corrida canónica está documentada en [`FROZEN_RUN.md`](FROZEN_RUN.md) — éste
-es el único documento que debe citarse para reproducir o referenciar el
-catálogo geométrico.
+> **Alcance**: la corrida congelada produce un **catálogo de candidatos
+> geométricos bajo supuestos congelados** (rebound coarse-scan + refinamiento
+> Kepler 2-cuerpos, prefilter heurístico). NO es un catálogo completo, NO es
+> un catálogo de masas, y NO está validado a precisión sub-cadencia.  Leer
+> [`FROZEN_RUN.md` § "Scope and limits"](FROZEN_RUN.md) antes de citar
+> cualquier número de abajo.
 
 | Métrica | Valor |
 |---------|-------|
 | MPCORB snapshot | `MPCORB_20160217.DAT` |
 | Ventana temporal | 2014-07-25 → 2017-05-28 (Gaia DR3) |
 | Umbral de detección | **0.05 AU** |
-| Scan / refine | rebound (whfast, Sun+Jupiter+Saturn) / Kepler |
-| **Encuentros detectados** | **72.236.904** |
-| Encuentro más cercano | **6.6 × 10⁻⁶ AU** (≈ 988 km) |
-| Encuentros < 0.001 AU | 26.038 |
-| Encuentros < 0.01 AU | 2.833.425 |
+| Scan / refine | rebound (whfast, Sun+Jupiter+Saturn) / **Kepler 2-cuerpos** |
+| **Candidatos geométricos (Kepler-refined)** | **72.236.904** |
+| Separación mínima Kepler-refined | **6.6 × 10⁻⁶ AU** (≈ 988 km, bajo el modelo Kepler) |
+| Candidatos < 0.001 AU | 26.038 |
+| Candidatos < 0.01 AU | 2.833.425 |
 
 Hashes de inputs/outputs y la tabla completa de claims en
 [`FROZEN_RUN.md`](FROZEN_RUN.md).
 
-### Top-3 encuentros más cercanos
+### Top-3 separaciones mínimas (bajo el refinamiento Kepler 2-cuerpos)
 
-| Rank | Cuerpo 1 | Cuerpo 2 | Distancia (AU) |
-|------|----------|----------|----------------|
+| Rank | Cuerpo 1 | Cuerpo 2 | Distancia Kepler (AU) |
+|------|----------|----------|-----------------------|
 | 1 | (153222) 2000 YD43 | (238587) 2004 YX3 | 6.6 × 10⁻⁶ |
 | 2 | (15072) Landolt | (387599) 2001 XF180 | 1.2 × 10⁻⁵ |
 | 3 | (270730) 2002 QE130 | (366918) 2005 UC211 | 1.5 × 10⁻⁵ |
 
-### Notas
+Estos son los pares con menor separación bajo el modelo de refinamiento
+Kepler. La distancia mínima real bajo dinámica N-body completa puede
+diferir, especialmente para órbitas con alta excentricidad o cerca de
+resonancias con Júpiter.
 
-- El catálogo geométrico es el único output considerado publicable. El
-  archivo `publishable_mass_candidates.csv` (41 filas) son **candidatos**
-  para fitting de masas, no masas medidas; la capa de mass-fitting es
-  exploratoria (ver caveats en `FROZEN_RUN.md`).
-- El catálogo viejo `encounters_catalog.parquet` (158.672 filas, umbral
-  0.05 AU sobre un subset menor de asteroides) y su versión caracterizada
-  `encounters_characterized.parquet` quedan como referencia histórica;
-  la corrida congelada (72M) los reemplaza.
+### Notas honestas sobre alcance
+
+- **Catálogo geométrico de candidatos**: defensible como tal. Los 72 M pares
+  son los que pasan el filtro bajo la pipeline congelada. NO se puede
+  afirmar completitud (prefilter heurístico, audit #2 abierto) ni precisión
+  μAU global (validación limitada a 8 pares + grilla 1 h de JPL).
+- **Capa de masas**: NO publicable. El archivo
+  `mass_followup_candidates.csv` (41 filas) son *targets de seguimiento*,
+  no medidas. El test de specificidad da 0/41
+  ([`encounter_analysis/DETECTIONS.md`](encounter_analysis/DETECTIONS.md))
+  y los chi²_red del LOO batch dan mediana 425 / max 7.2 × 10⁵ — el
+  modelo está mal especificado para esto. La capa requiere joint orbit +
+  mass con covarianza AL real (audit #6, semanas de trabajo).
+- **Catálogos históricos**: `encounters_catalog.parquet` (158.672 filas)
+  y `encounters_characterized.parquet` son referencias de desarrollo;
+  la corrida congelada (72M) es la única canónica.
 - (2) Pallas (i = 34.9°) aparece con 47 encuentros en el catálogo (el más
   cercano a 6.3 × 10⁻³ AU) — su alta inclinación orbital la mantiene
   parcialmente separada del plano del cinturón.

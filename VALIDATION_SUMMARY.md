@@ -4,17 +4,49 @@
 > **Kepler 2-cuerpos**: 4 036 495 encuentros.
 > **Rebound N-body** (Sol+Júpiter+Saturno, cache-aware refinement): 4 035 700 encuentros.
 
+## Alcance de esta validación (leer primero)
+
+Este documento es un **sanity check** sobre **8 pares de la literatura** que
+caen en la ventana Gaia. NO es una validación de precisión del catálogo
+completo de 72 M filas. Limitaciones concretas:
+
+- La comparación contra JPL Horizons en
+  [`validate_jpl_horizons.py`](scripts/validate/validate_jpl_horizons.py) se
+  hace en grilla de **1 h** con `argmin`; en
+  [`validate_novel_a.py`](scripts/validate/validate_novel_a.py) en **30 min**.
+  Eso pone un **piso de cuantización** sobre cualquier error reportado: a
+  velocidades relativas ~km/s, 30–60 min ya pueden corresponder a miles de
+  km entre muestras. Las cifras "μAU" de abajo son **resoluciones del
+  comparador, no del pipeline** — no constituyen prueba de precisión
+  sub-cadencia.
+- La muestra son 8 pares (Fienga + Galád) más checks puntuales de
+  Ceres/Vesta. No cubre la cola dinámica difícil (alta e, alta i, cerca
+  de resonancias). Los tests sobre el catálogo real están marcados como
+  opt-in en [`tests/test_validation.py`](tests/test_validation.py) y no
+  corren en CI por defecto.
+- El refinamiento final del catálogo es **Kepler 2-cuerpos** (ver
+  `FROZEN_RUN.md`), no N-body completo. Esta validación NO acota el error
+  de ese supuesto sobre encuentros donde el N-body diverge del Kepler.
+
+Conclusión razonable: el pipeline **no regresa de manera mensurable** frente
+a JPL al cadence al que se lo comparó, sobre los pares de literatura que se
+pueden cruzar. Cualquier afirmación más fuerte (μAU global, completitud,
+precisión sub-cadencia) requiere validación adicional.
+
 ## TL;DR
 
-| Métrica final | Valor |
+| Métrica final | Valor (con caveats arriba) |
 |---|---:|
-| **MAE (nuestro pipeline rebound − JPL Horizons)** | **0 μAU** |
-| MAE (literatura − JPL Horizons) | 4 μAU |
+| MAE pipeline rebound − JPL Horizons @ 1 h cadence, 8 pares | 0 μAU (limitado por la cadencia) |
+| MAE literatura − JPL Horizons @ 1 h cadence | 4 μAU |
 | Detection rate Fienga (Impact ≤ 0.05) | 4/4 (100 %) |
 | Detection rate Galád (todos) | 4/4 (100 %) |
-| Peor caso \|ours − JPL\| | 5 μAU = 0.0005 % de AU |
+| Peor caso \|ours − JPL\| @ 1 h cadence | 5 μAU |
 
-**Nuestro pipeline matchea JPL Horizons mejor que los catálogos publicados de la literatura** sobre los 8 pares que se pueden cruzar en la ventana Gaia DR3.
+**Lectura honesta**: sobre los 8 pares con literatura disponible y con JPL
+muestreado a 1 h, el pipeline rebound + refinamiento Kepler no muestra error
+detectable al nivel de la cadencia de muestreo. Esto **no** valida los
+72 millones de filas ni implica precisión sub-cadencia.
 
 ---
 
