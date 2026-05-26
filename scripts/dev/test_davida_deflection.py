@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 _DAVIDA_NUMBER = 165  # (165) Loreley
 _TARGET_NUMBER = 31067  # 1996_tf50
 _DAVIDA_MASS_GOFFIN_KG = 8.7e18  # Loreley mass (Goffin 2014)
-# Encounter date for this pair (from publishable_mass_candidates.csv)
+# Encounter date for this pair (from mass_followup_candidates.csv)
 _ENCOUNTER_DATE_UTC = "2014-12-08T00:00:00"
 
 

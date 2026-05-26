@@ -17,7 +17,7 @@
 ## Resumen
 
 Aplicamos el método de detección de perturbación a los **41 candidatos viables**
-del catálogo (`data/output/publishable_mass_candidates.csv`). Para cada uno:
+del catálogo (`data/output/mass_followup_candidates.csv`). Para cada uno:
 
 1. Descargamos las observaciones de Gaia DR3 del target (±180 días del encuentro).
 2. Consultamos JPL Horizons para la posición aparente predicha desde Gaia

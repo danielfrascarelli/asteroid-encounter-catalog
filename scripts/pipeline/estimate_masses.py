@@ -77,7 +77,7 @@ def main() -> int:
     p.add_argument(
         "--candidates",
         type=Path,
-        default=Path("data/output/publishable_mass_candidates.csv"),
+        default=Path("data/output/mass_followup_candidates.csv"),
     )
     p.add_argument(
         "--output",

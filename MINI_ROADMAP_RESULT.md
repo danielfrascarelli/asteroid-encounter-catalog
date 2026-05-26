@@ -26,6 +26,19 @@ is no joint orbit + mass null test.  Treat this as a method check, not a
 mass measurement.  See audit blocker #6 for the work needed before
 masses can be claimed.
 
+**Evidence from the wider LOO batch** (not just Loreley): running this
+forward model across the 21 fits in
+[`data/output/loo_batch_results.csv`](data/output/loo_batch_results.csv)
+gives a median `chi²_red_window ≈ 425` and a maximum of ~7.2 × 10⁵.  Those
+values are ~100–10⁵× above the expected ~1 for a well-specified model.
+The specificity test in
+[`data/output/specificity_ranking.csv`](data/output/specificity_ranking.csv)
+returns **0 / 41** encounter-specific detections.  Together those numbers
+say the current forward model is absorbing orbital drift and systematic
+residuals, not isolating gravitational perturbation from the perturber.
+That is consistent with the audit's verdict and rules out citing any of
+these as detections or mass measurements.
+
 ---
 
 ## What we built and verified

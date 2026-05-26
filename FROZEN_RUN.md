@@ -1,9 +1,41 @@
-# Frozen run — geometric close-encounter catalog
+# Frozen run — Kepler-refined geometric candidate catalog
 
-> Canonical reference for the close-encounter catalog generated under the Gaia
-> DR3 observation window (2014-07-25 → 2017-05-28).  Everything claimed in
-> follow-up analyses (figures, tables, papers, dashboards) should refer to the
-> values in this document.
+> Canonical reference for the geometric close-encounter **candidate** catalog
+> generated under the Gaia DR3 observation window (2014-07-25 → 2017-05-28).
+> Anything claimed in follow-up analyses (figures, tables, papers, dashboards)
+> must refer to the values *and the scope* in this document.
+
+## Scope and limits (read this first)
+
+This freeze documents a **candidate catalog under frozen assumptions**, not a
+complete or fully N-body-refined catalog and not a mass catalog. Three hard
+limits constrain what can be defensibly claimed from it:
+
+1. **Final distances are Kepler-2-body, not N-body.** When tiered mode is on
+   (it is — `forced_by_tiered = true` in the sidecar), the rebound trajectory
+   is used only for the coarse KD-tree scan. The sub-grid refinement that
+   produces the reported minimum distance, encounter epoch, and relative
+   velocity runs through `kepler_to_cartesian`. So the closest-approach
+   numbers are geometric values under a two-body model, not a full
+   gravitational solution. Pairs whose dynamics matter (high-e crossing
+   orbits near resonances) can disagree with N-body by mAU on real
+   trajectories.
+2. **Not complete.** The orbital prefilter (\|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30°)
+   is a heuristic that can drop real high-eccentricity / high-inclination
+   crossing orbits. Recall on the high-e/i tail has not been quantified.
+   Audit blocker #2 is still open. The word "complete" must not be used.
+3. **Validation precision is sampling-cadence-limited.** The Horizons cross-
+   checks (`scripts/validate/validate_jpl_horizons.py`,
+   `scripts/validate/validate_novel_a.py`) sample JPL at 1 h or 30 min and
+   take `argmin` — sub-cadence precision is *not* validated. The "0 μAU MAE"
+   headline in `VALIDATION_SUMMARY.md` is at that cadence over ~8 literature
+   pairs, not a global proof of micro-AU accuracy on 72 M rows.
+
+What this freeze **does** support: claims about the candidate list under the
+exact configuration recorded in the provenance sidecar — "pairs whose
+Kepler-refined minimum distance was ≤ 0.05 AU under the prefilter that was
+applied". Anything stronger (completeness, sub-km accuracy, mass detection)
+needs separate validation work that is **not** in this freeze.
 
 ## TL;DR
 
@@ -12,47 +44,42 @@
 | catalog file | `data/output/encounters_catalog_rebound_005au.parquet` |
 | catalog SHA-256 | `b0272be7aab649b4f01d85f79011c72074f3c01b7695613ce033cd16bb0fb5e6` |
 | size on disk | 2,806,825,159 B (2.6 GiB) |
-| rows | **72,236,904** |
+| rows (Kepler-refined candidates) | **72,236,904** |
 | threshold | 0.05 AU |
 | provenance sidecar | `data/output/encounters_catalog_rebound_005au_provenance.json` |
 | MPCORB snapshot used | `MPCORB_20160217.DAT` (SHA-256 prefix `3e44e7d36b59a7ff`) |
 | scan method | rebound (whfast, Sun + Jupiter + Saturn, dt = 1 h) |
 | coarse grid | Δt = 12 h |
-| refine method | **Kepler** (forced by tiered mode) on Δt = 120 s window of ±2 h |
-| prefilter | enabled — \|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30° (see caveats) |
+| refine method | **Kepler 2-body** (forced by tiered mode) on Δt = 120 s window of ±2 h |
+| prefilter | enabled — \|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30° (heuristic; recall not quantified) |
 | pipeline code | `main` at commit `b1c4d9a` (audit rounds 1+2 merged) plus the `fine_time_step_seconds=120` setting backported to `config.yaml` so this catalog is reproducible from current main with the same config |
 
 ## What this run **is**
 
-A geometric close-approach catalog: every pair of numbered asteroids whose
-heliocentric ecliptic 3-D positions came within 0.05 AU of each other at any
-point inside the Gaia DR3 observation window, refined by Kepler propagation
-on a 120-second sub-grid centred on each candidate minimum.
-
-It is the catalog the audit names as the **safe publication target**:
-
-> The safest publishable target, after fixes and reruns, would be a geometric
-> close-encounter candidate catalog, not mass determinations.
-> — `SCIENTIFIC_AUDIT.md`
+A list of asteroid pairs whose Kepler-refined heliocentric ecliptic 3-D
+separation came within 0.05 AU during the Gaia DR3 observation window,
+under the prefilter and propagation configuration recorded above.
 
 ## What this run is **not**
 
-- **Not a mass catalog.**  41 candidate pairs in
-  `data/output/publishable_mass_candidates.csv` are flagged for *follow-up*
-  mass-fitting, not mass *measurements*.  The mass-fitting layer
-  (`scripts/mass/fit_mass_gaia_loo.py` and friends) is exploratory and has
-  ~arcsecond systematic residuals.  Reported masses elsewhere in this repo
-  (e.g. (111) Ate) are prototypes pending the joint orbit + mass refactor
-  flagged as audit blocker #6.
-- **Not a fully N-body-refined catalog.**  Despite the filename containing
-  `rebound`, the *final* reported distances come from the Kepler refiner
-  (see `refine.forced_by_tiered = true` in the sidecar).  The rebound
-  trajectory was used for the coarse scan; the sub-grid refinement is
-  two-body.
-- **Not strictly complete.**  The heuristic prefilter
-  (\|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30°) can in principle miss high-eccentricity
-  crossing orbits.  Quantifying recall on a high-e/high-i subset is audit
-  blocker #2 and is **not** included in this freeze.
+- **Not a mass catalog.** 41 pairs in
+  `data/output/mass_followup_candidates.csv` are *follow-up targets* for
+  potential mass-fitting work, not mass measurements. The mass-fitting
+  layer (`scripts/mass/fit_mass_gaia_loo.py` and friends) is exploratory
+  with ~arcsecond systematic residuals. Diagnostic batch fits in
+  `data/output/loo_batch_results.csv` show median `chi²_red_window ≈ 425`
+  and a maximum of ~7.2 × 10⁵ — clear evidence that the forward model is
+  mis-specified and is absorbing orbital drift, not isolating gravitational
+  perturbation. The specificity test (`data/output/specificity_ranking.csv`)
+  returns **0 / 41** encounter-specific detections. The mass layer cannot
+  be cited as a result.
+- **Not a fully N-body-refined catalog.** See limit 1 above. The filename
+  contains `rebound` because the coarse scan used N-body; the *final*
+  reported distance for each row came out of the Kepler refiner.
+- **Not strictly complete.** See limit 2 above. Audit blocker #2.
+- **Not validated at sub-cadence precision.** See limit 3 above. The
+  validation MAE only constrains accuracy at the JPL sampling cadence
+  (1 h / 30 min) over a small literature sample, not at micro-AU.
 
 ## Inputs
 

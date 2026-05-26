@@ -62,7 +62,7 @@ Para cada candidato, query directo al Gaia Archive vía TAP (async, sin truncar)
 
 **Output**:
 - `gaia_observations_check.csv` (todos los candidatos analizados)
-- `publishable_mass_candidates.csv` (solo los viables)
+- `mass_followup_candidates.csv` (solo los viables)
 
 ### Paso 4 — Validación pipeline ([scripts/validate_novel_a.py](../scripts/validate_novel_a.py))
 
@@ -98,7 +98,7 @@ Los 7 encuentros con Ceres/Vesta (masas conocidas) sirven como benchmark:
 
 ## Ranking completo
 
-Los 41 candidatos viables están en `data/output/publishable_mass_candidates.csv`,
+Los 41 candidatos viables están en `data/output/mass_followup_candidates.csv`,
 ordenados por deflexión esperada (descendente).
 
 Para reproducir:

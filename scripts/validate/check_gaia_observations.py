@@ -348,7 +348,7 @@ def main() -> int:
     logger.info("Wrote %d rows to %s", result.height, args.output)
 
     # Also write the publishable subset: viable_obs == True, sorted by deflection.
-    publishable_path = args.output.parent / "publishable_mass_candidates.csv"
+    publishable_path = args.output.parent / "mass_followup_candidates.csv"
     publishable = result.filter(pl.col("viable_obs")).sort("deflection_muas", descending=True)
     publishable.write_csv(publishable_path)
     logger.info(
