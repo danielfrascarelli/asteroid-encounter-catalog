@@ -11,22 +11,33 @@ This freeze documents a **candidate catalog under frozen assumptions**, not a
 complete or fully N-body-refined catalog and not a mass catalog. Three hard
 limits constrain what can be defensibly claimed from it:
 
-1. **Final distances are Kepler-2-body, not N-body.** When tiered mode is on
-   (it is — `forced_by_tiered = true` in the sidecar), the rebound trajectory
-   is used only for the coarse KD-tree scan. The sub-grid refinement that
-   produces the reported minimum distance, encounter epoch, and relative
-   velocity runs through `kepler_to_cartesian`. So the closest-approach
-   numbers are geometric values under a two-body model, not a full
-   gravitational solution. **Measured error budget**
-   ([docs/kepler_refine_error_report.md](docs/kepler_refine_error_report.md),
-   964 stratified pairs re-refined under full N-body):
-   median `|Δdist|` = **12 μAU**, p95 = **678 μAU**, p99 = **2.5 mAU**,
-   max = **11.3 mAU**. Error correlates with e_max and inversely with
-   q_min — the largest disagreements (>1 mAU) are concentrated in
-   high-eccentricity pairs (e_max > 0.45) and NEA-like pairs
-   (q_min < 1.3 AU). None of the 964 sample pairs changes detection status
-   when re-refined, but ranking *within* the closest mAU band is not
-   stable.
+1. **Final distances in the frozen Kepler catalog are Kepler-2-body, not
+   N-body.** When tiered mode is on (it is — `forced_by_tiered = true` in
+   the sidecar), the rebound trajectory is used only for the coarse KD-tree
+   scan. The sub-grid refinement that produces the reported minimum
+   distance, encounter epoch, and relative velocity runs through
+   `kepler_to_cartesian`. So the closest-approach numbers in
+   `encounters_catalog_rebound_005au.parquet` are geometric values under a
+   two-body model, not a full gravitational solution. **Measured error
+   budget** ([docs/kepler_refine_error_report.md](docs/kepler_refine_error_report.md)):
+   - Stage A (964 stratified pairs re-refined under full N-body): median
+     `|Δdist|` = **12 μAU**, p95 = **678 μAU**, p99 = **2.5 mAU**,
+     max = **11.3 mAU**.
+   - Stage B (full production refinement of 8,728,509 pairs in the
+     high-error subset `q_min < 1.8 ∨ e_max > 0.3`, 12.08 % of the
+     catalog): p99 = **1.99 mAU**, max = **15.2 mAU**, p99 \|Δt_min\|
+     = 12 h (capped by the ±12 h N-body window). 0 failed, 0
+     unconverged, max energy drift = 5.6 × 10⁻¹⁴.
+   - **25,283 pairs (0.035 % of the 72 M catalog) cross the 0.05 AU
+     threshold when refined to N-body — all in the same direction**
+     (Kepler reported `<0.05 AU`, N-body recomputes `≥0.05 AU`). 0 pairs
+     cross in the opposite direction. So the Kepler catalog has a small
+     systematic over-detection bias near the threshold, no false
+     negatives within the refined subset.
+
+   For users who need N-body-grade distances on this subset, use the
+   hybrid catalog (see next section) — it carries
+   `refinement_method ∈ {kepler, nbody}` per row.
 2. **Not complete.** The orbital prefilter (\|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30°)
    is a heuristic that can drop real high-eccentricity / high-inclination
    crossing orbits. Recall on the high-e/i tail has not been quantified.
@@ -60,6 +71,51 @@ needs separate validation work that is **not** in this freeze.
 | refine method | **Kepler 2-body** (forced by tiered mode) on Δt = 120 s window of ±2 h |
 | prefilter | enabled — \|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30° (heuristic; recall not quantified) |
 | pipeline code | `main` at commit `b1c4d9a` (audit rounds 1+2 merged) plus the `fine_time_step_seconds=120` setting backported to `config.yaml` so this catalog is reproducible from current main with the same config |
+
+## Hybrid Kepler/N-body catalog (Stage B successor)
+
+A derived catalog with full N-body refinement on the high-error subset
+identified in Stage A lives alongside the frozen Kepler catalog. For
+science that depends on sub-mAU geometry — high-`e` or NEA-crossing pairs
+specifically — cite this catalog instead.
+
+| field | value |
+|---|---|
+| catalog file | `data/output/encounters_catalog_hybrid_stageb.parquet` |
+| provenance sidecar | `data/output/encounters_catalog_hybrid_stageb_provenance.json` |
+| rows | **72,236,904** (same union as the Kepler catalog) |
+| rows refined to N-body | **8,728,509** (12.08 %) |
+| refinement criterion | `q_min < 1.8 AU ∨ e_max > 0.3` |
+| refinement method on subset | rebound IAS15, Sun + 8 planets + 4 major asteroids, ±12 h around the Kepler `t_min`, 60 s sampling |
+| schema additions vs Kepler catalog | `refinement_method`, `*_kepler`, `*_nbody`, `delta_dist_au`, `delta_t_min_hours`, `delta_rel_vel_au_day`, `nbody_converged`, `nbody_energy_drift`, `near_boundary`, `error_message` |
+| failed N-body integrations | 0 |
+| unconverged | 0 |
+| max energy drift | 5.6 × 10⁻¹⁴ |
+| near-boundary flag set | 305,931 (3.5 % of refined subset — true minimum may lie outside ±12 h) |
+| max `|Δdist|` Kepler vs N-body | 15.2 mAU |
+| p99 `|Δdist|` Kepler vs N-body | 1.99 mAU |
+
+For rows where `refinement_method = "kepler"`, the canonical `jd_tdb`,
+`dist_au`, and `rel_vel_au_day` columns carry the original Kepler values
+(audit columns `*_kepler` are populated, `*_nbody` and `delta_*` are
+null). For rows where `refinement_method = "nbody"`, the canonical
+columns carry the N-body values; `*_kepler` and `delta_*` carry the
+original Kepler value and the residual.
+
+Literature cross-checks against this hybrid catalog (Fienga 2003,
+J/A+A/411/L7):
+
+- 3 of 4 in-window expected events present (`(48, 300)`, `(65, 976)`,
+  `(1, 57)`); 1 expected event `(804, 733)` at 2015-02-01 is absent
+  entirely from both Kepler and hybrid catalogs (detection gap, not a
+  refinement issue).
+- For the 3 present hits, distance residuals vs Fienga: median
+  52 μAU, max 152 μAU. 2 of 3 within strict 1 × 10⁻⁴ AU tolerance.
+
+Goffin (2014) validation could not be run: the VizieR snapshot
+`J/A+A/565/A56` currently downloaded contains only the mass-determination
+tables (tables 5–6), not the pair-by-pair encounter table the validator
+expects. Independent of Stage B.
 
 ## What this run **is**
 

@@ -48,16 +48,16 @@ Ejemplo: `track1/stageA-kepler-vs-nbody-error`. **Nunca trabajar en `main`**.
 ## Estado global
 
 **Fecha de creación**: 2026-05-26
-**Última actualización**: 2026-05-26
-**Etapa activa**: Track 1 / Stage A (🟡 IN PROGRESS — A.1–A.4 listos, falta commit + PR)
-**Próxima etapa a arrancar**: revisar PR de Stage A → arrancar Stage B (refinamiento selectivo) con el criterio `q_min < 1.8 ∨ e_max > 0.3`
+**Última actualización**: 2026-05-28
+**Etapa activa**: Track 1 / Stage B cerrada (catálogo híbrido escrito + validado); listo para PR
+**Próxima etapa a arrancar**: PR Stage B → main; en paralelo arrancar branch Track 2 Stage 1 con la corrida real sobre 41 candidatos
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
-| 1     | A: caracterizar error Kepler vs N-body | 🟡 IN PROGRESS | `track1/stageA-kepler-vs-nbody-error` | #31 | 2026-05-26 | — | A.1–A.4 completos. p99 \|Δdist\| = 2.5 mAU sobre 964 pares; el error escala con e y 1/q. Falta merge. |
-| 1     | B: refinamiento N-body selectivo | ⚪ PENDING | — | — | — | — | Depende de A |
+| 1     | A: caracterizar error Kepler vs N-body | 🟢 DONE | `track1/stageA-kepler-vs-nbody-error` | #31 | 2026-05-26 | 2026-05-26 | Mergeado a `main` (`8623633`). p99 \|Δdist\| = 2.5 mAU sobre 964 pares; el error escala con e y 1/q. |
+| 1     | B: refinamiento N-body selectivo | 🟢 DONE (PR pendiente) | `track1/stageB-selective-nbody-refinement` | — | 2026-05-26 | 2026-05-28 | 8,728,509 / 8,728,509 pares refinados; failed=0, unconv=0; p99 \|Δdist\| = 1.99 mAU; 25,283 false positives detectados al refinar. Catálogo híbrido escrito + validado contra Fienga 2003 (3/4 hits, 2/3 within 1e-4 AU). |
 | 1     | C: refinamiento N-body universal | ⚪ PENDING | — | — | — | — | Probablemente no se hace; depende de B |
-| 2     | 1: joint fit órbita + masa | ⚪ PENDING | — | — | — | — | — |
+| 2     | 1: joint fit órbita + masa | 🟡 IN PROGRESS | — | — | 2026-05-26 | — | 1.1 audit redactado mientras corre Stage B; mover a branch propia `track2/stage1-joint-fit` antes de PR. |
 | 2     | 2: covarianza Gaia AL | ⚪ PENDING | — | — | — | — | Puede hacerse en paralelo con 2.1 |
 | 2     | 3: specificity test riguroso | ⚪ PENDING | — | — | — | — | Depende de 2.1 |
 | 2     | 4: validación contra masas conocidas | ⚪ PENDING | — | — | — | — | Gate antes de publicar |
@@ -87,9 +87,9 @@ o con perihelios bajos pueden discrepar de N-body en mAU.
 
 ### Stage A — Caracterizar el error Kepler vs N-body
 
-**Estado**: 🟡 IN PROGRESS (A.1–A.4 done, falta merge)
+**Estado**: 🟢 DONE (PR #31 mergeada)
 **Branch**: `track1/stageA-kepler-vs-nbody-error`
-**PR**: pendiente
+**PR**: #31 (mergeada)
 **Estimación original**: 1 semana — **real**: ~1 día (sample muy paralelizable)
 **Bloquea a**: Stage B, decisión de seguir con Track 1
 
@@ -239,9 +239,9 @@ Luego seguir el sub-paso A.X que esté incompleto.
 
 ### Stage B — Refinamiento N-body selectivo
 
-**Estado**: ⚪ PENDING (depende de Stage A)
-**Branch**: (no creada)
-**Estimación**: 2 semanas
+**Estado**: 🟢 DONE (PR pendiente)
+**Branch**: `track1/stageB-selective-nbody-refinement`
+**Estimación**: 2 semanas — **real**: ~2 días (~36 h cómputo)
 **Bloquea a**: nada estrictamente; mejora del catálogo
 
 #### Objetivo
@@ -251,15 +251,79 @@ Refinar con N-body **solo** el subset identificado en Stage A como
 Output: catálogo híbrido con columna `refinement_method ∈ {kepler, nbody}`
 y, donde corresponda, `dist_au_nbody`, `t_min_nbody_jd`, `rel_vel_nbody`.
 
-#### Plan técnico (preliminar — refinar al iniciar)
+#### Plan técnico
 
-- Reusar `refine_pair_nbody.py` de Stage A, optimizado para batch.
-- Pipeline: filtrar el catálogo por el criterio orbital de Stage A,
-  correr N-body en paralelo, joinear de vuelta al parquet principal.
-- Estimar volumen: si la cola peor es 1% del catálogo, son 720k pares.
-  A 0.5 s por par × 28 workers ≈ 3.6 h. Si es 10%, son 36 h.
-- Actualizar schema con las columnas nuevas, marcadas como opcionales.
+**B.0 — Medir volumen real del subset crítico** (done)
+
+- Criterio Stage A: `q_min < 1.8 ∨ e_max > 0.3`.
+- Join del catálogo congelado con MPCORB vía DuckDB + cache de elementos.
+- Resultado sobre `encounters_catalog_rebound_005au.parquet`:
+  - Total catálogo: 72,236,904 pares.
+  - Stage B: 8,728,509 pares (12.08%).
+  - `q_min < 1.8`: 8,097,198.
+  - `e_max > 0.3`: 2,080,491.
+  - Ambos: 1,449,180.
+
+**B.1 — Selector reproducible del subset** (done/smoke)
+
+- Script nuevo: `scripts/validate/select_stageb_nbody_subset.py`.
+- Escribe `data/cache/nbody_validation/stageb_selective_subset.parquet`
+  con columnas del catálogo + elementos orbitales de ambos cuerpos +
+  `e_max`, `i_max`, `q_min`, `stageb_reason`.
+- Importante: el cache MPCORB renombra físicamente `Omega_deg`/`omega_deg`
+  a `node_deg`/`argperi_deg` antes del join porque DuckDB trata nombres de
+  columnas case-insensitive.
+- Smoke verificado:
+  - `--summary-only`: reproduce 8,728,509 pares.
+  - `--limit 25`: escribe `stageb_subset_smoke.parquet`.
+  - Recalcular Kepler desde el subset reproduce `dist_au`.
+
+**B.2 — Runner N-body por shards/checkpoints** (done/smoke)
+
+- Script nuevo: `scripts/validate/refine_stageb_nbody.py`.
+- Lee el subset y procesa con `--shard-index/--shard-size` o `--limit`;
+  rehúsa correr todo accidentalmente salvo `--all`.
+- Escribe shards en `data/output/stageb_nbody_shards/` con:
+  `dist_au_kepler`, `dist_au_nbody`, `t_min_*`, `rel_vel_*`,
+  `delta_*`, `nbody_converged`, `nbody_energy_drift`,
+  `near_boundary`, `refinement_method="nbody"`, `error_message`.
+- Smoke verificado sobre 5 filas:
+  - failed = 0, unconverged = 0.
+  - max energy drift = 4.4e-14.
+  - max `|Δdist|` = 7.8e-5 AU.
+
+**B.3 — Corrida productiva por shards** (in progress)
+
+- Subset completo materializado:
+  `data/cache/nbody_validation/stageb_selective_subset.parquet`
+  con 8,728,509 pares.
+- Correr shards con `--shard-size 10000` y 24 workers.
+- Monitorear errores, unconverged y near-boundary.
+- Reintentar fallos en shards separados.
+- Shard productivo 0-10k verificado:
+  - 10,000 filas en 55.3 s (~182 pares/s wall).
+  - failed = 0, unconverged = 0.
+  - max energy drift = 5.6e-14.
+  - max `|Δdist|` = 0.0069 AU; near-boundary = 322.
+
+**B.4 — Ensamblar catálogo híbrido** (done/smoke; strict pendiente)
+
+- Joinear shards N-body al catálogo congelado por `(number_1, number_2, jd_tdb)`.
+- Para filas Stage B: poblar columnas N-body y `refinement_method = "nbody"`.
+- Para el resto: conservar Kepler y `refinement_method = "kepler"`.
+- Actualizar schema con columnas opcionales.
 - Update a `FROZEN_RUN.md`: nueva tabla TL;DR con el catálogo híbrido.
+- Script nuevo: `scripts/validate/assemble_stageb_hybrid_catalog.py`.
+- Modo estricto por defecto: falla si falta cualquier fila del subset Stage B,
+  si hay `error_message`, o si `nbody_converged = false`.
+- Deduplica shards solapados por `(number_1, number_2, t_min_kepler_jd)`,
+  prefiriendo resultados sin error y convergidos.
+- Smoke con shards solapados 1k + 10k:
+  `n_rows_raw=11000`, `n_rows=10000`, `n_duplicate_rows=1000`,
+  output híbrido smoke = 25 filas.
+- `validate_goffin_2014.py` y `validate_fienga_2003.py` aceptan
+  `--catalog`, para validar directamente el catálogo híbrido sin cambiar
+  `config.yaml`.
 
 #### Criterios de aceptación (preliminar)
 
@@ -272,12 +336,30 @@ y, donde corresponda, `dist_au_nbody`, `t_min_nbody_jd`, `rel_vel_nbody`.
 
 #### Cómo retomar
 
-(Se completa cuando Stage A termine y el plan se concrete con los
-parámetros reales del subset crítico.)
+```bash
+git checkout track1/stageB-selective-nbody-refinement
+
+# Confirmar volumen sin escribir subset completo
+docker compose run --rm pipeline python -m scripts.validate.select_stageb_nbody_subset --summary-only
+
+# Materializar subset completo
+docker compose run --rm pipeline python -m scripts.validate.select_stageb_nbody_subset
+
+# Correr un shard productivo
+docker compose run --rm pipeline python -m scripts.validate.refine_stageb_nbody \
+  --shard-index 0 --shard-size 10000 --workers 24
+```
 
 #### Progreso
 
-— No arrancada —
+| Sub-paso | Estado | Fecha | Comentario |
+|---|---|---|---|
+| B.0 volumen real | 🟢 done | 2026-05-26 | `q_min < 1.8 ∨ e_max > 0.3` selecciona 8,728,509 / 72,236,904 pares (12.08%). |
+| B.1 selector subset | 🟢 done | 2026-05-26 | `scripts/validate/select_stageb_nbody_subset.py`; summary y smoke `--limit 25` OK. |
+| B.2 runner shards | 🟢 done | 2026-05-26 | `scripts/validate/refine_stageb_nbody.py`; smoke 5 filas OK, max drift 4.4e-14. |
+| B.3 corrida productiva | 🟢 done | 2026-05-28 | 874 shards × 10k, 8,728,509 / 8,728,509 únicos (100% cobertura del subset). failed=0, unconv=0, max energy drift 5.6e-14. Cadencia ~528 K pares/h con 24 workers; wall ~36 h. |
+| B.4 catálogo híbrido | 🟢 done | 2026-05-28 | `data/output/encounters_catalog_hybrid_stageb.parquet` (72,236,904 filas; 8,728,509 con `refinement_method = "nbody"`); strict mode aceptó 100% cobertura sin failed/unconverged. Provenance sidecar escrito. |
+| B.5 validación literatura | 🟢 done | 2026-05-28 | Fienga 2003: 3/4 expected events presentes; 2/3 dentro de 1e-4 AU (Δdist máx 152 μAU). (804, 733) ausente del catálogo — detection gap independiente. Goffin 2014: blocker pre-existente — el snapshot VizieR `J/A+A/565/A56` descargado es la tabla de masas, no la de encuentros pair-by-pair. |
 
 ---
 
@@ -419,10 +501,10 @@ docker compose run --rm test pytest tests/test_forward_model_joint.py -v
 
 | Sub-paso | Estado | Fecha | Comentario |
 |---|---|---|---|
-| 1.1 audit | ⚪ | — | — |
-| 1.2 design | ⚪ | — | — |
-| 1.3 implementation | ⚪ | — | — |
-| 1.4 LOO wrapper | ⚪ | — | — |
+| 1.1 audit | 🟢 done | 2026-05-26 | `docs/mass_layer_audit.md`: inventario del flujo LOO actual, parametros, likelihood AL, debilidades y punto de insercion para `src/mass/forward_model_joint.py`. |
+| 1.2 design | 🟢 done | 2026-05-26 | `docs/mass_layer_design.md`: contrato de `src/mass/forward_model_joint.py`, parametrizacion 7D, priors/bounds, ventana de datos, diagnosticos y tests minimos. |
+| 1.3 implementation | 🟡 in progress | 2026-05-26 | `src/mass/forward_model_joint.py` + `tests/test_forward_model_joint.py`: residual conjunto 7D, priors/bounds, `fit_joint` minimo. Tests offline 28/28 con `tests/test_al_projection.py`. Falta wrapper batch/CLI y corrida sobre candidatos reales. |
+| 1.4 LOO wrapper | 🟡 in progress | 2026-05-26 | `scripts/mass/fit_mass_gaia_joint.py`: CLI por par que reutiliza la inicializacion LOO, ejecuta `fit_joint` y escribe JSON extendido con deltas, `chi2_red_joint`, bounds activos y condicion de `JᵀJ`. `scripts/mass/run_joint_batch.py` recorre candidatos de forma resumible; `scripts/mass/summarize_joint_fits.py` consolida `fit_*_joint.json` en `loo_batch_results_joint.csv`. Falta corrida real sobre 41 candidatos. |
 | 1.5 diagnostic | ⚪ | — | — |
 
 ---
@@ -609,3 +691,4 @@ Cross-track:
 |-------|--------|-------|
 | 2026-05-26 | Plan creado tras audit round 5. | DF |
 | 2026-05-26 | Stage A completa (A.1–A.4); PR #31. p99 \|Δdist\| = 2.5 mAU sobre 964 pares (estratificación simétrica); recomendación Stage B = subset (e_max>0.3 ∨ q_min<1.8). | DF |
+| 2026-05-28 | Stage B cerrada (B.3 productiva 8.73 M pares 100%, B.4 catálogo híbrido escrito, B.5 validación Fienga 2003). p99 \|Δdist\| = 1.99 mAU; 25,283 false positives detectados al refinar; failed=0, unconv=0. Catálogo híbrido `encounters_catalog_hybrid_stageb.parquet` con `refinement_method ∈ {kepler, nbody}` por fila. Goffin pendiente por data-format mismatch upstream. | DF |
