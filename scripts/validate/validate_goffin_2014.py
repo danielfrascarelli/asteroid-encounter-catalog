@@ -28,6 +28,8 @@ Usage
     docker compose run --rm pipeline python -m scripts.validate_goffin_2014
     docker compose run --rm pipeline python -m scripts.validate_goffin_2014 \\
         --dist-threshold-au 0.01 --tolerance-days 31
+    docker compose run --rm pipeline python -m scripts.validate_goffin_2014 \\
+        --catalog data/output/encounters_catalog_hybrid_stageb.parquet
 """
 
 from __future__ import annotations
@@ -169,9 +171,56 @@ def _find_match(
     )
 
 
+def _load_relevant_catalog(
+    catalog_path: Path,
+    expected: pl.DataFrame,
+    pert_col: str,
+    targ_col: str,
+    tolerance_days: float,
+) -> pl.DataFrame:
+    """Load only catalog rows that can match the expected Goffin events."""
+    schema = {
+        "number_1": pl.Int64,
+        "number_2": pl.Int64,
+        "jd_tdb": pl.Float64,
+        "dist_au": pl.Float64,
+    }
+    if len(expected) == 0:
+        return pl.DataFrame(schema=schema)
+
+    numbers: set[int] = set()
+    epoch_jds: list[float] = []
+    for row in expected.iter_rows(named=True):
+        numbers.add(int(row[pert_col]))
+        numbers.add(int(row[targ_col]))
+        epoch_jds.append(_date_to_jd_tdb(row["_epoch_date"].isoformat()))
+
+    min_jd = min(epoch_jds) - tolerance_days
+    max_jd = max(epoch_jds) + tolerance_days
+    number_list = sorted(numbers)
+    catalog = (
+        pl.scan_parquet(catalog_path)
+        .select(["number_1", "number_2", "jd_tdb", "dist_au"])
+        .filter(
+            (pl.col("number_1").is_in(number_list) | pl.col("number_2").is_in(number_list))
+            & (pl.col("jd_tdb") >= min_jd)
+            & (pl.col("jd_tdb") <= max_jd)
+        )
+        .collect()
+    )
+    logger.info("Relevant catalog slice: %d encounters from %s", len(catalog), catalog_path)
+    return catalog
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--config", default="config.yaml")
+    parser.add_argument(
+        "--catalog",
+        type=Path,
+        default=None,
+        help="Encounter catalog parquet to validate. Defaults to the catalog path in config.",
+    )
     parser.add_argument(
         "--dist-threshold-au",
         type=float,
@@ -185,6 +234,17 @@ def main() -> int:
         default=31.0,
         help="Date-match window around the Goffin predicted epoch (days). Default: 31.",
     )
+    parser.add_argument(
+        "--distance-tolerance-au",
+        type=float,
+        default=1e-4,
+        help="Tolerance used to report distance agreement against Goffin. Default: 1e-4 AU.",
+    )
+    parser.add_argument(
+        "--require-distance-tolerance",
+        action="store_true",
+        help="Return non-zero if any expected event is missing or outside --distance-tolerance-au.",
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -193,7 +253,11 @@ def main() -> int:
     )
 
     goffin_path = Path(cfg.paths.raw) / cfg.sources.goffin_2014.output_filename
-    catalog_path = Path(cfg.paths.output) / f"{cfg.output.filename}.{cfg.output.format}"
+    catalog_path = (
+        args.catalog
+        if args.catalog is not None
+        else Path(cfg.paths.output) / f"{cfg.output.filename}.{cfg.output.format}"
+    )
 
     if not goffin_path.exists():
         logger.error("Goffin catalog not found: %s — run download_goffin_2014.", goffin_path)
@@ -201,9 +265,6 @@ def main() -> int:
     if not catalog_path.exists():
         logger.error("Pipeline catalog not found: %s — run run_pipeline.", catalog_path)
         return 1
-
-    catalog = pl.read_parquet(catalog_path)
-    logger.info("Pipeline catalog: %d encounters", len(catalog))
 
     try:
         goffin, col_map = _load_goffin(
@@ -231,6 +292,9 @@ def main() -> int:
         dist_thresh,
         len(expected),
         len(wider),
+    )
+    catalog = _load_relevant_catalog(
+        catalog_path, expected, pert_col, targ_col, args.tolerance_days
     )
 
     matched: list[dict] = []
@@ -269,9 +333,12 @@ def main() -> int:
             best = hits.sort("dist_au").head(1).row(0, named=True)
             our_date = Time(best["jd_tdb"], format="jd", scale="tdb").utc.iso[:10]
             delta_days = best["jd_tdb"] - epoch_jd
+            delta_dist_au = float(best["dist_au"]) - goffin_dist
+            abs_delta_dist_au = abs(delta_dist_au)
+            within_distance_tolerance = abs_delta_dist_au <= args.distance_tolerance_au
             logger.info(
                 "  ✓ HIT   (%d, %d)  Goffin=%s  Ours=%s (Δ=%+.1fd)  "
-                "dist_G=%.5f AU  dist_ours=%.5f AU",
+                "dist_G=%.5f AU  dist_ours=%.5f AU  Δdist=%+.6f AU",
                 pert,
                 targ,
                 epoch_date,
@@ -279,6 +346,7 @@ def main() -> int:
                 delta_days,
                 goffin_dist,
                 best["dist_au"],
+                delta_dist_au,
             )
             matched.append(
                 {
@@ -289,6 +357,9 @@ def main() -> int:
                     "our_date": our_date,
                     "our_dist_au": best["dist_au"],
                     "delta_days": delta_days,
+                    "delta_dist_au": delta_dist_au,
+                    "abs_delta_dist_au": abs_delta_dist_au,
+                    "within_distance_tolerance": within_distance_tolerance,
                 }
             )
 
@@ -309,6 +380,25 @@ def main() -> int:
             sorted(offsets)[len(offsets) // 2],
             max(offsets),
         )
+        dist_offsets = sorted(abs(m["delta_dist_au"]) for m in matched)
+        n_within = sum(bool(m["within_distance_tolerance"]) for m in matched)
+        logger.info(
+            "Distance offset |Δdist|: median=%.6f AU, max=%.6f AU, within %.1e AU: %d/%d",
+            dist_offsets[len(dist_offsets) // 2],
+            max(dist_offsets),
+            args.distance_tolerance_au,
+            n_within,
+            len(matched),
+        )
+        distance_failures = [m for m in matched if not bool(m["within_distance_tolerance"])]
+        if distance_failures:
+            logger.warning(
+                "Distance tolerance failures (> %.1e AU): %d",
+                args.distance_tolerance_au,
+                len(distance_failures),
+            )
+    else:
+        distance_failures = []
 
     report_dir = Path(cfg.paths.output)
     if matched:
@@ -316,6 +406,9 @@ def main() -> int:
     if missed:
         pl.DataFrame(missed).write_csv(report_dir / "goffin_2014_misses.csv")
     logger.info("Match/miss CSVs written to %s/", report_dir)
+
+    if args.require_distance_tolerance and (missed or distance_failures):
+        return 1
 
     return 0
 
