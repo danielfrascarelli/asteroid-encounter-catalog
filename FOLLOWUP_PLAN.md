@@ -58,15 +58,16 @@ Ejemplo: `trackA/stage1-tighten-priors`. **Nunca trabajar en `main`**.
 
 **Fecha de creación**: 2026-05-29
 **Última actualización**: 2026-05-29
-**Etapa activa**: Track A Stage 1 (tighten priors) — implementación completa, pendiente de merge.
-**Próxima etapa a arrancar**: Track A Stage 2 (multi-target joint fit).
+**Etapa activa**: Track A Stage 2 (multi-target joint fit) — arrancada.
+**Próxima etapa a arrancar**: Track A Stage 3 (OU drift) sólo si A2 falla el gate.
 A1 falló el gate (0/4 calibradores con |z|<3, masas matched cambian <0.05%),
-confirmando que el bias es estructural, no de overfitting de deltas.
+confirmando que el bias es estructural, no de overfitting de deltas. Track A2
+ataca la degeneración M↔deltas compartiendo M entre N targets del mismo perturber.
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
-| A | 1: tighten priors | 🟡 IN PROGRESS (gate FAIL, listo para PR) | trackA/stage1-tighten-priors | — | 2026-05-29 | 2026-05-29 | Veredicto: bias estructural; pasar a A2 |
-| A | 2: multi-target joint fit | ⚪ PENDING (next) | — | — | — | — | Activar tras merge de A1 |
+| A | 1: tighten priors | 🟢 DONE | trackA/stage1-tighten-priors | #41 | 2026-05-29 | 2026-05-29 | Veredicto: bias estructural; pasar a A2 |
+| A | 2: multi-target joint fit | 🟡 IN PROGRESS | trackA/stage2-multitarget-joint | — | 2026-05-29 | — | Arranca por forward model + tests sintéticos |
 | A | 3: OU forward model para drift | ⚪ PENDING | — | — | — | — | Solo si A2 todavía deja bias |
 | B | 1: investigar outliers Stage 2 (Alkeste/57942, Eros/176865) | ⚪ PENDING | — | — | — | — | Independiente; científico |
 | B | 2: specificity sobre 22/27 restantes | ⚪ PENDING | — | — | — | — | Completar Stage 3 |
@@ -203,10 +204,10 @@ Si no hay archivos: arrancar por el sub-paso 1 (medir σ MPCORB).
 
 ### Stage 2 — Multi-target joint fit
 
-**Estado**: ⚪ PENDING (sólo si Stage 1 falla el gate)
+**Estado**: 🟡 IN PROGRESS (pausada 2026-05-29 con sub-pasos 1-3 listos)
 **Estimación**: ~1 semana
-**Branch propuesta**: `trackA/stage2-multitarget-joint`
-**Depende de**: Stage 1 con veredicto negativo o intermedio.
+**Branch**: `trackA/stage2-multitarget-joint` (creada 2026-05-29)
+**Depende de**: Stage 1 (FAIL del gate, ver más arriba).
 
 #### Objetivo
 
@@ -260,9 +261,39 @@ ls src/mass/forward_model_joint_multitarget.py
 docker compose run --rm test pytest tests/test_forward_model_joint_multitarget.py -v
 ```
 
+Próximo sub-paso al retomar: **lanzar el fit calibrador**, p. ej. Pallas
+(7 targets, perturber=2 en `data/output/stage4_validation_summary.csv`):
+
+```bash
+docker compose run --rm pipeline python -m scripts.mass.fit_mass_gaia_multitarget \
+  --perturber 2 \
+  --targets-csv data/output/stage4_validation_summary.csv \
+  --likelihood mahalanobis2d --priors default \
+  --output data/output/multitarget/fit_000002_pallas.json
+```
+
 #### Progreso
 
-— No arrancada —
+- **2026-05-29**: sub-pasos 1-3 listos. Pausa con WIP en la branch.
+  - **Forward model**: `src/mass/forward_model_joint_multitarget.py` con
+    `TargetBundle`, `residuals_joint_multitarget`, `fit_joint_multitarget`,
+    `make_bounds`, `prior_residuals_multitarget`. Vector de parámetros
+    `(1 + 6N)` (M compartida + 6 deltas por target). Likelihoods AL y
+    Mahalanobis 2D heredados del joint single-target.
+  - **Tests sintéticos**: `tests/test_forward_model_joint_multitarget.py`,
+    6/6 pass. El test clave (`test_fit_joint_multitarget_recovers_mass_with_per_target_da`)
+    verifica recuperación de M compartida + da_rel per-target usando
+    una señal de masa time-varying (Heaviside en el encuentro) y un
+    offset orbital constante por-target.
+  - **CLI**: `scripts/mass/fit_mass_gaia_multitarget.py` lee
+    `--targets-csv` (con columnas `perturber,target,encounter_date`)
+    o `--targets-json`, hace LOO orbit fit por target, arma bundles
+    y corre el joint multitarget. Output JSON con
+    `mass_kg / mass_sigma_kg / per_target_deltas / chi2_red_joint`.
+  - **Lint**: ruff limpio sobre los 3 archivos nuevos.
+  - **Pendiente al retomar**: lanzar el fit sobre Pallas (7 targets) +
+    Hygiea (8 targets), comparar contra literatura (|z| < 3 sobre ≥ 2/3)
+    y, si pasa, escribir `docs/mass_layer_stage_a2_multitarget.md`.
 
 ---
 
