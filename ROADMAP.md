@@ -4,7 +4,7 @@
 
 ---
 
-## Estado actual (2026-05-18)
+## Estado actual (2026-05-29)
 
 **Fases 1–7 originales completas.** Pipeline end-to-end operativo: ingesta MPCORB + Gaia DR3 → propagación → detección KD-tree → caracterización → catálogo Parquet → dashboard Streamlit. Última corrida sobre **98.775 asteroides numerados (a∈[1.5, 4.0] AU)** en la ventana Gaia DR3 (2014-07-25 → 2017-05-28) a umbral **0.05 AU** produce **4.036.495 encuentros** en ~23 min (Kepler, 28 workers).
 
@@ -17,13 +17,17 @@
   - [scripts/validate_jpl_horizons.py](scripts/validate_jpl_horizons.py) — Cross-check 3-way (nuestro vs literatura vs JPL Horizons). MAE(ours−JPL)=0.0002 AU, MAE(lit−JPL)=0.00004 AU.
 - **Propagación N-body** ([src/propagate/nbody.py](src/propagate/nbody.py)): REBOUND con WHFast, Sol+Júpiter+Saturno como cuerpos masivos, asteroides como test particles. Opcional: Ceres/Vesta/Pallas/Hygiea como perturbadores (`config.propagation.rebound.include_major_asteroids`). Integra 100k asteroides × 25k pasos en ~9 min.
 - **Cache de trayectorias** ([src/propagate/cache.py](src/propagate/cache.py)): persiste `(T, N, 3)` float32 en `np.memmap` (29.5 GB para 100k×25k), cache hit en <1 s. La integración streamea directo al disco para evitar OOM.
+- **Refinamiento N-body selectivo del catálogo (Track 1 Stage A/B, PRs #31/#32, mayo 2026)**: caracterización del error Kepler-vs-N-body sobre 964 pares estratificados (p99 \|Δdist\| = 2.5 mAU; el error escala con `e_max` y `1/q_min`) seguida de re-refinamiento N-body sobre el subset crítico `q_min < 1.8 ∨ e_max > 0.3` (8.728.509 / 72.236.904 pares; 12.08 %). Catálogo híbrido `data/output/encounters_catalog_hybrid_stageb.parquet` con `refinement_method ∈ {kepler, nbody}` por fila; 25.283 falsos positivos identificados al refinar, todos en la misma dirección (sesgo sistemático Kepler cerca del threshold). Refinamiento universal del catálogo entero (Stage C) descartado por costo (~400 días-CPU). Detalle en [docs/kepler_refine_error_report.md](docs/kepler_refine_error_report.md) y [FROZEN_RUN.md](FROZEN_RUN.md).
 
 **Bugs / limitaciones conocidos en `main`** (no son "bugs de código" todos — varios son limitaciones científicas explícitas; ver [FROZEN_RUN.md](FROZEN_RUN.md) para el alcance defensible del catálogo congelado):
 
-- **Refinamiento final es Kepler 2-cuerpos, no N-body.** En modo tiered el KD-tree usa rebound, pero el sub-grid fino que produce la distancia mínima reportada corre `kepler_to_cartesian` ([src/detect/pipeline.py](src/detect/pipeline.py)). Las distancias finales del catálogo congelado son geométricas bajo Kepler.
+- **Refinamiento final del catálogo Kepler congelado es 2-cuerpos.** En modo tiered el KD-tree usa rebound, pero el sub-grid fino que produce la distancia mínima reportada en `encounters_catalog_rebound_005au.parquet` corre `kepler_to_cartesian` ([src/detect/pipeline.py](src/detect/pipeline.py)). Para sub-mAU sobre pares de alta `e` / bajo `q`, usar `encounters_catalog_hybrid_stageb.parquet` (refinamiento N-body sobre el 12 % crítico).
 - **Completitud no cuantificada.** El prefiltro orbital (\|Δa\|≤0.5 AU, \|Δi\|≤30°) es heurístico — su recall en la cola de alta e/i no está medido (audit blocker #2).
 - **Validación de precisión limitada por cadencia.** Los cross-checks contra JPL Horizons toman `argmin` a 30 min – 1 h. El claim de "0 μAU MAE" es a esa cadencia sobre ~8 pares, no una prueba global.
-- **Capa de masas exploratoria, no publicable.** `scripts/mass/fit_mass_gaia_loo.py` da χ²_red mediano ≈ 425, masas 100–10⁴× sobreestimadas, y specificity 0/41. El forward model absorbe drift orbital, no aísla la perturbación gravitacional.
+- **Capa de masas: NO publicable** (Track 2 cerrado mayo 2026, PRs #34/#36/#37/#38). El joint fit 7-param (1 masa + 6 deltas orbitales) con Mahalanobis 2D obtiene χ²_red mediano = 0.59 sobre 27/41 candidatos (Stage 1+2 en [docs/mass_layer_joint_diagnostic.md](docs/mass_layer_joint_diagnostic.md) y [docs/mass_layer_stage2_diagnostic.md](docs/mass_layer_stage2_diagnostic.md)), pero:
+  - **Specificity falla** ([docs/mass_layer_stage3_diagnostic.md](docs/mass_layer_stage3_diagnostic.md)): sobre 5 candidatos × 50 null perturbers, 0/5 pasan `p_mass ≤ 0.05` y sólo 2/5 pasan `p_χ² ≤ 0.05` ((19) Fortuna/13346 y (49) Pales/94474). (111) Ate, (206) Hersilia, (124) Alkeste/3294 son **indistinguibles** de un perturber aleatorio del mismo tamaño y banda orbital.
+  - **Validación contra masas conocidas falla el gate** ([docs/mass_layer_validation.md](docs/mass_layer_validation.md)): 0/11 fits sobre Ceres / Pallas / Hygiea dentro de `|z| < 3` del valor literatura. Bias sistemático: ratios fit/lit = 0.77 (Ceres), 0.57 (Pallas), 0.24 (Hygiea). El bias escala con `1/M_real` porque los 6 deltas orbitales absorben parte de la deflección, con efecto creciente al disminuir M_real.
+  - **Implicación**: las masas previamente reportadas para (111) Ate (5.43×10¹⁷ kg) y otros candidatos LOO **no son defendibles** para publicación. Direcciones posibles para destrabar (apretar priors orbitales, multi-target joint fit, esperar DR4) documentadas en `docs/mass_layer_validation.md` § "¿Se puede arreglar?".
 
 *Resueltos en PR #23 (2026-05-18)*:
 - `src/detect/parallel.py`: (a) pairs del prefilter grandes → volcado a tempfile + memmap en workers en lugar de pickle; (b) `positions=memmap` con N=100k+ → compartido vía filename+shape, sin serializar el array de 30 GB.

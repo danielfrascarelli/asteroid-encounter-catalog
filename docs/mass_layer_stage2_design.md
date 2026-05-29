@@ -182,7 +182,7 @@ reproducibilidad. Tests Stage 1 deben seguir verdes.
 | 2.5 Re-correr 3 outliers Stage 1 con Mahalanobis 2D | tabla comparativa | 30 min cómputo |
 | 2.6 Re-correr batch 41 candidatos completo | `loo_batch_results_joint_mahal.csv` | ~5 min cómputo |
 | 2.7 Diagnóstico `docs/mass_layer_stage2_diagnostic.md` | reporte χ²_red, Δmasas, conclusión | 2 h |
-| 2.8 Update DEEPWORK_PLAN.md → DONE + PR | merge | 30 min |
+| 2.8 PR + merge | merge | 30 min |
 
 **Criterios de aceptación finales**:
 
