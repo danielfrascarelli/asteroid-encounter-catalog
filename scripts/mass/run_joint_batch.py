@@ -19,6 +19,8 @@ from pathlib import Path
 
 import polars as pl
 
+from src.mass.forward_model_joint import PRIOR_PRESETS
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,10 @@ _DEFAULT_CANDIDATES = Path("data/output/mass_followup_candidates.csv")
 _DEFAULT_OUTPUT_DIR = Path("data/output")
 
 
-def _fit_path(output_dir: Path, perturber: int, target: int, likelihood: str) -> Path:
+def _fit_path(output_dir: Path, perturber: int, target: int, likelihood: str, priors: str) -> Path:
     suffix = "joint" if likelihood == "al" else "joint_mahal"
+    if priors != "default":
+        suffix = f"{suffix}_{priors}"
     return output_dir / f"fit_{perturber:06d}_{target:06d}_{suffix}.json"
 
 
@@ -60,6 +64,8 @@ def _command(args: argparse.Namespace, row: dict, out_path: Path) -> list[str]:
         str(args.max_nfev),
         "--likelihood",
         args.likelihood,
+        "--priors",
+        args.priors,
         "--output",
         str(out_path),
     ]
@@ -90,6 +96,12 @@ def main() -> int:
         default="al",
         help="Astrometric likelihood used by every fit in the batch.",
     )
+    parser.add_argument(
+        "--priors",
+        choices=sorted(PRIOR_PRESETS),
+        default="default",
+        help="Joint-fit prior preset shared by every fit in the batch.",
+    )
     parser.add_argument("--sleep-seconds", type=float, default=0.0)
     parser.add_argument(
         "--report",
@@ -99,12 +111,13 @@ def main() -> int:
     )
     args = parser.parse_args()
     if args.report is None:
-        report_name = (
-            "joint_batch_run_report.csv"
-            if args.likelihood == "al"
-            else "joint_batch_run_report_mahal.csv"
-        )
-        args.report = Path("data/output") / report_name
+        if args.likelihood == "al":
+            stem = "joint_batch_run_report"
+        else:
+            stem = "joint_batch_run_report_mahal"
+        if args.priors != "default":
+            stem = f"{stem}_{args.priors}"
+        args.report = Path("data/output") / f"{stem}.csv"
 
     candidates = pl.read_csv(args.candidates)
     if not args.include_nonviable and "viable_obs" in candidates.columns:
@@ -118,7 +131,7 @@ def main() -> int:
     for i, row in enumerate(candidates.iter_rows(named=True), start=1):
         perturber = int(row["perturber_number"])
         target = int(row["target_number"])
-        out_path = _fit_path(args.output_dir, perturber, target, args.likelihood)
+        out_path = _fit_path(args.output_dir, perturber, target, args.likelihood, args.priors)
         if out_path.exists() and not args.force:
             logger.info("[%d/%d] Skipping existing %s", i, candidates.height, out_path.name)
             rows.append(

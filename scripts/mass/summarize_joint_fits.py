@@ -14,6 +14,8 @@ from pathlib import Path
 
 import polars as pl
 
+from src.mass.forward_model_joint import PRIOR_PRESETS
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -27,16 +29,20 @@ def main() -> int:
         choices=["al", "mahalanobis2d"],
         default="al",
     )
+    parser.add_argument(
+        "--priors",
+        choices=sorted(PRIOR_PRESETS),
+        default="default",
+        help="Which prior preset's fits to summarize (matches filename suffix).",
+    )
     parser.add_argument("--output-dir", type=Path, default=_OUTPUT_DIR)
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 
-    if args.likelihood == "al":
-        glob = "fit_*_joint.json"
-        default_out = args.output_dir / "loo_batch_results_joint.csv"
-    else:
-        glob = "fit_*_joint_mahal.json"
-        default_out = args.output_dir / "loo_batch_results_joint_mahal.csv"
+    likelihood_tag = "joint" if args.likelihood == "al" else "joint_mahal"
+    full_tag = likelihood_tag if args.priors == "default" else f"{likelihood_tag}_{args.priors}"
+    glob = f"fit_*_{full_tag}.json"
+    default_out = args.output_dir / f"loo_batch_results_{full_tag}.csv"
 
     fit_files = sorted(args.output_dir.glob(glob))
     logger.info("Found %d joint fit JSON files matching %s", len(fit_files), glob)

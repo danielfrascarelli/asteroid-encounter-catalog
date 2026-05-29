@@ -28,6 +28,7 @@ import polars as pl
 from astropy.time import Time
 
 from scripts.mass.fit_mass_gaia_loo import _MPCORB_ARCHIVE_DIR, _best_mpcorb_snapshot
+from src.mass.forward_model_joint import PRIOR_PRESETS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -84,6 +85,7 @@ def _run_one_fit(
     date_utc: str,
     output: Path,
     mpcorb: Path,
+    priors: str,
 ) -> dict:
     cmd = [
         sys.executable,
@@ -99,6 +101,8 @@ def _run_one_fit(
         date_utc,
         "--likelihood",
         "mahalanobis2d",
+        "--priors",
+        priors,
         "--mpcorb",
         str(mpcorb),
         "--output",
@@ -148,10 +152,23 @@ def main() -> int:
     parser.add_argument(
         "--summary",
         type=Path,
-        default=Path("data/output/stage4_validation_summary.csv"),
+        default=None,
+        help="Defaults to data/output/stage4_validation_summary[_<priors>].csv.",
+    )
+    parser.add_argument(
+        "--priors",
+        choices=sorted(PRIOR_PRESETS),
+        default="default",
+        help="Joint-fit prior preset shared by every Stage 4 fit.",
     )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
+
+    if args.summary is None:
+        stem = "stage4_validation_summary"
+        if args.priors != "default":
+            stem = f"{stem}_{args.priors}"
+        args.summary = Path("data/output") / f"{stem}.csv"
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -168,7 +185,8 @@ def main() -> int:
         for row in top.iter_rows(named=True):
             target = int(row["target"])
             date_utc = Time(float(row["jd_tdb"]), format="jd", scale="tdb").utc.iso[:10]
-            out_path = args.output_dir / f"fit_{cal.number:06d}_{target:06d}_stage4.json"
+            suffix = "stage4" if args.priors == "default" else f"stage4_{args.priors}"
+            out_path = args.output_dir / f"fit_{cal.number:06d}_{target:06d}_{suffix}.json"
             mpcorb = _best_mpcorb_snapshot(_MPCORB_ARCHIVE_DIR, float(row["jd_tdb"]))
             tasks.append((cal, target, date_utc, out_path, mpcorb))
 
@@ -179,7 +197,9 @@ def main() -> int:
             if out_path.exists() and not args.force:
                 logger.info("  skip existing %s", out_path.name)
                 continue
-            fut = pool.submit(_run_one_fit, cal.number, target, date_utc, out_path, mpcorb)
+            fut = pool.submit(
+                _run_one_fit, cal.number, target, date_utc, out_path, mpcorb, args.priors
+            )
             futures[fut] = (cal, target, date_utc, out_path)
         for fut in as_completed(futures):
             res = fut.result()

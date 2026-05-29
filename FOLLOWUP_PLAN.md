@@ -58,14 +58,15 @@ Ejemplo: `trackA/stage1-tighten-priors`. **Nunca trabajar en `main`**.
 
 **Fecha de creación**: 2026-05-29
 **Última actualización**: 2026-05-29
-**Etapa activa**: ninguna — plan recién creado.
-**Próxima etapa a arrancar**: Track A Stage 1 (tighten priors) por ser el
-experimento más barato y el que decide si Track 2 tiene futuro estructural.
+**Etapa activa**: Track A Stage 1 (tighten priors) — implementación completa, pendiente de merge.
+**Próxima etapa a arrancar**: Track A Stage 2 (multi-target joint fit).
+A1 falló el gate (0/4 calibradores con |z|<3, masas matched cambian <0.05%),
+confirmando que el bias es estructural, no de overfitting de deltas.
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
-| A | 1: tighten priors | ⚪ PENDING | — | — | — | — | Gate decisión Track A |
-| A | 2: multi-target joint fit | ⚪ PENDING | — | — | — | — | Solo si A1 no resuelve |
+| A | 1: tighten priors | 🟡 IN PROGRESS (gate FAIL, listo para PR) | trackA/stage1-tighten-priors | — | 2026-05-29 | 2026-05-29 | Veredicto: bias estructural; pasar a A2 |
+| A | 2: multi-target joint fit | ⚪ PENDING (next) | — | — | — | — | Activar tras merge de A1 |
 | A | 3: OU forward model para drift | ⚪ PENDING | — | — | — | — | Solo si A2 todavía deja bias |
 | B | 1: investigar outliers Stage 2 (Alkeste/57942, Eros/176865) | ⚪ PENDING | — | — | — | — | Independiente; científico |
 | B | 2: specificity sobre 22/27 restantes | ⚪ PENDING | — | — | — | — | Completar Stage 3 |
@@ -98,9 +99,9 @@ de complejidad.
 
 ### Stage 1 — Tighten priors orbitales
 
-**Estado**: ⚪ PENDING
+**Estado**: 🟡 IN PROGRESS
 **Estimación**: ~1 día
-**Branch propuesta**: `trackA/stage1-tighten-priors`
+**Branch**: `trackA/stage1-tighten-priors` (creada 2026-05-29)
 **Depende de**: nada — arrancar cuando se reactive el track.
 
 #### Objetivo
@@ -180,7 +181,23 @@ Si no hay archivos: arrancar por el sub-paso 1 (medir σ MPCORB).
 
 #### Progreso
 
-— No arrancada —
+- **2026-05-29**: Stage 1 completo. Veredicto **FAIL del gate**:
+  - σ MPCORB medidos vía JPL SBDB (11 targets + 4 perturbers numbered):
+    los priors `default` están 10^5–10^6× más sueltos que la
+    incertidumbre formal — ratificó que apretar tiene sentido.
+  - `TIGHT_PRIORS` definidos a ~10× σ p90 (2000–20000× más estrechos
+    que default). Flag `--priors` agregado a los 4 scripts del pipeline.
+  - Stage 4 re-corrido con tight priors (20 candidatos, 12 OK):
+    todos los fits OK tienen |z| > 15. 0/4 calibradores pasan |z|<3.
+  - En los 4 pares (perturber, target) matched contra el default
+    (Pallas/28036/47563/73243, Hygiea/16772) las masas fit cambian
+    < 0.05 %. Bias es estructural, no por overfitting de deltas.
+  - Batch 27 (LOO Mahalanobis) re-corrido con tight: median
+    mass_tight/mass_default = 0.93, pero 20/27 con |cambio|>5 %.
+    Lectura: los Δ-elementos default absorbían ruido en candidatos
+    de señal débil — coherente con specificity Stage 3.
+  - Diagnóstico: [docs/mass_layer_stage_a1_tight_priors.md](docs/mass_layer_stage_a1_tight_priors.md).
+  - Pendiente: PR a `main` con la branch `trackA/stage1-tighten-priors`.
 
 ---
 
