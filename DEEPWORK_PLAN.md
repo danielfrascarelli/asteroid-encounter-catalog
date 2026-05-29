@@ -49,8 +49,8 @@ Ejemplo: `track1/stageA-kepler-vs-nbody-error`. **Nunca trabajar en `main`**.
 
 **Fecha de creación**: 2026-05-26
 **Última actualización**: 2026-05-29
-**Etapa activa**: Track 2 Stage 3 — Specificity test (🟢 DONE, branch `track2/stage3-specificity` con PR pendiente).
-**Próxima etapa a arrancar**: Stage 4 (validación contra masas conocidas) — **gate** antes de publicar. Stage 3 reveló que 3/5 candidatos top fallan specificity (Ate, Hersilia, Alkeste/3294 indistinguibles de nulls); sólo Fortuna y Pales muestran señal real en χ². Stage 4 decide si seguir.
+**Etapa activa**: Track 2 Stage 4 — Validación literatura (🟢 DONE — gate **FAIL**, branch `track2/stage4-literature-validation` con PR pendiente).
+**Próxima etapa a arrancar**: ninguna — **Track 2 PAUSADO**. La capa de masas no recupera Ceres/Pallas/Hygiea dentro de 3σ (|z| > 6 en todos los fits; subestimación sistemática 1.3× a 4×). Las masas previamente reportadas (Ate, Hersilia, Alkeste/3294) **no son defendibles** para publicación. Posibles direcciones futuras documentadas en `docs/mass_layer_validation.md` § "¿Se puede arreglar?".
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
@@ -60,7 +60,7 @@ Ejemplo: `track1/stageA-kepler-vs-nbody-error`. **Nunca trabajar en `main`**.
 | 2     | 1: joint fit órbita + masa | 🟢 DONE | (eliminada) | #34 | 2026-05-26 | 2026-05-29 | Mergeado a `main` (`971095c`). 27/41 candidatos fitteados; **χ²_red mediano joint = 1.52** vs simple = 511 (mejora 335×). 14 fallos por `n_loo<8` (cobertura temporal Gaia, no del modelo). Diagnóstico en `docs/mass_layer_joint_diagnostic.md`. |
 | 2     | 2: covarianza Gaia AL | 🟢 DONE | `track2/stage2-gaia-covariance` | — | 2026-05-29 | 2026-05-29 | Mahalanobis 2D AL+AC implementado. χ²_red mediano 1.52 → **0.59** (2.6× mejora); 25/27 fits con χ²_red < 5; 2 outliers residuales (Alkeste/57942 y Eros/176865). Tests sintéticos 7/7 verdes. Ver `docs/mass_layer_stage2_diagnostic.md`. |
 | 2     | 3: specificity test riguroso | 🟢 DONE | `track2/stage3-specificity` | — | 2026-05-29 | 2026-05-29 | 5 candidatos × 50 nulls. **2/5 pasan p_χ² ≤ 0.05** (Fortuna/13346 p=0.04; Pales/94474 p=0.02). **0/5 pasan p_mass ≤ 0.05**. Ate, Hersilia, Alkeste/3294 fallan specificity. Ver `docs/mass_layer_stage3_diagnostic.md`. |
-| 2     | 4: validación contra masas conocidas | ⚪ PENDING | — | — | — | — | Gate **obligatorio** antes de publicar — Stage 3 mostró que 3/5 fits fallan specificity |
+| 2     | 4: validación contra masas conocidas | 🟢 DONE (gate **FAIL**) | `track2/stage4-literature-validation` | — | 2026-05-29 | 2026-05-29 | 0/11 fits exitosos dentro de \|z\| < 3 vs literatura. Bias sistemático: Ceres 0.77×, Pallas 0.57×, Hygiea 0.24×. Capa de masas **NO publicable**. Ver `docs/mass_layer_validation.md`. |
 
 **Recomendación de orden**: Track 1 Stage A primero (es la más barata y decide
 si vale la pena seguir con Track 1). Después Track 2 en paralelo si A muestra
@@ -627,7 +627,12 @@ citar masas nuevas.
 
 #### Cómo retomar / Progreso
 
-— No arrancada —
+| Sub-paso | Estado | Fecha | Comentario |
+|---|---|---|---|
+| 4.1 runner | 🟢 done | 2026-05-29 | `scripts/mass/run_stage4_validation.py`: 4 calibradores hard-coded (Ceres / Vesta / Pallas / Hygiea), selecciona top-N targets <100k cerca del calibrator vía catálogo híbrido. |
+| 4.2 corrida | 🟢 done | 2026-05-29 | 31 pares dispatched, **11 exitosos** (Ceres 1, Pallas 5, Hygiea 5; Vesta 0 — todos los targets seleccionados no tienen baseline LOO suficiente o cero obs Gaia). |
+| 4.3 análisis | 🟢 done | 2026-05-29 | Bias sistemático: ratio fit/lit = 0.77 Ceres, 0.57 Pallas, 0.24 Hygiea. \|z\|-scores 6 – 26. Mecanismo: los 6 deltas absorben parcialmente la señal de masa. |
+| 4.4 diagnóstico | 🟢 done | 2026-05-29 | `docs/mass_layer_validation.md`. Conclusión: capa de masas no publicable; pausar Track 2 hasta priors más estrictos o DR4. |
 
 ---
 
@@ -710,4 +715,5 @@ Cross-track:
 | 2026-05-29 | Plan **reanudado**. Stage 1.4 + 1.5 ejecutadas. Corrida del joint fit 27/41 candidatos (14 descartados por baseline LOO insuficiente). **χ²_red mediano joint = 1.52 vs simple = 511 (mejora 335×)**; criterio de aceptación Stage 1.5 (mediano <10) cumplido. Diagnóstico en `docs/mass_layer_joint_diagnostic.md`. Stage 2 (covarianza AL/AC) justificada por 3 outliers χ²_red ≥ 10. | DF |
 | 2026-05-29 | PR #34 Track 2 Stage 1 mergeada (`971095c`). Branch `track2/stage1-joint-fit` eliminada (local + remote). Plan **PAUSADO**. Resumir desde Track 2 Stage 2 — covarianza Gaia AL/AC. | DF |
 | 2026-05-29 | Plan **reanudado autónomamente**. Stage 2 (covarianza Gaia AL/AC) cerrada end-to-end: `src/mass/likelihood_al.py`, 7 tests sintéticos, wiring en `forward_model_joint.py` + scripts con flag `--likelihood mahalanobis2d`. Batch 41 candidatos re-corrido. **χ²_red mediano 1.52 → 0.59** (mejora ~2.6×), 20/27 fits < 1, 2 outliers residuales (Alkeste, Eros). Diagnóstico en `docs/mass_layer_stage2_diagnostic.md`. PR #36 mergeada (`715d790`). | DF |
-| 2026-05-29 | Stage 3 (specificity test) cerrada. `src/mass/null_perturbers.py` + 7 tests; `scripts/mass/run_specificity_test.py`. Corrida sobre 5 candidatos × 50 nulls. **Hallazgo crítico**: 0/5 pasan p_mass ≤ 0.05; sólo 2/5 pasan p_χ² ≤ 0.05 (Fortuna/13346, Pales/94474). (111) Ate, (206) Hersilia, (124)/3294 indistinguibles de nulls — masas previamente registradas **no defendibles** sin Stage 4. Diagnóstico en `docs/mass_layer_stage3_diagnostic.md`. | DF |
+| 2026-05-29 | Stage 3 (specificity test) cerrada. `src/mass/null_perturbers.py` + 7 tests; `scripts/mass/run_specificity_test.py`. Corrida sobre 5 candidatos × 50 nulls. **Hallazgo crítico**: 0/5 pasan p_mass ≤ 0.05; sólo 2/5 pasan p_χ² ≤ 0.05 (Fortuna/13346, Pales/94474). (111) Ate, (206) Hersilia, (124)/3294 indistinguibles de nulls — masas previamente registradas **no defendibles** sin Stage 4. PR #37 mergeada (`83682fb`). Diagnóstico en `docs/mass_layer_stage3_diagnostic.md`. | DF |
+| 2026-05-29 | Stage 4 (validación literatura) cerrada — **gate FAIL**. 11/31 fits exitosos (Ceres ×1, Pallas ×5, Hygiea ×5); 0 dentro de \|z\| < 3. Bias sistemático: ratios 0.77 (Ceres), 0.57 (Pallas), 0.24 (Hygiea). Los 6 deltas orbitales absorben parte de la señal de masa, con efecto creciente al disminuir M_real. Capa de masas **no publicable**. Track 2 termina aquí. Diagnóstico en `docs/mass_layer_validation.md`. | DF |
