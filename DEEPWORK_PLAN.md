@@ -49,15 +49,15 @@ Ejemplo: `track1/stageA-kepler-vs-nbody-error`. **Nunca trabajar en `main`**.
 
 **Fecha de creación**: 2026-05-26
 **Última actualización**: 2026-05-29
-**Etapa activa**: Track 2 Stage 1 — 🟡 IN PROGRESS. Stage 1.4 (corrida real 27/41 candidatos) y 1.5 (diagnóstico) ejecutadas en `track2/stage1-joint-fit`. Pendiente: PR a `main`.
-**Próxima etapa a arrancar**: Track 2 Stage 2 — Covarianza Gaia AL/AC.
+**Etapa activa**: ninguna — plan **PAUSADO** tras cerrar Track 2 Stage 1 (PR #34 mergeada a main `971095c`).
+**Próxima etapa a arrancar**: Track 2 Stage 2 — Covarianza Gaia AL/AC. Justificada por los 3 outliers χ²_red ≥ 10 del joint fit; ver `docs/mass_layer_joint_diagnostic.md` § "Outliers".
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
 | 1     | A: caracterizar error Kepler vs N-body | 🟢 DONE | (eliminada) | #31 | 2026-05-26 | 2026-05-26 | Mergeado a `main` (`8623633`). p99 \|Δdist\| = 2.5 mAU sobre 964 pares; el error escala con e y 1/q. |
 | 1     | B: refinamiento N-body selectivo | 🟢 DONE | (eliminada) | #32 | 2026-05-26 | 2026-05-29 | Mergeado a `main` (`9744691`). 8,728,509 pares refinados, failed=0, unconv=0; p99 \|Δdist\| = 1.99 mAU; 25,283 false positives. Catálogo híbrido `encounters_catalog_hybrid_stageb.parquet`. |
 | 1     | C: refinamiento N-body universal | ⚪ DESCARTADO | — | — | — | — | Stage B alcanzó. C requiere ~400 días-CPU; no se hace. |
-| 2     | 1: joint fit órbita + masa | 🟡 IN PROGRESS | `track2/stage1-joint-fit` | — | 2026-05-26 | 2026-05-29 (1.5 hecha) | 27/41 candidatos fitteados; **χ²_red mediano joint = 1.52** vs simple = 511 (mejora 335×). 14 fallos por `n_loo<8` (cobertura temporal Gaia, no del modelo). Diagnóstico en `docs/mass_layer_joint_diagnostic.md`. |
+| 2     | 1: joint fit órbita + masa | 🟢 DONE | (eliminada) | #34 | 2026-05-26 | 2026-05-29 | Mergeado a `main` (`971095c`). 27/41 candidatos fitteados; **χ²_red mediano joint = 1.52** vs simple = 511 (mejora 335×). 14 fallos por `n_loo<8` (cobertura temporal Gaia, no del modelo). Diagnóstico en `docs/mass_layer_joint_diagnostic.md`. |
 | 2     | 2: covarianza Gaia AL | ⚪ PENDING | — | — | — | — | Puede hacerse en paralelo con 2.1 |
 | 2     | 3: specificity test riguroso | ⚪ PENDING | — | — | — | — | Depende de 2.1 |
 | 2     | 4: validación contra masas conocidas | ⚪ PENDING | — | — | — | — | Gate antes de publicar |
@@ -694,3 +694,4 @@ Cross-track:
 | 2026-05-28 | Stage B cerrada (B.3 productiva 8.73 M pares 100%, B.4 catálogo híbrido escrito, B.5 validación Fienga 2003). p99 \|Δdist\| = 1.99 mAU; 25,283 false positives detectados al refinar; failed=0, unconv=0. Catálogo híbrido `encounters_catalog_hybrid_stageb.parquet` con `refinement_method ∈ {kepler, nbody}` por fila. Goffin pendiente por data-format mismatch upstream. | DF |
 | 2026-05-29 | PR #32 Stage B mergeada (`9744691`). Branches `track1/stageA-*` y `track1/stageB-*` eliminadas (local + remote). Track 2 Stage 1 WIP movido a branch `track2/stage1-joint-fit` (`db20f74`, sin PR). Plan **PAUSADO**. Resumir desde Track 2 Stage 1.4 — corrida real sobre 41 candidatos. | DF |
 | 2026-05-29 | Plan **reanudado**. Stage 1.4 + 1.5 ejecutadas. Corrida del joint fit 27/41 candidatos (14 descartados por baseline LOO insuficiente). **χ²_red mediano joint = 1.52 vs simple = 511 (mejora 335×)**; criterio de aceptación Stage 1.5 (mediano <10) cumplido. Diagnóstico en `docs/mass_layer_joint_diagnostic.md`. Stage 2 (covarianza AL/AC) justificada por 3 outliers χ²_red ≥ 10. | DF |
+| 2026-05-29 | PR #34 Track 2 Stage 1 mergeada (`971095c`). Branch `track2/stage1-joint-fit` eliminada (local + remote). Plan **PAUSADO**. Resumir desde Track 2 Stage 2 — covarianza Gaia AL/AC. | DF |
