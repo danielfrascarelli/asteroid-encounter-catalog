@@ -48,16 +48,16 @@ Ejemplo: `track1/stageA-kepler-vs-nbody-error`. **Nunca trabajar en `main`**.
 ## Estado global
 
 **Fecha de creación**: 2026-05-26
-**Última actualización**: 2026-05-28
-**Etapa activa**: Track 1 / Stage B cerrada (catálogo híbrido escrito + validado); listo para PR
-**Próxima etapa a arrancar**: PR Stage B → main; en paralelo arrancar branch Track 2 Stage 1 con la corrida real sobre 41 candidatos
+**Última actualización**: 2026-05-29
+**Etapa activa**: ninguna — plan **PAUSADO** tras cerrar Track 1 Stage B (PR #32 mergeada a main `9744691`).
+**Próxima etapa a arrancar**: Track 2 Stage 1.4 — corrida real del joint fit sobre los 41 candidatos. Branch ya preparada (`track2/stage1-joint-fit`, commit `db20f74`); reanudar desde ahí.
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
-| 1     | A: caracterizar error Kepler vs N-body | 🟢 DONE | `track1/stageA-kepler-vs-nbody-error` | #31 | 2026-05-26 | 2026-05-26 | Mergeado a `main` (`8623633`). p99 \|Δdist\| = 2.5 mAU sobre 964 pares; el error escala con e y 1/q. |
-| 1     | B: refinamiento N-body selectivo | 🟢 DONE (PR pendiente) | `track1/stageB-selective-nbody-refinement` | — | 2026-05-26 | 2026-05-28 | 8,728,509 / 8,728,509 pares refinados; failed=0, unconv=0; p99 \|Δdist\| = 1.99 mAU; 25,283 false positives detectados al refinar. Catálogo híbrido escrito + validado contra Fienga 2003 (3/4 hits, 2/3 within 1e-4 AU). |
-| 1     | C: refinamiento N-body universal | ⚪ PENDING | — | — | — | — | Probablemente no se hace; depende de B |
-| 2     | 1: joint fit órbita + masa | 🟡 IN PROGRESS | — | — | 2026-05-26 | — | 1.1 audit redactado mientras corre Stage B; mover a branch propia `track2/stage1-joint-fit` antes de PR. |
+| 1     | A: caracterizar error Kepler vs N-body | 🟢 DONE | (eliminada) | #31 | 2026-05-26 | 2026-05-26 | Mergeado a `main` (`8623633`). p99 \|Δdist\| = 2.5 mAU sobre 964 pares; el error escala con e y 1/q. |
+| 1     | B: refinamiento N-body selectivo | 🟢 DONE | (eliminada) | #32 | 2026-05-26 | 2026-05-29 | Mergeado a `main` (`9744691`). 8,728,509 pares refinados, failed=0, unconv=0; p99 \|Δdist\| = 1.99 mAU; 25,283 false positives. Catálogo híbrido `encounters_catalog_hybrid_stageb.parquet`. |
+| 1     | C: refinamiento N-body universal | ⚪ DESCARTADO | — | — | — | — | Stage B alcanzó. C requiere ~400 días-CPU; no se hace. |
+| 2     | 1: joint fit órbita + masa | 🟠 PAUSED | `track2/stage1-joint-fit` | — | 2026-05-26 | — | Código + tests + docs commiteados (`db20f74`). Falta la corrida real sobre 41 candidatos (`run_joint_batch.py`) y el diagnóstico χ²_red joint vs simple. |
 | 2     | 2: covarianza Gaia AL | ⚪ PENDING | — | — | — | — | Puede hacerse en paralelo con 2.1 |
 | 2     | 3: specificity test riguroso | ⚪ PENDING | — | — | — | — | Depende de 2.1 |
 | 2     | 4: validación contra masas conocidas | ⚪ PENDING | — | — | — | — | Gate antes de publicar |
@@ -407,8 +407,8 @@ specificity nula.
 
 ### Stage 1 — Joint fit órbita + masa
 
-**Estado**: ⚪ PENDING
-**Branch**: (no creada)
+**Estado**: 🟠 PAUSED (código completo, falta corrida real sobre 41 candidatos)
+**Branch**: `track2/stage1-joint-fit` (commit `db20f74`, sin PR)
 **Estimación**: 3-4 semanas
 **Depende de**: ninguna (puede empezar en paralelo con Track 1 Stage A)
 
@@ -503,9 +503,9 @@ docker compose run --rm test pytest tests/test_forward_model_joint.py -v
 |---|---|---|---|
 | 1.1 audit | 🟢 done | 2026-05-26 | `docs/mass_layer_audit.md`: inventario del flujo LOO actual, parametros, likelihood AL, debilidades y punto de insercion para `src/mass/forward_model_joint.py`. |
 | 1.2 design | 🟢 done | 2026-05-26 | `docs/mass_layer_design.md`: contrato de `src/mass/forward_model_joint.py`, parametrizacion 7D, priors/bounds, ventana de datos, diagnosticos y tests minimos. |
-| 1.3 implementation | 🟡 in progress | 2026-05-26 | `src/mass/forward_model_joint.py` + `tests/test_forward_model_joint.py`: residual conjunto 7D, priors/bounds, `fit_joint` minimo. Tests offline 28/28 con `tests/test_al_projection.py`. Falta wrapper batch/CLI y corrida sobre candidatos reales. |
-| 1.4 LOO wrapper | 🟡 in progress | 2026-05-26 | `scripts/mass/fit_mass_gaia_joint.py`: CLI por par que reutiliza la inicializacion LOO, ejecuta `fit_joint` y escribe JSON extendido con deltas, `chi2_red_joint`, bounds activos y condicion de `JᵀJ`. `scripts/mass/run_joint_batch.py` recorre candidatos de forma resumible; `scripts/mass/summarize_joint_fits.py` consolida `fit_*_joint.json` en `loo_batch_results_joint.csv`. Falta corrida real sobre 41 candidatos. |
-| 1.5 diagnostic | ⚪ | — | — |
+| 1.3 implementation | 🟢 done | 2026-05-26 | `src/mass/forward_model_joint.py` + `tests/test_forward_model_joint.py`: residual conjunto 7D, priors/bounds, `fit_joint`. Tests offline 4/4 pass; ruff/black clean. Commiteado en `db20f74`. |
+| 1.4 LOO wrapper | 🟡 código done, corrida pendiente | 2026-05-26 | `scripts/mass/fit_mass_gaia_joint.py`: CLI por par que reutiliza la inicializacion LOO, ejecuta `fit_joint` y escribe JSON extendido con deltas, `chi2_red_joint`, bounds activos y condicion de `JᵀJ`. `scripts/mass/run_joint_batch.py` recorre candidatos de forma resumible; `scripts/mass/summarize_joint_fits.py` consolida `fit_*_joint.json` en `loo_batch_results_joint.csv`. Commiteado en `db20f74`. **Falta corrida real sobre 41 candidatos** (CPU-pesada, ~horas). |
+| 1.5 diagnostic | ⚪ | — | Depende de 1.4 corrida real. |
 
 ---
 
@@ -692,3 +692,4 @@ Cross-track:
 | 2026-05-26 | Plan creado tras audit round 5. | DF |
 | 2026-05-26 | Stage A completa (A.1–A.4); PR #31. p99 \|Δdist\| = 2.5 mAU sobre 964 pares (estratificación simétrica); recomendación Stage B = subset (e_max>0.3 ∨ q_min<1.8). | DF |
 | 2026-05-28 | Stage B cerrada (B.3 productiva 8.73 M pares 100%, B.4 catálogo híbrido escrito, B.5 validación Fienga 2003). p99 \|Δdist\| = 1.99 mAU; 25,283 false positives detectados al refinar; failed=0, unconv=0. Catálogo híbrido `encounters_catalog_hybrid_stageb.parquet` con `refinement_method ∈ {kepler, nbody}` por fila. Goffin pendiente por data-format mismatch upstream. | DF |
+| 2026-05-29 | PR #32 Stage B mergeada (`9744691`). Branches `track1/stageA-*` y `track1/stageB-*` eliminadas (local + remote). Track 2 Stage 1 WIP movido a branch `track2/stage1-joint-fit` (`db20f74`, sin PR). Plan **PAUSADO**. Resumir desde Track 2 Stage 1.4 — corrida real sobre 41 candidatos. | DF |
