@@ -58,17 +58,20 @@ Ejemplo: `trackA/stage1-tighten-priors`. **Nunca trabajar en `main`**.
 
 **Fecha de creación**: 2026-05-29
 **Última actualización**: 2026-05-29
-**Etapa activa**: Track A Stage 2 (multi-target joint fit) — arrancada.
-**Próxima etapa a arrancar**: Track A Stage 3 (OU drift) sólo si A2 falla el gate.
-A1 falló el gate (0/4 calibradores con |z|<3, masas matched cambian <0.05%),
-confirmando que el bias es estructural, no de overfitting de deltas. Track A2
-ataca la degeneración M↔deltas compartiendo M entre N targets del mismo perturber.
+**Etapa activa**: ninguna — Track A Stage 2 cerrada con gate FAIL.
+**Próxima etapa a arrancar**: **closing-the-loop test del modelo de deflección**
+(diagnóstico de ~1 día, ver veredicto A2) ANTES de comprometer A3 (OU drift).
+A1 falló el gate (bias estructural). A2 también: compartir M entre 5 targets
+dio una masa **idéntica** al single-target (Pallas 0.5711=0.5711, Hygiea
+0.2313 vs 0.234), refutando la degeneración M↔deltas como causa. El bias es
+coherente por-target y escala con 1/M_real → apunta al modelo de deflección
+mismo, no a la parametrización orbital.
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
 | A | 1: tighten priors | 🟢 DONE | trackA/stage1-tighten-priors | #41 | 2026-05-29 | 2026-05-29 | Veredicto: bias estructural; pasar a A2 |
-| A | 2: multi-target joint fit | 🟡 IN PROGRESS | trackA/stage2-multitarget-joint | — | 2026-05-29 | — | Arranca por forward model + tests sintéticos |
-| A | 3: OU forward model para drift | ⚪ PENDING | — | — | — | — | Solo si A2 todavía deja bias |
+| A | 2: multi-target joint fit | 🟢 DONE | trackA/stage2-multitarget-joint | — | 2026-05-29 | 2026-05-29 | Gate FAIL 0/2; masa multi == single; refuta degeneración M↔deltas |
+| A | 3: OU forward model para drift | ⚪ PENDING | — | — | — | — | Premisa debilitada por A2; primero closing-the-loop test |
 | B | 1: investigar outliers Stage 2 (Alkeste/57942, Eros/176865) | ⚪ PENDING | — | — | — | — | Independiente; científico |
 | B | 2: specificity sobre 22/27 restantes | ⚪ PENDING | — | — | — | — | Completar Stage 3 |
 | B | 3: side-paper 25,283 false-positives Kepler | ⚪ PENDING | — | — | — | — | Posible mini-paper |
@@ -204,10 +207,11 @@ Si no hay archivos: arrancar por el sub-paso 1 (medir σ MPCORB).
 
 ### Stage 2 — Multi-target joint fit
 
-**Estado**: 🟡 IN PROGRESS (pausada 2026-05-29 con sub-pasos 1-3 listos)
+**Estado**: 🟢 DONE — gate FAIL (2026-05-29)
 **Estimación**: ~1 semana
 **Branch**: `trackA/stage2-multitarget-joint` (creada 2026-05-29)
 **Depende de**: Stage 1 (FAIL del gate, ver más arriba).
+**Diagnóstico**: [docs/mass_layer_stage_a2_multitarget.md](docs/mass_layer_stage_a2_multitarget.md)
 
 #### Objetivo
 
@@ -240,11 +244,11 @@ mucho más que cualquier target individual.
 
 #### Entregables
 
-- [ ] `src/mass/forward_model_joint_multitarget.py`
-- [ ] `tests/test_forward_model_joint_multitarget.py`
-- [ ] `scripts/mass/fit_mass_gaia_multitarget.py`
-- [ ] `data/output/stage_a2_multitarget_validation.csv`
-- [ ] `docs/mass_layer_stage_a2_multitarget.md`
+- [x] `src/mass/forward_model_joint_multitarget.py`
+- [x] `tests/test_forward_model_joint_multitarget.py`
+- [x] `scripts/mass/fit_mass_gaia_multitarget.py`
+- [x] `data/output/stage_a2_multitarget_validation.csv`
+- [x] `docs/mass_layer_stage_a2_multitarget.md`
 
 #### Criterios de aceptación
 
@@ -295,6 +299,26 @@ docker compose run --rm pipeline python -m scripts.mass.fit_mass_gaia_multitarge
     Hygiea (8 targets), comparar contra literatura (|z| < 3 sobre ≥ 2/3)
     y, si pasa, escribir `docs/mass_layer_stage_a2_multitarget.md`.
 
+- **2026-05-29 (retomado)**: fits calibradores corridos. **Gate FAIL 0/2**.
+  - **Pallas** (perturber 2, 5 targets ok): M_fit = 1.171×10²⁰ kg,
+    ratio = 0.5711, z = −17.0, χ²_red = 0.57.
+  - **Hygiea** (perturber 10, 5 targets ok): M_fit = 1.919×10¹⁹ kg,
+    ratio = 0.2313, z = −16.0, χ²_red = 74.0 (dominado por outlier 45989).
+  - **Ceres**: solo 1 target ok → multi-target no aplica. **Vesta**: 0 fits.
+  - **Hallazgo decisivo**: la masa multi-target es **idéntica** a la
+    single-target (Pallas 0.5711=0.5711; Hygiea 0.2313 vs 0.234). Compartir
+    M entre 5 targets no movió la masa → **refuta la degeneración M↔deltas**
+    como mecanismo del bias. Los deltas ajustados son ~10⁻⁷ (no absorben
+    señal). El bias es coherente por-target y escala con 1/M_real → apunta
+    al modelo de deflección, no a la parametrización orbital.
+  - Entregables escritos: CSV de validación + diagnóstico
+    [docs/mass_layer_stage_a2_multitarget.md](docs/mass_layer_stage_a2_multitarget.md).
+  - **Recomendación**: NO arrancar A3 a ciegas (su premisa quedó debilitada);
+    primero un **closing-the-loop test** del forward model de deflección
+    (inyectar deflección N-body con masa conocida sobre los mismos transits
+    y verificar recuperación). ~1 día; discrimina bug vs límite del dataset.
+  - Pendiente: PR a `main` con la branch `trackA/stage2-multitarget-joint`.
+
 ---
 
 ### Stage 3 — Forward model físico para drift (OU)
@@ -302,7 +326,17 @@ docker compose run --rm pipeline python -m scripts.mass.fit_mass_gaia_multitarge
 **Estado**: ⚪ PENDING (sólo si Stage 2 todavía deja bias)
 **Estimación**: 2-3 semanas
 **Branch propuesta**: `trackA/stage3-ou-drift`
-**Depende de**: Stage 2 con veredicto negativo.
+**Depende de**: Stage 2 con veredicto negativo (✓ cumplido, gate FAIL).
+
+> ⚠️ **Pre-requisito agregado tras A2 (2026-05-29)**: A2 mostró que los
+> deltas orbitales son ~10⁻⁷ y NO absorben señal de masa — la premisa de A3
+> (reducir dof de deltas evita la absorción) quedó debilitada. Antes de
+> invertir 2-3 semanas en el modelo OU, correr un **closing-the-loop test**:
+> inyectar una deflección N-body de masa conocida sobre los transits reales
+> de un calibrador y verificar si el forward model joint la recupera. Si NO
+> la recupera, el bias es un bug del modelo de deflección (ni A3 lo arregla);
+> si SÍ la recupera, el límite es el dataset DR3 y A3/DR4 es el camino.
+> Estimado: ~1 día. Es el primer sub-paso real de esta etapa.
 
 #### Objetivo
 
@@ -553,3 +587,5 @@ Track B (independientes entre sí, independientes de Track A):
 | Fecha | Cambio | Autor |
 |-------|--------|-------|
 | 2026-05-29 | Plan creado tras cierre del deepwork (PR #39). | DF |
+| 2026-05-29 | A1 gate FAIL (bias estructural). | DF |
+| 2026-05-29 | A2 gate FAIL (masa multi==single; refuta degeneración M↔deltas). Próximo: closing-the-loop test antes de A3. | DF |
