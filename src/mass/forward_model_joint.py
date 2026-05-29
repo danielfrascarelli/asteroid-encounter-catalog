@@ -168,11 +168,12 @@ def al_residuals_and_weights(
     r_al = dra_mas * e_al_ra + ddec_mas * e_al_dec
 
     def _projected_var(s_ra: np.ndarray, s_dec: np.ndarray, rho: np.ndarray) -> np.ndarray:
-        return (
+        out = (
             e_al_ra**2 * s_ra**2
             + 2.0 * e_al_ra * e_al_dec * rho * s_ra * s_dec
             + e_al_dec**2 * s_dec**2
         )
+        return np.asarray(out, dtype=float)
 
     var_al = _projected_var(ra_err_sys, dec_err_sys, corr_sys) + _projected_var(
         ra_err_rand, dec_err_rand, corr_rand
@@ -186,7 +187,7 @@ def prior_residuals(params: np.ndarray, priors: JointFitPriors = DEFAULT_PRIORS)
     p = np.asarray(params, dtype=float)
     if p.shape != (7,):
         raise ValueError(f"joint params must have shape (7,), got {p.shape}")
-    return p[1:] / priors.sigma_vector
+    return np.asarray(p[1:] / priors.sigma_vector, dtype=float)
 
 
 def residuals_joint(
