@@ -1,9 +1,10 @@
 # Kepler-refine vs N-body refinement — error characterisation
 
-**Track 1 Stage A** of [DEEPWORK_PLAN.md](../DEEPWORK_PLAN.md). Quantifies the
-error introduced by the Kepler-2-body sub-grid refinement that produces the
-final `dist_au`, `t_min`, `rel_vel_au_day` columns of the frozen catalog
-([FROZEN_RUN.md](../FROZEN_RUN.md)).
+Quantifies the error introduced by the Kepler-2-body sub-grid refinement
+that produces the final `dist_au`, `t_min`, `rel_vel_au_day` columns of the
+frozen catalog ([FROZEN_RUN.md](../FROZEN_RUN.md)). This characterisation
+motivated the selective N-body re-refinement that produced the hybrid
+catalog `encounters_catalog_hybrid_stageb.parquet` (PRs #31/#32).
 
 ## TL;DR
 
@@ -138,10 +139,9 @@ the catalog could shift on the order of mAU when re-refined.
 
 ## Recommendation for Stage B
 
-The plan ([DEEPWORK_PLAN.md](../DEEPWORK_PLAN.md) § Stage B) defines a
-selective N-body refinement on a subset where Kepler is "not defensible".
-Based on the measured error distribution, **Stage B is warranted but
-narrowly scoped**:
+The follow-on selective N-body refinement (PR #32) targeted a subset where
+Kepler is "not defensible". Based on the measured error distribution,
+**that selective refinement was warranted but narrowly scoped**:
 
 - **Defensible Kepler-refine** (no Stage B needed): `q_min ≥ 1.8 AU` and
   `e_max ≤ 0.3`. 60 % of the catalog. p99 error 1.3 mAU — well below any

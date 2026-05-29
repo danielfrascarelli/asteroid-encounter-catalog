@@ -117,6 +117,35 @@ Goffin (2014) validation could not be run: the VizieR snapshot
 tables (tables 5–6), not the pair-by-pair encounter table the validator
 expects. Independent of Stage B.
 
+**Universal N-body refinement (Stage C) is explicitly out of scope.**
+Refining all 72 M pairs to N-body would cost ~400 CPU-days under the same
+±12 h, 60 s sampling, IAS15 budget used for Stage B. The Stage A
+characterization shows the median error outside the Stage B subset is
+already < 1 mAU, so the marginal scientific gain does not justify the
+cost. Future work on this front is more likely to come from Gaia FPR /
+DR4 (denser observations) than from spending more compute on DR3.
+
+## Mass-fit follow-ups (not in this freeze)
+
+The Gaia mass-determination experiments (`scripts/mass/*`,
+`docs/mass_layer_*.md`) live alongside this catalog but **are not part
+of the freeze**. The current state, in short:
+
+- `joint+Mahalanobis 2D` fit gives χ²_red mediano = 0.59 on 27 candidates
+  ([docs/mass_layer_joint_diagnostic.md](docs/mass_layer_joint_diagnostic.md),
+  [docs/mass_layer_stage2_diagnostic.md](docs/mass_layer_stage2_diagnostic.md)).
+- Specificity test fails for 3/5 top candidates: (111) Ate / (206) Hersilia /
+  (124) Alkeste-on-3294 are indistinguishable from a random same-band,
+  same-size perturber
+  ([docs/mass_layer_stage3_diagnostic.md](docs/mass_layer_stage3_diagnostic.md)).
+- Literature gate fails: Ceres / Pallas / Hygiea are recovered at
+  ratios 0.77 / 0.57 / 0.24 of the true mass (|z| > 6 throughout)
+  because the six orbital deltas absorb part of the mass-induced
+  deflection ([docs/mass_layer_validation.md](docs/mass_layer_validation.md)).
+
+Therefore **no asteroid mass from this pipeline is currently
+publishable**. Anything written about masses must say so.
+
 ## What this run **is**
 
 A list of asteroid pairs whose Kepler-refined heliocentric ecliptic 3-D
