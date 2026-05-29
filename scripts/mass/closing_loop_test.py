@@ -65,7 +65,11 @@ from src.mass.forward_model_joint import (
     GaiaObservationBundle,
     resolve_priors,
 )
-from src.mass.forward_model_joint_multitarget import TargetBundle, fit_joint_multitarget
+from src.mass.forward_model_joint_multitarget import (
+    TargetBundle,
+    fit_joint_multitarget,
+    fit_joint_multitarget_profiled,
+)
 from src.propagate.nbody import _MAJOR_ASTEROIDS
 from src.utils.config import load_config
 
@@ -164,6 +168,13 @@ def main() -> int:
     parser.add_argument("--max-nfev", type=int, default=1500)
     parser.add_argument("--likelihood", choices=["al", "mahalanobis2d"], default="mahalanobis2d")
     parser.add_argument("--priors", choices=sorted(PRIOR_PRESETS), default="default")
+    parser.add_argument(
+        "--optimizer",
+        choices=["joint", "profiled"],
+        default="joint",
+        help="'joint' = coupled mass+deltas least_squares; 'profiled' = outer 1-D "
+        "over log10_M with inner deltas-only fit (robust to the conditioning bug).",
+    )
     parser.add_argument(
         "--scan-mass",
         action="store_true",
@@ -312,25 +323,41 @@ def main() -> int:
         math.log10(args.inject_mass_kg),
     )
 
-    result = fit_joint_multitarget(
-        synth_bundles,
-        perturber_el,
-        initial_log10_mass=initial_log10_mass,
-        priors=priors,
-        background_elements=background_elements,
-        dt_days=args.dt_days,
-        integrator=args.integrator,
-        max_nfev=args.max_nfev,
-        likelihood=args.likelihood,
-    )
-    logger.info("least_squares status=%s message=%s", result.status, result.message)
-
-    mass_fit = 10.0 ** float(result.x[0])
-    ratio = mass_fit / args.inject_mass_kg
     n_obs_total = sum(len(b.obs.jd_tdb) for b in synth_bundles)
     n_astrometric = n_obs_total if args.likelihood == "al" else 2 * n_obs_total
     n_params = 1 + 6 * len(synth_bundles)
-    chi2_red = float(np.sum(result.fun[:n_astrometric] ** 2)) / max(1, n_astrometric - n_params)
+
+    if args.optimizer == "profiled":
+        result = fit_joint_multitarget_profiled(
+            synth_bundles,
+            perturber_el,
+            priors=priors,
+            background_elements=background_elements,
+            dt_days=args.dt_days,
+            integrator=args.integrator,
+            inner_max_nfev=args.max_nfev,
+            likelihood=args.likelihood,
+        )
+        logger.info("profiled status=%s message=%s", result.success, result.message)
+        chi2_astro = result.chi2_astro
+    else:
+        result = fit_joint_multitarget(
+            synth_bundles,
+            perturber_el,
+            initial_log10_mass=initial_log10_mass,
+            priors=priors,
+            background_elements=background_elements,
+            dt_days=args.dt_days,
+            integrator=args.integrator,
+            max_nfev=args.max_nfev,
+            likelihood=args.likelihood,
+        )
+        logger.info("least_squares status=%s message=%s", result.status, result.message)
+        chi2_astro = float(np.sum(result.fun[:n_astrometric] ** 2))
+
+    mass_fit = 10.0 ** float(result.x[0])
+    ratio = mass_fit / args.inject_mass_kg
+    chi2_red = chi2_astro / max(1, n_astrometric - n_params)
 
     per_target_deltas = []
     for i, bundle in enumerate(synth_bundles):
@@ -363,8 +390,9 @@ def main() -> int:
         "log10_mass_fit": float(result.x[0]),
         "ratio_fit_over_inject": ratio,
         "chi2_red": chi2_red,
+        "optimizer": args.optimizer,
         "joint_success": bool(result.success),
-        "joint_nfev": int(result.nfev),
+        "joint_nfev": int(result.nfev_outer if args.optimizer == "profiled" else result.nfev),
         "per_target_deltas": per_target_deltas,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

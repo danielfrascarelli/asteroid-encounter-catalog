@@ -202,3 +202,51 @@ def test_fit_joint_multitarget_recovers_mass_with_per_target_da(monkeypatch) -> 
     for i, da_truth in enumerate(true_da_rel):
         da_fit = result.x[1 + 6 * i]
         assert abs(da_fit - da_truth) < 5e-7, f"target {i}: da_fit={da_fit} vs truth={da_truth}"
+
+
+def test_fit_joint_multitarget_profiled_recovers_injected_mass(monkeypatch) -> None:
+    """Profiled optimiser recovers a shared mass from a clean time-varying signal.
+
+    Mirrors the closing-loop test on real data: the perturber mass enters as a
+    Heaviside deflection after each encounter; the profiled outer/inner split
+    must land on the injected log10_M. Returns a ``ProfiledFitResult`` whose
+    ``x`` shares the ``(1 + 6N)`` layout of the joint fit.
+    """
+    bundles = _bundles(n_targets=3, n_obs=10)
+    true_log_mass = 19.0
+    encounter_jd = [b.obs.jd_tdb[len(b.obs.jd_tdb) // 2] for b in bundles]
+    scale_M = 1.0
+    base_ra = 10.0
+
+    def fake_forward_model(
+        target_elements,
+        perturber_elements,
+        perturber_mass_kg,
+        obs_jd_tdb,
+        gaia_xyz_bary,
+        **kwargs,
+    ):
+        del perturber_elements, gaia_xyz_bary, kwargs
+        a = float(target_elements["a_au"])
+        idx = int(np.argmin([abs(a - b.elements["a_au"]) for b in bundles]))
+        log_mass = np.log10(perturber_mass_kg)
+        kick = np.where(obs_jd_tdb > encounter_jd[idx], 1.0, 0.0)
+        ra = base_ra + (log_mass - true_log_mass) * scale_M * kick
+        return ra, np.zeros(len(obs_jd_tdb))
+
+    # Truth observations: generated at the true mass with zero deltas.
+    for bundle in bundles:
+        bundle.obs.ra_deg[:] = base_ra
+
+    monkeypatch.setattr(fmm, "forward_model", fake_forward_model)
+
+    result = fmm.fit_joint_multitarget_profiled(
+        bundles,
+        _elements(),
+        include_planets=("sun",),
+        inner_max_nfev=400,
+    )
+
+    assert result.x.shape == (1 + 6 * len(bundles),)
+    assert abs(result.log10_mass - true_log_mass) < 1e-2
+    assert abs(result.x[0] - true_log_mass) < 1e-2

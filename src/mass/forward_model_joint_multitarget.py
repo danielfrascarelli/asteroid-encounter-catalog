@@ -26,7 +26,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.optimize import OptimizeResult, least_squares
+from scipy.optimize import OptimizeResult, least_squares, minimize_scalar
 
 from src.astrometry.forward_model import forward_model, residuals_mas
 from src.mass.forward_model_joint import (
@@ -264,4 +264,175 @@ def fit_joint_multitarget(
         ftol=1e-10,
         xtol=1e-10,
         gtol=1e-10,
+    )
+
+
+@dataclass
+class ProfiledFitResult:
+    """Result of :func:`fit_joint_multitarget_profiled`.
+
+    ``x`` is the full ``(1 + 6N)`` parameter vector (log10_M followed by the
+    per-target deltas at the profiled optimum), matching the layout used by
+    :func:`fit_joint_multitarget` so downstream summaries can share code.
+    """
+
+    x: np.ndarray
+    log10_mass: float
+    log10_mass_sigma: float
+    chi2_astro: float
+    n_astrometric: int
+    n_params: int
+    success: bool
+    nfev_outer: int
+    message: str
+
+
+def _profiled_delta_fit(
+    log10_mass: float,
+    target_bundles: Sequence[TargetBundle],
+    perturber_elements: dict,
+    *,
+    priors: JointFitPriors,
+    background_elements: dict[str, dict] | None,
+    include_planets: tuple[str, ...],
+    dt_days: float,
+    integrator: str,
+    likelihood: LikelihoodKind,
+    max_nfev: int,
+) -> OptimizeResult:
+    """Inner fit: optimise the 6N orbital deltas with the mass held fixed.
+
+    With the mass frozen the parameter vector is homogeneous (only deltas), so
+    the trust region is well conditioned — unlike the joint fit where log10_M
+    (~20) and the deltas (~1e-4) differ by five orders of magnitude and freeze
+    the mass (see ``docs/mass_layer_closing_loop_leverage.md``). An explicit
+    diff_step of 0.1σ per delta keeps every Jacobian column above the N-body
+    numerical floor.
+    """
+    n_targets = len(target_bundles)
+    lo, hi = make_bounds(n_targets, priors)
+    delta_lo, delta_hi = lo[1:], hi[1:]
+    sigma = np.tile(priors.sigma_vector, n_targets)
+
+    def resid_deltas(deltas: np.ndarray) -> np.ndarray:
+        params = np.concatenate([[log10_mass], deltas])
+        return residuals_joint_multitarget(
+            params,
+            target_bundles,
+            perturber_elements,
+            priors=priors,
+            background_elements=background_elements,
+            include_planets=include_planets,
+            dt_days=dt_days,
+            integrator=integrator,
+            likelihood=likelihood,
+        )
+
+    return least_squares(
+        resid_deltas,
+        np.zeros(6 * n_targets, dtype=float),
+        method="trf",
+        bounds=(delta_lo, delta_hi),
+        diff_step=0.1 * sigma,
+        max_nfev=max_nfev,
+        ftol=1e-10,
+        xtol=1e-10,
+        gtol=1e-10,
+    )
+
+
+def fit_joint_multitarget_profiled(
+    target_bundles: Sequence[TargetBundle],
+    perturber_elements: dict,
+    *,
+    priors: JointFitPriors = DEFAULT_PRIORS,
+    background_elements: dict[str, dict] | None = None,
+    include_planets: tuple[str, ...] = (
+        "sun",
+        "mercury",
+        "venus",
+        "earth",
+        "mars",
+        "jupiter",
+        "saturn",
+        "uranus",
+        "neptune",
+    ),
+    dt_days: float = 1.0,
+    integrator: str = "whfast",
+    inner_max_nfev: int = 1200,
+    likelihood: LikelihoodKind = "al",
+) -> ProfiledFitResult:
+    """Profiled-likelihood fit for the shared perturber mass.
+
+    Outer loop: 1-D bounded minimisation of the profiled astrometric χ² over
+    ``log10_M``. Inner loop: for each trial mass, :func:`_profiled_delta_fit`
+    optimises the per-target deltas. Decoupling the mass from the deltas avoids
+    the ill-conditioned joint trust region that pins the mass at its start in
+    :func:`fit_joint_multitarget`.
+
+    The 1σ mass uncertainty is read from the curvature of the profiled χ²
+    (astrometric part only) at the optimum: σ = sqrt(2 / d²χ²/dlog10M²).
+    """
+    n_targets = len(target_bundles)
+    if n_targets == 0:
+        raise ValueError("target_bundles must contain at least one target")
+    n_obs_total = sum(len(b.obs.jd_tdb) for b in target_bundles)
+    n_astrometric = n_obs_total if likelihood == "al" else 2 * n_obs_total
+    n_params = 1 + 6 * n_targets
+
+    lo, hi = make_bounds(n_targets, priors)
+    mass_lo, mass_hi = float(lo[0]), float(hi[0])
+
+    cache: dict[float, OptimizeResult] = {}
+
+    def inner(log10_mass: float) -> OptimizeResult:
+        key = round(float(log10_mass), 9)
+        if key not in cache:
+            cache[key] = _profiled_delta_fit(
+                log10_mass,
+                target_bundles,
+                perturber_elements,
+                priors=priors,
+                background_elements=background_elements,
+                include_planets=include_planets,
+                dt_days=dt_days,
+                integrator=integrator,
+                likelihood=likelihood,
+                max_nfev=inner_max_nfev,
+            )
+        return cache[key]
+
+    def profiled_chi2_astro(log10_mass: float) -> float:
+        res = inner(log10_mass)
+        return float(np.sum(res.fun[:n_astrometric] ** 2))
+
+    outer = minimize_scalar(
+        profiled_chi2_astro,
+        bounds=(mass_lo, mass_hi),
+        method="bounded",
+        options={"xatol": 1e-4},
+    )
+    log10_mass = float(outer.x)
+    best_inner = inner(log10_mass)
+    chi2_astro = float(np.sum(best_inner.fun[:n_astrometric] ** 2))
+
+    # 1σ from the curvature of the profiled χ²(log10_M) at the optimum.
+    h = 1e-2
+    chi2_plus = profiled_chi2_astro(log10_mass + h)
+    chi2_minus = profiled_chi2_astro(max(mass_lo, log10_mass - h))
+    d2 = (chi2_plus - 2.0 * chi2_astro + chi2_minus) / (h * h)
+    log10_sigma = float(np.sqrt(2.0 / d2)) if d2 > 0 else float("inf")
+
+    x_full = np.concatenate([[log10_mass], best_inner.x])
+    return ProfiledFitResult(
+        x=x_full,
+        log10_mass=log10_mass,
+        log10_mass_sigma=log10_sigma,
+        chi2_astro=chi2_astro,
+        n_astrometric=n_astrometric,
+        n_params=n_params,
+        success=bool(outer.success),
+        nfev_outer=int(outer.nfev),
+        message=str(outer.message),
     )

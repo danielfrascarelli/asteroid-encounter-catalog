@@ -40,6 +40,7 @@ from src.mass.forward_model_joint import PRIOR_PRESETS, GaiaObservationBundle, r
 from src.mass.forward_model_joint_multitarget import (
     TargetBundle,
     fit_joint_multitarget,
+    fit_joint_multitarget_profiled,
 )
 from src.propagate.nbody import _MAJOR_ASTEROIDS
 from src.utils.config import load_config
@@ -227,6 +228,14 @@ def main() -> int:
     parser.add_argument("--max-nfev", type=int, default=1500)
     parser.add_argument("--likelihood", choices=["al", "mahalanobis2d"], default="mahalanobis2d")
     parser.add_argument("--priors", choices=sorted(PRIOR_PRESETS), default="default")
+    parser.add_argument(
+        "--optimizer",
+        choices=["joint", "profiled"],
+        default="profiled",
+        help="'joint' = coupled mass+deltas least_squares (pins mass at the H-prior "
+        "due to conditioning, see docs/mass_layer_closing_loop_leverage.md); "
+        "'profiled' = outer 1-D over log10_M with inner deltas-only fit (default).",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -314,33 +323,59 @@ def main() -> int:
     initial_log10_mass = math.log10(initial_mass if initial_mass > 0 else 1e18)
 
     logger.info(
-        "Running multi-target joint fit: N=%d targets, params=%d, likelihood=%s, priors=%s",
+        "Running multi-target %s fit: N=%d targets, params=%d, likelihood=%s, priors=%s",
+        args.optimizer,
         len(bundles),
         1 + 6 * len(bundles),
         args.likelihood,
         args.priors,
     )
-    result = fit_joint_multitarget(
-        bundles,
-        perturber_el,
-        initial_log10_mass=initial_log10_mass,
-        priors=priors,
-        background_elements=background_elements,
-        dt_days=args.dt_days,
-        integrator=args.integrator,
-        max_nfev=args.max_nfev,
-        likelihood=args.likelihood,
-    )
-
     n_obs_per_target = [len(b.obs.jd_tdb) for b in bundles]
     n_obs_total = sum(n_obs_per_target)
     n_astrometric = n_obs_total if args.likelihood == "al" else 2 * n_obs_total
     n_params = 1 + 6 * len(bundles)
-    chi2_data = float(np.sum(result.fun[:n_astrometric] ** 2))
-    chi2_red = chi2_data / max(1, n_astrometric - n_params)
-    log10_sigma, mass_sigma = _mass_uncertainty(result, chi2_red)
-    mass_kg = 10.0 ** float(result.x[0])
-    condition = _jtj_condition(result)
+
+    if args.optimizer == "profiled":
+        result = fit_joint_multitarget_profiled(
+            bundles,
+            perturber_el,
+            priors=priors,
+            background_elements=background_elements,
+            dt_days=args.dt_days,
+            integrator=args.integrator,
+            inner_max_nfev=args.max_nfev,
+            likelihood=args.likelihood,
+        )
+        chi2_red = result.chi2_astro / max(1, n_astrometric - n_params)
+        log10_sigma = result.log10_mass_sigma
+        mass_kg = 10.0**result.log10_mass
+        mass_sigma = mass_kg * log10_sigma * math.log(10.0)
+        condition = float("nan")
+        fit_success = result.success
+        fit_status = -1
+        fit_message = result.message
+        fit_nfev = result.nfev_outer
+    else:
+        result = fit_joint_multitarget(
+            bundles,
+            perturber_el,
+            initial_log10_mass=initial_log10_mass,
+            priors=priors,
+            background_elements=background_elements,
+            dt_days=args.dt_days,
+            integrator=args.integrator,
+            max_nfev=args.max_nfev,
+            likelihood=args.likelihood,
+        )
+        chi2_data = float(np.sum(result.fun[:n_astrometric] ** 2))
+        chi2_red = chi2_data / max(1, n_astrometric - n_params)
+        log10_sigma, mass_sigma = _mass_uncertainty(result, chi2_red)
+        mass_kg = 10.0 ** float(result.x[0])
+        condition = _jtj_condition(result)
+        fit_success = bool(result.success)
+        fit_status = int(result.status)
+        fit_message = result.message
+        fit_nfev = int(result.nfev)
 
     per_target_deltas = []
     for i, bundle in enumerate(bundles):
@@ -372,10 +407,11 @@ def main() -> int:
         "blackout_days": args.blackout_days,
         "background_n": len(background_elements),
         "background_used": list(background_elements.keys()),
-        "joint_success": bool(result.success),
-        "joint_status": int(result.status),
-        "joint_message": result.message,
-        "joint_nfev": int(result.nfev),
+        "optimizer": args.optimizer,
+        "joint_success": fit_success,
+        "joint_status": fit_status,
+        "joint_message": fit_message,
+        "joint_nfev": fit_nfev,
         "chi2_red_joint": chi2_red,
         "jtj_condition": condition,
         "mass_kg": mass_kg,

@@ -58,7 +58,15 @@ Ejemplo: `trackA/stage1-tighten-priors`. **Nunca trabajar en `main`**.
 
 **Fecha de creación**: 2026-05-29
 **Última actualización**: 2026-05-29
-**Etapa activa**: Track A Stage 2.5 (optimizador perfilado) — **PENDING, recomendada**.
+**Etapa activa**: Track A Stage 2.5 (optimizador perfilado) — **🟡 PARCIAL**.
+A2.5 **arregló el bug del optimizador** (closing-loop sintético recupera la masa
+inyectada exacta, ratio 1.000), confirmando que el "ratio = M_H/M_lit" era el
+optimizador sin moverse, no un bias físico. PERO los fits reales aún no validan:
+**Hygiea real → 7.5×10²⁰ (9× literatura, χ²_red 1.19)**, Pallas no-identificable.
+Queda un **sesgo real-data** (deriva orbital / sistemática Gaia) ahora aislado
+como el problema dominante. Diagnóstico:
+[docs/mass_layer_stage_a2_5_profiled.md](docs/mass_layer_stage_a2_5_profiled.md).
+**Próximo**: investigar el sesgo real-data de Hygiea (se solapa con Track B1).
 **Hallazgo mayor (closing-the-loop test)**: el ratio fit/lit = M_H/M_lit NO es un
 bias físico — es el optimizador devolviendo el **prior fotométrico** porque
 `least_squares` no desciende en la dirección de masa (trust-region mal
@@ -76,7 +84,7 @@ Ceres/Hygiea a literatura; Pallas queda leverage-limited.
 |-------|-------|--------|--------|----|--------|-----|-------|
 | A | 1: tighten priors | 🟢 DONE | trackA/stage1-tighten-priors | #41 | 2026-05-29 | 2026-05-29 | Veredicto: bias estructural; pasar a A2 |
 | A | 2: multi-target joint fit | 🟢 DONE | trackA/stage2-multitarget-joint | #42 | 2026-05-29 | 2026-05-29 | Gate FAIL 0/2; masa multi == single; refuta degeneración M↔deltas |
-| A | 2.5: optimizador perfilado | ⚪ PENDING | — | — | — | — | **Recomendada**: closing-loop revela bug del optimizador (no falta de leverage, salvo Pallas) |
+| A | 2.5: optimizador perfilado | 🟡 PARCIAL | trackA/stage2-multitarget-joint | #42 | 2026-05-29 | — | Bug optimizador ARREGLADO (closing-loop ratio 1.000); pero Hygiea real → 9× lit. Queda sesgo real-data |
 | A | 3: OU forward model para drift | ⚪ PENDING | — | — | — | — | Probablemente innecesaria si A2.5 destraba el fit |
 | B | 1: investigar outliers Stage 2 (Alkeste/57942, Eros/176865) | ⚪ PENDING | — | — | — | — | Independiente; científico |
 | B | 2: specificity sobre 22/27 restantes | ⚪ PENDING | — | — | — | — | Completar Stage 3 |
@@ -329,11 +337,12 @@ docker compose run --rm pipeline python -m scripts.mass.fit_mass_gaia_multitarge
 
 ### Stage 2.5 — Optimizador perfilado (profiled likelihood)
 
-**Estado**: ⚪ PENDING — **recomendada como siguiente etapa de Track A**
+**Estado**: 🟡 PARCIAL — bug del optimizador arreglado; sesgo real-data persiste
 **Estimación**: ~3-4 días (implementación + validación calibradores)
-**Branch propuesta**: `trackA/stage2.5-profiled-mass`
-**Depende de**: closing-the-loop test (hecho). Diagnóstico:
-[docs/mass_layer_closing_loop_leverage.md](docs/mass_layer_closing_loop_leverage.md)
+**Branch**: `trackA/stage2-multitarget-joint` (PR #42)
+**Depende de**: closing-the-loop test (hecho). Diagnósticos:
+[docs/mass_layer_closing_loop_leverage.md](docs/mass_layer_closing_loop_leverage.md),
+[docs/mass_layer_stage_a2_5_profiled.md](docs/mass_layer_stage_a2_5_profiled.md)
 
 #### Motivación
 
@@ -366,15 +375,29 @@ No es un bias físico ni la degeneración M↔deltas:
 
 #### Entregables
 
-- [ ] `fit_joint_multitarget_profiled` en `src/mass/forward_model_joint_multitarget.py`
-- [ ] Flag `--optimizer {joint,profiled}` en `fit_mass_gaia_multitarget.py`
-- [ ] `data/output/stage_a2_5_profiled_validation.csv`
-- [ ] `docs/mass_layer_stage_a2_5_profiled.md`
+- [x] `fit_joint_multitarget_profiled` en `src/mass/forward_model_joint_multitarget.py`
+- [x] Flag `--optimizer {joint,profiled}` en `fit_mass_gaia_multitarget.py` + closing-loop
+- [x] `data/output/stage_a2_5_profiled_validation.csv`
+- [x] `docs/mass_layer_stage_a2_5_profiled.md`
 
 #### Progreso
 
 - **2026-05-29**: etapa creada a partir del closing-loop test. Tooling de
   diagnóstico ya commiteado (`closing_loop_test.py`, `probe_mass_sensitivity.py`).
+- **2026-05-29 (implementado)**: `fit_joint_multitarget_profiled` (outer Brent
+  1-D en log10_M, inner solo-deltas con `diff_step=0.1σ`). Resultados:
+  - **Closing-loop sin ruido, profiled**: Hygiea recupera la masa inyectada
+    **exacta** (ratio 1.000) vs joint viejo 0.234 → **bug del optimizador
+    confirmado y arreglado**. Pallas no-identificable (χ²≈0 a masa 10¹⁵).
+  - **Reales vs literatura**: Hygiea → 7.5×10²⁰ (**ratio 9.0**, z=167,
+    χ²_red 1.19 buen ajuste); Pallas → 2.7×10¹⁶ (no-identificable, σ engañosa).
+  - **Lectura**: el "ratio=M_H/M_lit" era el optimizador (no físico). Con el
+    optimizador arreglado aflora un **sesgo real-data** (Hygiea 9× alto):
+    no es leverage (~5σ) ni el optimizador → deriva orbital / sistemática Gaia.
+  - **Limitación**: `--noise realistic` del closing-loop no es válido
+    cuantitativamente (inyecta ruido AC ~433 mas inconsistente con whitening AL;
+    χ²_red~4000). σ_M por curvatura no robusta en régimen plano.
+  - Próximo: investigar el sesgo real-data de Hygiea (solapa Track B1).
 
 ---
 
@@ -647,3 +670,4 @@ Track B (independientes entre sí, independientes de Track A):
 | 2026-05-29 | A1 gate FAIL (bias estructural). | DF |
 | 2026-05-29 | A2 gate FAIL (masa multi==single; refuta degeneración M↔deltas). Próximo: closing-the-loop test antes de A3. | DF |
 | 2026-05-29 | Closing-loop test: el ratio = M_H/M_lit es un **bug del optimizador** (no bias físico). χ²(masa) tiene mínimo real para Hygiea/Ceres; solo Pallas sin leverage. Nueva etapa A2.5 (optimizador perfilado). Revierte el veredicto "cerrar Track A". | DF |
+| 2026-05-29 | A2.5 implementado (optimizador perfilado). Bug optimizador ARREGLADO (closing-loop ratio 1.000). Pero Hygiea real → 9× lit (χ²_red 1.19): aflora sesgo real-data, ahora aislado del optimizador y del leverage. Capa aún no validada. | DF |
