@@ -136,6 +136,12 @@ def main() -> int:
     parser.add_argument("--background-n", type=int, default=20)
     parser.add_argument("--loo-max-nfev", type=int, default=800)
     parser.add_argument("--max-nfev", type=int, default=800)
+    parser.add_argument(
+        "--likelihood",
+        choices=["al", "mahalanobis2d"],
+        default="al",
+        help="Astrometric likelihood: AL-projected (Stage 1) or 2D Mahalanobis (Stage 2).",
+    )
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 
@@ -249,10 +255,12 @@ def main() -> int:
         dt_days=args.dt_days,
         integrator=args.integrator,
         max_nfev=args.max_nfev,
+        likelihood=args.likelihood,
     )
 
-    chi2_data = float(np.sum(result.fun[:n_joint] ** 2))
-    chi2_red = chi2_data / max(1, n_joint - len(_PARAM_NAMES))
+    n_astrometric = n_joint if args.likelihood == "al" else 2 * n_joint
+    chi2_data = float(np.sum(result.fun[:n_astrometric] ** 2))
+    chi2_red = chi2_data / max(1, n_astrometric - len(_PARAM_NAMES))
     log10_sigma, mass_sigma = _mass_uncertainty(result, chi2_red)
     mass_kg = 10.0 ** float(result.x[0])
     active_bounds = _active_bounds(result.x, DEFAULT_PRIORS)
@@ -267,11 +275,19 @@ def main() -> int:
         active_bounds,
     )
 
-    tag = f"{args.perturber:06d}_{args.target:06d}_joint"
+    suffix = "joint" if args.likelihood == "al" else "joint_mahal"
+    tag = f"{args.perturber:06d}_{args.target:06d}_{suffix}"
     out_path = args.output or Path("data/output") / f"fit_{tag}.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    method_tag = (
+        "gaia_joint_orbit_mass_al_weighted"
+        if args.likelihood == "al"
+        else "gaia_joint_orbit_mass_mahalanobis2d"
+    )
     summary = {
-        "method": "gaia_joint_orbit_mass_al_weighted",
+        "method": method_tag,
+        "likelihood": args.likelihood,
+        "n_astrometric_residuals": n_astrometric,
         "perturber": args.perturber,
         "target": args.target,
         "encounter_date": args.date,

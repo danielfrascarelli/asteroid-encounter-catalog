@@ -26,8 +26,9 @@ _DEFAULT_CANDIDATES = Path("data/output/mass_followup_candidates.csv")
 _DEFAULT_OUTPUT_DIR = Path("data/output")
 
 
-def _fit_path(output_dir: Path, perturber: int, target: int) -> Path:
-    return output_dir / f"fit_{perturber:06d}_{target:06d}_joint.json"
+def _fit_path(output_dir: Path, perturber: int, target: int, likelihood: str) -> Path:
+    suffix = "joint" if likelihood == "al" else "joint_mahal"
+    return output_dir / f"fit_{perturber:06d}_{target:06d}_{suffix}.json"
 
 
 def _command(args: argparse.Namespace, row: dict, out_path: Path) -> list[str]:
@@ -57,6 +58,8 @@ def _command(args: argparse.Namespace, row: dict, out_path: Path) -> list[str]:
         str(args.loo_max_nfev),
         "--max-nfev",
         str(args.max_nfev),
+        "--likelihood",
+        args.likelihood,
         "--output",
         str(out_path),
     ]
@@ -81,13 +84,27 @@ def main() -> int:
     parser.add_argument("--background-n", type=int, default=20)
     parser.add_argument("--loo-max-nfev", type=int, default=800)
     parser.add_argument("--max-nfev", type=int, default=800)
+    parser.add_argument(
+        "--likelihood",
+        choices=["al", "mahalanobis2d"],
+        default="al",
+        help="Astrometric likelihood used by every fit in the batch.",
+    )
     parser.add_argument("--sleep-seconds", type=float, default=0.0)
     parser.add_argument(
         "--report",
         type=Path,
-        default=Path("data/output/joint_batch_run_report.csv"),
+        default=None,
+        help="Per-row CSV; defaults to joint_batch_run_report[_mahal].csv based on likelihood.",
     )
     args = parser.parse_args()
+    if args.report is None:
+        report_name = (
+            "joint_batch_run_report.csv"
+            if args.likelihood == "al"
+            else "joint_batch_run_report_mahal.csv"
+        )
+        args.report = Path("data/output") / report_name
 
     candidates = pl.read_csv(args.candidates)
     if not args.include_nonviable and "viable_obs" in candidates.columns:
@@ -101,7 +118,7 @@ def main() -> int:
     for i, row in enumerate(candidates.iter_rows(named=True), start=1):
         perturber = int(row["perturber_number"])
         target = int(row["target_number"])
-        out_path = _fit_path(args.output_dir, perturber, target)
+        out_path = _fit_path(args.output_dir, perturber, target, args.likelihood)
         if out_path.exists() and not args.force:
             logger.info("[%d/%d] Skipping existing %s", i, candidates.height, out_path.name)
             rows.append(

@@ -49,8 +49,8 @@ Ejemplo: `track1/stageA-kepler-vs-nbody-error`. **Nunca trabajar en `main`**.
 
 **Fecha de creación**: 2026-05-26
 **Última actualización**: 2026-05-29
-**Etapa activa**: ninguna — plan **PAUSADO** tras cerrar Track 2 Stage 1 (PR #34 mergeada a main `971095c`).
-**Próxima etapa a arrancar**: Track 2 Stage 2 — Covarianza Gaia AL/AC. Justificada por los 3 outliers χ²_red ≥ 10 del joint fit; ver `docs/mass_layer_joint_diagnostic.md` § "Outliers".
+**Etapa activa**: Track 2 Stage 3 — Specificity test riguroso (próxima; Stage 2 cerrada).
+**Próxima etapa a arrancar**: Stage 3 (specificity test) — ahora ejecutable con fit bien especificado (χ²_red mediano 0.59).
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
@@ -58,7 +58,7 @@ Ejemplo: `track1/stageA-kepler-vs-nbody-error`. **Nunca trabajar en `main`**.
 | 1     | B: refinamiento N-body selectivo | 🟢 DONE | (eliminada) | #32 | 2026-05-26 | 2026-05-29 | Mergeado a `main` (`9744691`). 8,728,509 pares refinados, failed=0, unconv=0; p99 \|Δdist\| = 1.99 mAU; 25,283 false positives. Catálogo híbrido `encounters_catalog_hybrid_stageb.parquet`. |
 | 1     | C: refinamiento N-body universal | ⚪ DESCARTADO | — | — | — | — | Stage B alcanzó. C requiere ~400 días-CPU; no se hace. |
 | 2     | 1: joint fit órbita + masa | 🟢 DONE | (eliminada) | #34 | 2026-05-26 | 2026-05-29 | Mergeado a `main` (`971095c`). 27/41 candidatos fitteados; **χ²_red mediano joint = 1.52** vs simple = 511 (mejora 335×). 14 fallos por `n_loo<8` (cobertura temporal Gaia, no del modelo). Diagnóstico en `docs/mass_layer_joint_diagnostic.md`. |
-| 2     | 2: covarianza Gaia AL | ⚪ PENDING | — | — | — | — | Puede hacerse en paralelo con 2.1 |
+| 2     | 2: covarianza Gaia AL | 🟢 DONE | `track2/stage2-gaia-covariance` | — | 2026-05-29 | 2026-05-29 | Mahalanobis 2D AL+AC implementado. χ²_red mediano 1.52 → **0.59** (2.6× mejora); 25/27 fits con χ²_red < 5; 2 outliers residuales (Alkeste/57942 y Eros/176865). Tests sintéticos 7/7 verdes. Ver `docs/mass_layer_stage2_diagnostic.md`. |
 | 2     | 3: specificity test riguroso | ⚪ PENDING | — | — | — | — | Depende de 2.1 |
 | 2     | 4: validación contra masas conocidas | ⚪ PENDING | — | — | — | — | Gate antes de publicar |
 
@@ -542,7 +542,15 @@ covarianza por observación y usar χ² Mahalanobis correcto.
 
 #### Cómo retomar / Progreso
 
-— No arrancada —
+| Sub-paso | Estado | Fecha | Comentario |
+|---|---|---|---|
+| 2.1 likelihood module | 🟢 done | 2026-05-29 | `src/mass/likelihood_al.py::mahalanobis_residuals_2d`: matriz Σ 2×2 RA/Dec, clamp ρ ∈ (-0.9999, 0.9999), fallback diagonal si det < 1e-8, factor Cholesky vectorizado. |
+| 2.2 tests sintéticos | 🟢 done | 2026-05-29 | `tests/test_likelihood_al.py`: 7 tests pass (diagonal, valor cerrado, correlación, sys+rand, degenerate ρ, norm=chi², límite AC→∞). |
+| 2.3 wiring en `forward_model_joint` + scripts | 🟢 done | 2026-05-29 | Flag `--likelihood {al,mahalanobis2d}` en `fit_mass_gaia_joint.py`, `run_joint_batch.py`, `summarize_joint_fits.py`. Default `al` preserva Stage 1. |
+| 2.4 tests existentes | 🟢 done | 2026-05-29 | 11/11 tests (`test_likelihood_al.py` + `test_forward_model_joint.py`) verdes. |
+| 2.5 re-corrida outliers | 🟢 done | 2026-05-29 | Hestia/5998: 26.22 → 0.90; Isis/7070: 29.69 → 3.70; Alkeste/57942: 192 → 84.45. |
+| 2.6 batch 41 candidatos | 🟢 done | 2026-05-29 | `loo_batch_results_joint_mahal.csv`: 27 fits, χ²_red mediano = **0.593** (vs 1.52 AL), 20/27 con χ²_red < 1, sólo 2 outliers ≥ 10. |
+| 2.7 diagnóstico | 🟢 done | 2026-05-29 | `docs/mass_layer_stage2_diagnostic.md`: comparación par-a-par, recovery del fit (19)/53467 bound activo → masa física, ¿overfit o errores conservadores?. |
 
 ---
 
@@ -695,3 +703,4 @@ Cross-track:
 | 2026-05-29 | PR #32 Stage B mergeada (`9744691`). Branches `track1/stageA-*` y `track1/stageB-*` eliminadas (local + remote). Track 2 Stage 1 WIP movido a branch `track2/stage1-joint-fit` (`db20f74`, sin PR). Plan **PAUSADO**. Resumir desde Track 2 Stage 1.4 — corrida real sobre 41 candidatos. | DF |
 | 2026-05-29 | Plan **reanudado**. Stage 1.4 + 1.5 ejecutadas. Corrida del joint fit 27/41 candidatos (14 descartados por baseline LOO insuficiente). **χ²_red mediano joint = 1.52 vs simple = 511 (mejora 335×)**; criterio de aceptación Stage 1.5 (mediano <10) cumplido. Diagnóstico en `docs/mass_layer_joint_diagnostic.md`. Stage 2 (covarianza AL/AC) justificada por 3 outliers χ²_red ≥ 10. | DF |
 | 2026-05-29 | PR #34 Track 2 Stage 1 mergeada (`971095c`). Branch `track2/stage1-joint-fit` eliminada (local + remote). Plan **PAUSADO**. Resumir desde Track 2 Stage 2 — covarianza Gaia AL/AC. | DF |
+| 2026-05-29 | Plan **reanudado autónomamente**. Stage 2 (covarianza Gaia AL/AC) cerrada end-to-end: `src/mass/likelihood_al.py`, 7 tests sintéticos, wiring en `forward_model_joint.py` + scripts con flag `--likelihood mahalanobis2d`. Batch 41 candidatos re-corrido. **χ²_red mediano 1.52 → 0.59** (mejora ~2.6×), 20/27 fits < 1, 2 outliers residuales (Alkeste, Eros). Diagnóstico en `docs/mass_layer_stage2_diagnostic.md`. PR pendiente abrir. | DF |
