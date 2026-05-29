@@ -307,9 +307,7 @@ def main() -> int:
         diagnostics_per_target.append(diag)
 
     if len(bundles) < 2:
-        logger.error(
-            "Multi-target fit needs ≥2 valid bundles; got %d. Aborting.", len(bundles)
-        )
+        logger.error("Multi-target fit needs ≥2 valid bundles; got %d. Aborting.", len(bundles))
         return 1
 
     initial_mass = _mass_from_h(perturber_el.get("H"))
