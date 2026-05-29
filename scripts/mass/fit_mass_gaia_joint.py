@@ -31,10 +31,11 @@ from scripts.mass.fit_mass_gaia_loo import (
     load_element_rows,
 )
 from src.mass.forward_model_joint import (
-    DEFAULT_PRIORS,
+    PRIOR_PRESETS,
     GaiaObservationBundle,
     JointFitPriors,
     fit_joint,
+    resolve_priors,
 )
 from src.propagate.nbody import _MAJOR_ASTEROIDS
 from src.utils.config import load_config
@@ -142,8 +143,15 @@ def main() -> int:
         default="al",
         help="Astrometric likelihood: AL-projected (Stage 1) or 2D Mahalanobis (Stage 2).",
     )
+    parser.add_argument(
+        "--priors",
+        choices=sorted(PRIOR_PRESETS),
+        default="default",
+        help="Joint-fit prior preset (Track A Stage 1 follow-up: 'tight' uses SBDB-calibrated sigmas).",
+    )
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
+    priors = resolve_priors(args.priors)
 
     cfg = load_config(args.config)
     archive_url = cfg.sources.gaia_sso.archive_url
@@ -250,7 +258,7 @@ def main() -> int:
         perturber_el,
         joint_obs,
         initial_log10_mass=initial_log10_mass,
-        priors=DEFAULT_PRIORS,
+        priors=priors,
         background_elements=background_elements,
         dt_days=args.dt_days,
         integrator=args.integrator,
@@ -263,7 +271,7 @@ def main() -> int:
     chi2_red = chi2_data / max(1, n_astrometric - len(_PARAM_NAMES))
     log10_sigma, mass_sigma = _mass_uncertainty(result, chi2_red)
     mass_kg = 10.0 ** float(result.x[0])
-    active_bounds = _active_bounds(result.x, DEFAULT_PRIORS)
+    active_bounds = _active_bounds(result.x, priors)
     condition = _jtj_condition(result)
 
     logger.info(
@@ -287,6 +295,7 @@ def main() -> int:
     summary = {
         "method": method_tag,
         "likelihood": args.likelihood,
+        "priors_preset": args.priors,
         "n_astrometric_residuals": n_astrometric,
         "perturber": args.perturber,
         "target": args.target,

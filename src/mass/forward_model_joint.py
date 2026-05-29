@@ -102,6 +102,37 @@ class JointFitPriors:
 DEFAULT_PRIORS = JointFitPriors()
 
 
+TIGHT_PRIORS = JointFitPriors(
+    sigma_da_rel=1.0e-7,
+    sigma_de=1.0e-7,
+    sigma_di_deg=1.0e-5,
+    sigma_dOmega_deg=1.0e-5,
+    sigma_domega_deg=3.0e-5,
+    sigma_dM_deg=3.0e-5,
+    da_rel_bounds=(-1.0e-5, 1.0e-5),
+    de_bounds=(-1.0e-5, 1.0e-5),
+    di_deg_bounds=(-1.0e-3, 1.0e-3),
+    dOmega_deg_bounds=(-1.0e-3, 1.0e-3),
+    domega_deg_bounds=(-3.0e-3, 3.0e-3),
+    dM_deg_bounds=(-3.0e-3, 3.0e-3),
+)
+
+
+PRIOR_PRESETS: dict[str, JointFitPriors] = {
+    "default": DEFAULT_PRIORS,
+    "tight": TIGHT_PRIORS,
+}
+
+
+def resolve_priors(name: str) -> JointFitPriors:
+    """Return the JointFitPriors preset registered under ``name``."""
+    try:
+        return PRIOR_PRESETS[name]
+    except KeyError as exc:
+        valid = ", ".join(sorted(PRIOR_PRESETS))
+        raise ValueError(f"unknown priors preset {name!r}; valid: {valid}") from exc
+
+
 def _as_float_array(values: np.ndarray, *, name: str) -> np.ndarray:
     out = np.asarray(values, dtype=float)
     if out.ndim != 1:
