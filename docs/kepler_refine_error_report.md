@@ -159,6 +159,108 @@ candidates) is essentially independent of the headline characterisation: any
 mass-fitting subset can be re-refined per-pair under N-body at negligible
 marginal cost (~10 ms / pair).
 
+## Stage B production results (2026-05-28)
+
+The full Stage B refinement extended this analysis from the 964-pair
+stratified sample to the entire selected subset of 8,728,509 pairs
+(`q_min < 1.8 ∨ e_max > 0.3`, 12.08 % of the catalog). Results below from
+`data/output/stageb_nbody_shards/*.parquet` deduplicated by
+`(number_1, number_2, t_min_kepler_jd)`; consolidated hybrid catalog at
+`data/output/encounters_catalog_hybrid_stageb.parquet`.
+
+### Integration health
+
+| metric | value | target |
+|---|---:|---|
+| pairs refined | 8,728,509 / 8,728,509 | 100 % coverage |
+| failed integrations | 0 | 0 |
+| unconverged | 0 | 0 |
+| max energy drift (relative) | 5.6 × 10⁻¹⁴ | < 10⁻⁹ ✓ |
+| near-boundary flagged | 305,931 (3.5 %) | informational |
+| wall time | ~36 h | 24 workers, ~528 K pairs / h |
+
+### Error distribution at production scale
+
+| percentile | \|Δdist\| | \|Δt_min\| | \|Δrel_vel\| |
+|---|---:|---:|---:|
+| median | 16 μAU | 1.7 h | 2.3 × 10⁻⁷ AU / d |
+| p95 | 0.94 mAU | 8.3 h | — |
+| p99 | **1.99 mAU** | 12 h (window cap) | 1.5 × 10⁻⁵ AU / d |
+| max | 15.2 mAU | — | — |
+
+Stage A predicted p99 = 2.5 mAU from 964 stratified pairs; production
+shows p99 = 1.99 mAU over 8.73 M — consistent within the stratified
+bias (Stage A oversampled the worst quantiles to make the tail
+visible).
+
+### Scaling confirmed
+
+- **`e_max`**: p99 grows monotonically from 0.94 mAU (e < 0.1) →
+  3.29 mAU (e > 0.4). Factor 3.5×, slightly weaker than the 12× factor
+  on the Stage A sample (which was stratified to emphasise the tail).
+- **`q_min`**: p99 grows from 1.9 mAU (q > 1.5) → 3.2 mAU (q < 1).
+  Monotonic but weaker than e_max.
+- **Stratum breakdown** (by `stageb_reason`):
+
+  | reason | n | median \|Δdist\| | max \|Δdist\| |
+  |---|---:|---:|---:|
+  | `q_min` only | 6,648,018 | 16 μAU | 7.2 mAU |
+  | `e_max` only | 631,311 | 18 μAU | 14.6 mAU |
+  | both `q_min ∧ e_max` | 1,449,180 | 26 μAU | 15.2 mAU |
+
+  The largest residuals are in the joint `q_min ∧ e_max` stratum
+  (NEA-like crossers with high eccentricity), as expected.
+
+### Detection-status changes
+
+A key science finding: when re-refined under N-body, **25,283 pairs
+(0.29 % of the subset, 0.035 % of the catalog) cross the 0.05 AU
+detection threshold** — and the crossing is asymmetric:
+
+| direction | n |
+|---|---:|
+| Kepler `<0.05 AU` → N-body `≥0.05 AU` (false positives in Kepler catalog) | **25,283** |
+| Kepler `≥0.05 AU` → N-body `<0.05 AU` (would-be false negatives) | **0** |
+
+The asymmetry is consistent with the Kepler refiner systematically
+slightly under-estimating distance in high-eccentricity / low-perihelion
+encounters; once the perturbations of major planets and the four major
+asteroids are included, ~25 K of those near-threshold candidates move
+out of the 0.05 AU shell.
+
+### Top |Δdist| movers
+
+The worst residuals concentrate on a single body, **(100085)**
+(e = 0.624, q = 0.996 AU, a ≈ 2.65 AU — Apollo-class NEA). Five of the
+top 10 movers involve this asteroid in pairs with main-belt targets;
+its near-Earth perihelion combined with a ≈ 2.65 AU makes Kepler
+especially poor for it.
+This is the predicted failure mode of the Stage B criterion — high-e
+crossers — being exhibited at scale.
+
+### Literature cross-check (hybrid catalog)
+
+Fienga 2003 (J/A+A/411/L7), 4 expected events in the Gaia DR3 window
+(Impact ≤ 0.05 AU):
+
+| pair | Fienga date | our date | Δt | Impact_F (AU) | dist_ours (AU) | Δdist |
+|---|---|---|---:|---:|---:|---:|
+| (48, 300) | 2017-04-01 | 2017-04-24 | +23.9 d | 0.00840 | 0.00835 | −52 μAU |
+| (804, 733) | 2015-02-01 | — | — | 0.01380 | absent | — |
+| (65, 976) | 2014-11-01 | 2014-11-12 | +11.1 d | 0.03780 | 0.03781 | +8 μAU |
+| (1, 57) | 2017-01-01 | 2017-01-10 | +9.9 d | 0.04370 | 0.04355 | −152 μAU |
+
+3 of 4 expected events present; 2 of 3 hits within strict 10⁻⁴ AU
+tolerance, the third (1, 57) just outside at 152 μAU. The missing
+(804, 733) pair is absent from both the Kepler and the hybrid catalogs
+— this is a detection gap (likely a prefilter issue, audit blocker #2),
+not a refinement issue.
+
+Goffin (2014) validation could not be exercised: the VizieR snapshot of
+J/A+A/565/A56 in `data/raw/` contains the mass-determination tables
+(tables 5–6), not the pair-by-pair encounter table the validator was
+written against. Independent of Stage B.
+
 ## What this report does NOT say
 
 1. **It does not say the catalog is wrong.** Detection (is dist < 0.05 AU?)
@@ -177,7 +279,7 @@ marginal cost (~10 ms / pair).
 
 - Sample: `data/cache/nbody_validation/sample_1000.parquet` (964 rows)
 - Per-pair comparison: `data/output/kepler_vs_nbody_comparison.parquet`
-  (964 rows × 24 cols)
+  (964 rows × 26 cols)
 - Notebook: [notebooks/nbody_error_characterization.ipynb](../notebooks/nbody_error_characterization.ipynb)
 
 ## Reproducibility
