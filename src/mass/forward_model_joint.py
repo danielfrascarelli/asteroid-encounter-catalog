@@ -8,11 +8,15 @@ deltas are evaluated in one residual vector.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 from scipy.optimize import OptimizeResult, least_squares
 
 from src.astrometry.forward_model import forward_model, residuals_mas
+from src.mass.likelihood_al import mahalanobis_residuals_2d
+
+LikelihoodKind = Literal["al", "mahalanobis2d"]
 
 
 @dataclass(frozen=True)
@@ -211,8 +215,16 @@ def residuals_joint(
     ),
     dt_days: float = 1.0,
     integrator: str = "whfast",
+    likelihood: LikelihoodKind = "al",
 ) -> np.ndarray:
-    """Evaluate AL residuals plus orbital priors for the joint fit."""
+    """Evaluate astrometric residuals plus orbital priors for the joint fit.
+
+    ``likelihood`` selects how the per-observation (RA*, Dec) residual is
+    weighted: ``"al"`` projects onto along-scan only (Stage 1 baseline),
+    ``"mahalanobis2d"`` whitens the full 2D tangential residual with the
+    Gaia (RA, Dec) covariance, keeping the across-scan component too
+    (Stage 2).
+    """
     validate_observations(obs)
     p = np.asarray(params, dtype=float)
     if p.shape != (7,):
@@ -233,18 +245,33 @@ def residuals_joint(
         integrator=integrator,
     )
     dra, ddec = residuals_mas(obs.ra_deg, obs.dec_deg, ra_pred, dec_pred)
-    r_al, sigma_al = al_residuals_and_weights(
-        dra,
-        ddec,
-        obs.position_angle_scan_deg,
-        obs.ra_error_systematic_mas,
-        obs.dec_error_systematic_mas,
-        obs.ra_dec_correlation_systematic,
-        obs.ra_error_random_mas,
-        obs.dec_error_random_mas,
-        obs.ra_dec_correlation_random,
-    )
-    return np.concatenate([r_al / sigma_al, prior_residuals(p, priors)])
+    if likelihood == "al":
+        r_al, sigma_al = al_residuals_and_weights(
+            dra,
+            ddec,
+            obs.position_angle_scan_deg,
+            obs.ra_error_systematic_mas,
+            obs.dec_error_systematic_mas,
+            obs.ra_dec_correlation_systematic,
+            obs.ra_error_random_mas,
+            obs.dec_error_random_mas,
+            obs.ra_dec_correlation_random,
+        )
+        astrometric = r_al / sigma_al
+    elif likelihood == "mahalanobis2d":
+        astrometric, _ = mahalanobis_residuals_2d(
+            dra,
+            ddec,
+            obs.ra_error_systematic_mas,
+            obs.dec_error_systematic_mas,
+            obs.ra_dec_correlation_systematic,
+            obs.ra_error_random_mas,
+            obs.dec_error_random_mas,
+            obs.ra_dec_correlation_random,
+        )
+    else:
+        raise ValueError(f"unknown likelihood {likelihood!r}")
+    return np.concatenate([astrometric, prior_residuals(p, priors)])
 
 
 def fit_joint(
@@ -270,6 +297,7 @@ def fit_joint(
     dt_days: float = 1.0,
     integrator: str = "whfast",
     max_nfev: int = 800,
+    likelihood: LikelihoodKind = "al",
 ) -> OptimizeResult:
     """Run the seven-parameter least-squares joint fit."""
     if initial_deltas is None:
@@ -289,6 +317,7 @@ def fit_joint(
             "include_planets": include_planets,
             "dt_days": dt_days,
             "integrator": integrator,
+            "likelihood": likelihood,
         },
         method="trf",
         bounds=(priors.lower_bounds, priors.upper_bounds),

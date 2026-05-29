@@ -2,10 +2,12 @@
 
 Usage:
     docker compose run --rm pipeline python -m scripts.mass.summarize_joint_fits
+    docker compose run --rm pipeline python -m scripts.mass.summarize_joint_fits --likelihood mahalanobis2d
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 from pathlib import Path
@@ -19,8 +21,25 @@ _OUTPUT_DIR = Path("data/output")
 
 
 def main() -> int:
-    fit_files = sorted(_OUTPUT_DIR.glob("fit_*_joint.json"))
-    logger.info("Found %d joint fit JSON files", len(fit_files))
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument(
+        "--likelihood",
+        choices=["al", "mahalanobis2d"],
+        default="al",
+    )
+    parser.add_argument("--output-dir", type=Path, default=_OUTPUT_DIR)
+    parser.add_argument("--output", type=Path, default=None)
+    args = parser.parse_args()
+
+    if args.likelihood == "al":
+        glob = "fit_*_joint.json"
+        default_out = args.output_dir / "loo_batch_results_joint.csv"
+    else:
+        glob = "fit_*_joint_mahal.json"
+        default_out = args.output_dir / "loo_batch_results_joint_mahal.csv"
+
+    fit_files = sorted(args.output_dir.glob(glob))
+    logger.info("Found %d joint fit JSON files matching %s", len(fit_files), glob)
 
     rows = []
     for path in fit_files:
@@ -62,7 +81,8 @@ def main() -> int:
         return 1
 
     df = pl.DataFrame(rows).sort("chi2_red_joint", nulls_last=True)
-    out_path = _OUTPUT_DIR / "loo_batch_results_joint.csv"
+    out_path = args.output or default_out
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     df.write_csv(out_path)
     logger.info("Wrote %d rows to %s", df.height, out_path)
 
