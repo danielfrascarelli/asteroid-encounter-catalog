@@ -57,54 +57,44 @@ Ejemplo: `trackA/stage1-tighten-priors`. **Nunca trabajar en `main`**.
 ## Estado global
 
 **Fecha de creación**: 2026-05-29
-**Última actualización**: 2026-05-30
-**Estado**: ⏸️ **PAUSADO**. PR #44 (Stage 2.6: diagnóstico del sesgo real-data +
-fix de ventana joint) **mergeado a main** (merge commit `93dc5b4`). Branch
-`trackA/stage2.6-realdata-bias` eliminada (local + remoto). También podadas las
-ramas remotas stale ya mergeadas (`trackA/stage2-multitarget-joint`,
-`docs/followup-pause-a2.5`). Sin branch de trabajo activa (queda `perf/refine-kepler-cache`,
-WIP separado del cache Kepler, sin mergear). 
-**Hallazgo de Stage 2.6**: el "9× real-data" de A2.5 **no era un sesgo físico
-coherente**. Es (a) un **basin espurio** del optimizador sobre una χ²(masa)
-**dentada y multimodal** — la degeneración M↔deltas está *activa sobre datos
-reales* (los 6 deltas absorben masa; A2 la creyó descartada pero eso valía solo
-para datos sintéticos sin ruido) — y (b) **deriva orbital** del arco joint
-**unilateral** (la máscara no tiene cota superior), dominada por el target 45989
-(χ²_red@lit 1129; rampa temporal sobre ~814 d). Apretar a una ventana simétrica
-±60 d **cura 45989** (χ²_red@lit 1129→0.49) pero **NO identifica la masa**:
-mínimos por-target dispersos (0.19–3.4× lit), curvas aún dentadas, sin leverage
-limpio ≳3σ. Perturbador secundario descartado (ninguno masivo). **Veredicto: la
-masa de Hygiea no es determinable con DR3 en este pipeline**; solo Ceres (25σ)
-tiene leverage defendible. Diagnóstico:
-[docs/mass_layer_stage_a2_6_realdata_bias.md](docs/mass_layer_stage_a2_6_realdata_bias.md).
-**Al retomar**: decisión humana entre (i) **cerrar Track A** con el veredicto
-"masa no determinable en DR3 salvo Ceres", o (ii) arrancar **A3 (modelo OU del
-drift)** — pero solo si antes, con la ventana acotada (`--joint-window-days`, ya
-disponible), algún calibrador además de Ceres muestra señal ≳3σ. Hoy la evidencia
-de 2.6 dice que no. Alternativa de mayor valor: **Track B** (outliers Stage 2,
-specificity completo, o el side-paper del sesgo Kepler), ortogonal a la capa de
-masas y sin el cuello de botella de leverage de DR3.
-**Etapa pausada**: Track A Stage 2.5 (optimizador perfilado) — **🟡 PARCIAL**.
-A2.5 **arregló el bug del optimizador** (closing-loop sintético recupera la masa
-inyectada exacta, ratio 1.000), confirmando que el "ratio = M_H/M_lit" era el
-optimizador sin moverse, no un bias físico. PERO los fits reales aún no validan:
-**Hygiea real → 7.5×10²⁰ (9× literatura, χ²_red 1.19)**, Pallas no-identificable.
-Queda un **sesgo real-data** (deriva orbital / sistemática Gaia) ahora aislado
-como el problema dominante. Diagnóstico:
-[docs/mass_layer_stage_a2_5_profiled.md](docs/mass_layer_stage_a2_5_profiled.md).
-**Próximo**: investigar el sesgo real-data de Hygiea (se solapa con Track B1).
-**Hallazgo mayor (closing-the-loop test)**: el ratio fit/lit = M_H/M_lit NO es un
-bias físico — es el optimizador devolviendo el **prior fotométrico** porque
-`least_squares` no desciende en la dirección de masa (trust-region mal
-condicionado, cond~10¹³). El escaneo χ²(masa) tiene un **mínimo profundo en la
-masa real** para Hygiea (Δχ²~29, ~5σ) y Ceres (~25σ); solo Pallas es
-genuinamente plano (0.09σ, sin leverage DR3). Esto **revierte** el veredicto
-"cerrar Track A" y la conclusión del deepwork "capa no publicable" para
-perturbadores con buena geometría. Diagnóstico:
-[docs/mass_layer_closing_loop_leverage.md](docs/mass_layer_closing_loop_leverage.md).
-**Próxima etapa**: A2.5 — reemplazar el fit acoplado por un **optimizador
-perfilado** (outer 1-D en log10_M, inner solo deltas). Se espera recuperar
-Ceres/Hygiea a literatura; Pallas queda leverage-limited.
+**Última actualización**: 2026-05-30 (retomado)
+**Estado**: ✅ **TRACK A CERRADO + TRACK B COMPLETO (B1/B2/B3)**. Tras retomar el
+plan se ejecutó todo el trabajo pendiente ejecutable en paralelo. PRs #46–#49
+abiertos a `main`:
+
+- **#46 — Track A gate-check (cierre)**: el gate de A3 **falla**. Scans de χ²(masa)
+  con ventana acotada ±60 d sobre los calibradores muestran que **ningún cuerpo
+  ≠ Ceres tiene leverage ≳3σ** (Pallas σ≤1.2; Hygiea ≤2.1 de A2.6; Vesta sin
+  targets). Ceres es el único con leverage (σ=20.3) pero su estimador puntual
+  depende de la ventana (0.77× one-sided vs 4.37× ±60 d) → no calibrado. **A3 NO
+  se arranca; Track A se cierra** esperando DR4/FPR. Doc:
+  [docs/mass_layer_track_a_closure.md](docs/mass_layer_track_a_closure.md).
+- **#47 — Track B1 (outliers Stage 2)**: los dos χ² altos (57942=84.5, 176865=31.9)
+  son **misfit along-scan pervasivo**, no sistemática AC (σ_AC≈612mas≫σ_AL≈3mas →
+  χ²_red_AC≈0.1), no transit aislado, no perturbador secundario. Doc:
+  [docs/mass_layer_stage2_outliers.md](docs/mass_layer_stage2_outliers.md).
+- **#48 — Track B2 (specificity completo)**: **0/27 detecciones** específicas;
+  `p_mass` nunca <0.08 (la masa real nunca sobresale del nulo). Apéndice en
+  [docs/mass_layer_stage3_diagnostic.md](docs/mass_layer_stage3_diagnostic.md).
+- **#49 — Track B3 (sesgo threshold Kepler)**: caracteriza los 25,283 cruces
+  (0.29% de los pares refinados) y **corrige el framing de FROZEN_RUN**: el "0
+  cruces hacia abajo" es **censura** (el catálogo no tiene pares Kepler≥0.05), y
+  Δdist está dominado por scatter (mediana −1e-6 AU), no por un sesgo
+  unidireccional. Nota técnica + notebook:
+  [docs/kepler_threshold_bias_paper.md](docs/kepler_threshold_bias_paper.md).
+
+**Conclusión global de la capa de masas**: convergente y honesta — la
+determinación de masas **no es viable con Gaia DR3** en este pipeline (Track A
+cerrado, specificity 0/27). El cuello de botella es el **leverage intrínseco**
+del dataset, no el optimizador ni la parametrización del drift. El tooling
+(joint multi-target, profiled, ventana acotada) queda listo para DR4/FPR.
+**Historia de Track A** (resumen; detalle en los docs por etapa): A1 (tighten
+priors) FAIL → A2 (multi-target) FAIL → closing-loop (el ratio era un bug del
+optimizador, no físico) → A2.5 (profiled, bug arreglado; aflora sesgo real-data)
+→ A2.6 ("9×" = basin espurio + drift; M↔deltas activa en datos reales;
+no-identificable) → **gate-check A3 FAIL (#46) → Track A cerrado**. El leverage
+intrínseco de DR3 es el límite; no hay nada que A3 (OU) pueda destrabar donde no
+hay señal.
 
 | Track | Etapa | Estado | Branch | PR | Inicio | Fin | Notas |
 |-------|-------|--------|--------|----|--------|-----|-------|
@@ -112,18 +102,21 @@ Ceres/Hygiea a literatura; Pallas queda leverage-limited.
 | A | 2: multi-target joint fit | 🟢 DONE | trackA/stage2-multitarget-joint | #42 | 2026-05-29 | 2026-05-29 | Gate FAIL 0/2; masa multi == single; refuta degeneración M↔deltas |
 | A | 2.5: optimizador perfilado | 🟡 PARCIAL (mergeado) | trackA/stage2-multitarget-joint | #42 ✅ | 2026-05-29 | 2026-05-30 | Bug optimizador ARREGLADO (closing-loop ratio 1.000); pero Hygiea real → 9× lit. Queda sesgo real-data |
 | A | 2.6: investigar sesgo real-data Hygiea | 🟢 DONE | trackA/stage2.6-realdata-bias | #44 | 2026-05-30 | 2026-05-30 | 9× = basin espurio + drift, NO sesgo físico. Masa no-identificable en DR3 (deltas absorben sobre datos reales). Solo Ceres defendible. Fix `--joint-window-days` incluido |
-| A | 3: OU forward model para drift | ⚪ PENDING | — | — | — | — | Solo si, con ventana acotada, un calibrador ≠Ceres muestra ≳3σ. Hoy evidencia: no |
-| B | 1: investigar outliers Stage 2 (Alkeste/57942, Eros/176865) | ⚪ PENDING | — | — | — | — | Independiente; científico |
-| B | 2: specificity sobre 22/27 restantes | ⚪ PENDING | — | — | — | — | Completar Stage 3 |
-| B | 3: side-paper 25,283 false-positives Kepler | ⚪ PENDING | — | — | — | — | Posible mini-paper |
+| A | gate-check A3 (ventana acotada) | 🟢 DONE | trackA/gate-a3-close | #46 | 2026-05-30 | 2026-05-30 | Gate FAIL: solo Ceres con leverage (σ=20.3), Pallas σ≤1.2. A3 no se arranca |
+| A | 3: OU forward model para drift | ⚫ ABANDONED | — | — | — | — | No justificada: gate FAIL. El límite es leverage DR3, no la parametrización del drift |
+| B | 1: outliers Stage 2 (Alkeste/57942, Industria/176865) | 🟢 DONE | trackB/stage1-stage2-outliers | #47 | 2026-05-30 | 2026-05-30 | Misfit along-scan pervasivo; refuta AC-systematic/transit-aislado/perturbador-secundario |
+| B | 2: specificity sobre 22/27 restantes | 🟢 DONE | trackB/stage2-specificity-full | #48 | 2026-05-30 | 2026-05-30 | 0/27 detecciones; p_mass nunca <0.08 |
+| B | 3: side-paper 25,283 false-positives Kepler | 🟢 DONE (draft) | trackB/stage3-kepler-bias-paper | #49 | 2026-05-30 | 2026-05-30 | "0 cruces abajo" = censura; Δdist scatter-dominado. Decisión publicar pendiente |
 
-**Recomendación de orden**:
+**Qué queda** (todo lo ejecutable ya se cerró 2026-05-30):
 
-1. **Track A Stage 1 primero**. Es 1 día de trabajo y decide si el bias
-   de Stage 4 es estructural (entonces Track A1 falla y hay que ir a A2/A3)
-   o sólo es overfitting (entonces A1 lo arregla y Stage 4 pasa).
-2. **Track B en paralelo si hay capacidad**. B1 y B2 son scope acotado y
-   no dependen de Track A. B3 es opcional (side-paper, no urgente).
+1. **Decisión humana sobre B3**: ¿publicar la nota del sesgo Kepler como apéndice
+   del catálogo o como nota técnica standalone? (recomendación: apéndice).
+2. **DR4 / FPR**: reabrir Track A (A3/multi-target, tooling listo) cuando arcos
+   más largos den leverage a >1 calibrador. Medir falsos negativos del prefiltro
+   (experimento en la nota B3).
+3. **Resto del roadmap principal** (dashboard, caracterización big-catalog), fuera
+   del scope de este plan de follow-up.
 
 ---
 
@@ -484,10 +477,16 @@ simétrica/acotada en `_build_bundle` (limpia el drift de 45989).
 
 ### Stage 3 — Forward model físico para drift (OU)
 
-**Estado**: ⚪ PENDING (sólo si Stage 2 todavía deja bias)
-**Estimación**: 2-3 semanas
+**Estado**: ⚫ ABANDONED — gate-check FAIL (2026-05-30, PR #46)
+**Estimación**: 2-3 semanas (no realizada)
 **Branch propuesta**: `trackA/stage3-ou-drift`
 **Depende de**: Stage 2 con veredicto negativo (✓ cumplido, gate FAIL).
+
+> **Cierre (2026-05-30).** El gate-check (escaneo χ²(masa) con ventana acotada
+> ±60 d sobre los calibradores, [docs/mass_layer_track_a_closure.md](docs/mass_layer_track_a_closure.md))
+> falla: ningún cuerpo ≠ Ceres alcanza ≳3σ de leverage (Pallas σ≤1.2, Hygiea
+> ≤2.1, Vesta sin targets). A3 no se arranca: el cuello de botella es el leverage
+> intrínseco de DR3, no la parametrización del drift. Track A cerrado.
 
 > ⚠️ **Pre-requisito agregado tras A2 (2026-05-29)**: A2 mostró que los
 > deltas orbitales son ~10⁻⁷ y NO absorben señal de masa — la premisa de A3
@@ -544,12 +543,20 @@ no absorba señal de masa.
 
 ## Track B — Trabajos ortogonales pendientes
 
-### Stage 1 — Investigar outliers Stage 2 (Alkeste / 57942 y Eros / 176865)
+### Stage 1 — Investigar outliers Stage 2 (Alkeste / 57942 e Industria / 176865)
 
-**Estado**: ⚪ PENDING
-**Estimación**: 3-5 días
-**Branch propuesta**: `trackB/stage1-stage2-outliers`
+**Estado**: 🟢 DONE — PR #47 (2026-05-30)
+**Estimación**: 3-5 días (realizado en 1 sesión)
+**Branch**: `trackB/stage1-stage2-outliers`
 **Depende de**: nada.
+**Doc**: [docs/mass_layer_stage2_outliers.md](docs/mass_layer_stage2_outliers.md)
+
+> **Veredicto**: misfit **along-scan pervasivo** (σ_AC≈612mas≫σ_AL≈2-4mas →
+> χ²_red_AC≈0.1, χ²_red_AL 66-349; |AL pull| 3-5σ en ~20-50% de los transits).
+> **Refuta** las tres hipótesis de Stage 2: no es sistemática AC, no es un
+> transit aislado (top-1 ≤8% del χ²), no hay perturbador secundario (0 masivos
+> en 123/173 encuentros). No es señal de masa. Recomienda corte de calidad por
+> residuo along-scan. Tool: `scripts/mass/diagnose_stage2_outliers.py`.
 
 #### Objetivo
 
@@ -605,10 +612,16 @@ cat docs/mass_layer_stage2_outliers.md
 
 ### Stage 2 — Completar specificity sobre los 22/27 restantes
 
-**Estado**: ⚪ PENDING
-**Estimación**: 1-2 días (mostly cómputo)
-**Branch propuesta**: `trackB/stage2-specificity-full`
+**Estado**: 🟢 DONE — PR #48 (2026-05-30)
+**Estimación**: 1-2 días (realizado en 1 sesión)
+**Branch**: `trackB/stage2-specificity-full`
 **Depende de**: nada.
+**Doc**: apéndice en [docs/mass_layer_stage3_diagnostic.md](docs/mass_layer_stage3_diagnostic.md)
+
+> **Veredicto**: **0/27 detecciones** específicas (ninguna pasa p_chi2≤0.05 Y
+> p_mass≤0.05). `p_mass` nunca <0.08 (mediana 0.26): la masa real nunca sobresale
+> del nulo orbital/magnitud-matched. Confirma el cierre de Track A. Salida:
+> `data/output/specificity_test_v2_full27.csv`.
 
 #### Objetivo
 
@@ -657,10 +670,20 @@ cat data/output/specificity_test_v2_full.csv
 
 ### Stage 3 — Side-paper: 25,283 false positives Kepler (sesgo cerca del threshold)
 
-**Estado**: ⚪ PENDING (opcional, side-project)
-**Estimación**: 2-3 semanas (es un mini-paper)
-**Branch propuesta**: `trackB/stage3-kepler-bias-paper`
+**Estado**: 🟢 DONE (draft) — PR #49 (2026-05-30). Decisión de publicar pendiente.
+**Estimación**: 2-3 semanas (análisis + draft realizados en 1 sesión)
+**Branch**: `trackB/stage3-kepler-bias-paper`
 **Depende de**: nada.
+**Doc**: [docs/kepler_threshold_bias_paper.md](docs/kepler_threshold_bias_paper.md) + notebook
+
+> **Veredicto**: 25,283/8.73M = 0.29% de cruces ascendentes, concentrados en
+> [0.045,0.050) AU (1.51%) y en órbitas q_min<1.8 AU (90.9%) / encuentros
+> rápidos. **Corrige FROZEN_RUN**: el "0 cruces hacia abajo" es **censura** (el
+> catálogo no tiene pares Kepler≥0.05), no una tasa de falsos negativos medida;
+> Δdist está dominado por scatter (mediana −1e-6 AU), no por un sesgo
+> unidireccional. Propone el experimento (re-refinar [0.05,0.06] AU) para medir
+> los falsos negativos. **Pendiente humano**: ¿apéndice del catálogo vs nota
+> standalone? Tool: `scripts/validate/analyze_kepler_threshold_bias.py`.
 
 #### Objetivo
 
@@ -708,19 +731,18 @@ o nota técnica.
 ### A. Dependencias entre etapas
 
 ```
-Track A (secuencial, condicional):
-  A1 tighten priors ──► (gate)
-    ✓ pass → Track A resuelto
-    ✗ fail → A2 multi-target ──► (gate)
-                ✓ pass → Track A resuelto
-                ✗ fail → A3 OU drift ──► (gate)
-                            ✓ pass → Track A resuelto
-                            ✗ fail → cerrar Track A (esperar DR4)
+Track A (RESUELTO — cerrado 2026-05-30):
+  A1 tighten priors  ──► FAIL (bias estructural)
+  A2 multi-target    ──► FAIL (masa multi==single)
+  closing-loop       ──► bug del optimizador (no físico)
+  A2.5 profiled      ──► bug arreglado; aflora sesgo real-data
+  A2.6 real-data     ──► no-identificable (M↔deltas activa)
+  A3 gate-check      ──► FAIL (solo Ceres con leverage) ⇒ A3 ABANDONED, Track A CERRADO
 
-Track B (independientes entre sí, independientes de Track A):
-  B1 outliers Stage 2 — pueden hacerse en cualquier momento
-  B2 specificity completo — pueden hacerse en cualquier momento
-  B3 side-paper Kepler — opcional, no urgente
+Track B (COMPLETO 2026-05-30):
+  B1 outliers Stage 2     ──► DONE: misfit along-scan (#47)
+  B2 specificity completo ──► DONE: 0/27 detecciones (#48)
+  B3 side-paper Kepler    ──► DONE (draft): censura, no sesgo unidireccional (#49)
 ```
 
 ### B. Costo computacional estimado
@@ -755,3 +777,5 @@ Track B (independientes entre sí, independientes de Track A):
 | 2026-05-30 | PR #42 mergeado a main (`02b6946`); branch eliminada. Trabajo **PAUSADO**. Próxima al retomar: Stage 2.6 (investigar sesgo real-data Hygiea). | DF |
 | 2026-05-30 | A2.6 cerrado. El "9×" de A2.5 = basin espurio sobre χ²(masa) dentada/multimodal (degeneración M↔deltas activa en datos reales) + deriva orbital del arco joint unilateral (45989). Ventana ±60 d cura 45989 pero no identifica la masa. Perturbador secundario descartado. Veredicto: masa de Hygiea no determinable en DR3; solo Ceres defendible. | DF |
 | 2026-05-30 | PR #44 mergeado a main (`93dc5b4`); rama eliminada + podadas ramas stale. Fix `--joint-window-days` disponible en producción. Trabajo **PAUSADO**. Al retomar: decisión cerrar Track A vs A3, o pivotar a Track B. | DF |
+| 2026-05-30 | **Retomado.** Decisión: ejecutar todo lo pendiente en paralelo. Gate-check A3 corrido (Pallas/Ceres ±60 d) → **FAIL**: solo Ceres con leverage, y su estimador es window-dependiente → **Track A cerrado**, A3 abandonada (PR #46). | DF |
+| 2026-05-30 | Track B1 (PR #47): outliers Stage 2 = misfit along-scan pervasivo (σ_AC≫σ_AL), no AC-systematic/transit/perturbador-secundario. Track B2 (PR #48): specificity 0/27 detecciones. Track B3 (PR #49): los 25,283 cruces = censura + scatter, no sesgo unidireccional; nota técnica draft. | DF |
