@@ -1,6 +1,8 @@
-# El sesgo del threshold Kepler cerca de 0.05 AU — nota técnica (borrador)
+# El sesgo del threshold Kepler cerca de 0.05 AU — apéndice de métodos del catálogo
 
-> Borrador de **Track B Stage 3** del [FOLLOWUP_PLAN.md](../FOLLOWUP_PLAN.md).
+> **Track B Stage 3** del [FOLLOWUP_PLAN.md](../FOLLOWUP_PLAN.md). **Decisión
+> (2026-05-30): este material va como apéndice de métodos/caveats del paper del
+> catálogo, NO como nota standalone** (ver "Decisión de publicación" al final).
 > Caracteriza cuantitativamente los 25,283 cruces del threshold Kepler→N-body
 > reportados en [FROZEN_RUN.md](../FROZEN_RUN.md) y **corrige su interpretación**.
 > Análisis reproducible:
@@ -112,16 +114,33 @@ prefiltro Kepler— requiere re-refinar con N-body una muestra de pares con
 3. Combinar con la tasa de sobre-detección de esta nota para una matriz de
    confusión completa del prefiltro cerca del threshold.
 
-## ¿Publicar?
+## Decisión de publicación (2026-05-30)
 
-Como **nota técnica / apéndice metodológico** del catálogo: sí, aporta una
-caracterización honesta del prefiltro. Como paper independiente: marginal —
-el resultado central (scatter de la corrección de dos cuerpos cerca de un corte
-de distancia produce sobre-detección de borde) es esperable y probablemente ya
-discutido en la literatura de catálogos de close-approach (revisar Fienga,
-JPL CNEOS). **Decisión pendiente** (humana): apéndice del catálogo vs. nota
-técnica standalone. Recomendación: apéndice, con el experimento de falsos
-negativos como motivación para DR4.
+**Decidido: apéndice de métodos/caveats del paper del catálogo, NO nota
+standalone.** Razones científicas:
+
+1. **No es física novel.** El esquema Kepler→N-body de dos etapas es práctica
+   estándar, y el efecto —errores de dos cuerpos cerca de un corte de distancia
+   producen cruces censurados/asimétricos— es un caso genérico de sesgo de
+   selección en un umbral (familia Eddington/Malmquist). Una búsqueda de
+   literatura no encontró una caracterización prominente *específica* del efecto,
+   pero el mecanismo es esperable.
+2. **El valor es específico de este catálogo**: cuantifica la pureza cerca del
+   corte (~1.5 % espurio en el bin de borde) y dónde (q bajo / e alta / rápidos).
+   Eso es exactamente lo que documenta una sección de métodos/caveats — sirve
+   directamente a los usuarios del catálogo.
+3. **Como standalone sería débil**: el número genuinamente novel —la tasa de
+   falsos negativos— está **sin medir** (requiere re-refinar pares con Kepler ∈
+   [0.05, 0.06] AU, ausentes del catálogo). Un referee lo vería incompleto.
+
+**Acción tomada**: corregida la afirmación errónea "no false negatives" en
+[FROZEN_RUN.md](../FROZEN_RUN.md) (era censura, no medición). Este doc + el
+notebook quedan como fuente del apéndice cuando se escriba el paper del catálogo.
+
+**Gatillo para reconsiderar standalone**: si en el futuro se corre el experimento
+de falsos negativos (re-refinar [0.05, 0.06] AU) y se obtiene una matriz de
+confusión completa del prefiltro, el conjunto sí justificaría una nota técnica
+(p. ej. RNAAS).
 
 ## Reproducir
 
