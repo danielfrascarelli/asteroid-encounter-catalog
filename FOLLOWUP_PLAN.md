@@ -57,8 +57,19 @@ Ejemplo: `trackA/stage1-tighten-priors`. **Nunca trabajar en `main`**.
 ## Estado global
 
 **Fecha de creación**: 2026-05-29
-**Última actualización**: 2026-05-29
-**Etapa activa**: Track A Stage 2.5 (optimizador perfilado) — **🟡 PARCIAL**.
+**Última actualización**: 2026-05-30
+**Estado**: ⏸️ **PAUSADO**. PR #42 (Stage 2 + closing-loop + A2.5) **mergeado a
+main** (merge commit `02b6946`). Branch `trackA/stage2-multitarget-joint`
+eliminada. Sin branch activa.
+**Al retomar**: arrancar **Track A Stage 2.6 — investigar el sesgo real-data de
+Hygiea** (rama nueva `trackA/stage2.6-realdata-bias`). El optimizador ya está
+arreglado (A2.5); lo que queda es entender por qué Hygiea real da 9× literatura
+con χ²_red~1.2. Primeros pasos: per-observation residuals post-encuentro,
+scan χ²(masa) sobre datos REALES (¿unimodal?), estabilidad target-a-target del
+mínimo, búsqueda de perturbador secundario. Se solapa con Track B1. Ver
+[docs/mass_layer_stage_a2_5_profiled.md](docs/mass_layer_stage_a2_5_profiled.md)
+("Próximos pasos"). Correr con `--optimizer profiled` (default).
+**Etapa pausada**: Track A Stage 2.5 (optimizador perfilado) — **🟡 PARCIAL**.
 A2.5 **arregló el bug del optimizador** (closing-loop sintético recupera la masa
 inyectada exacta, ratio 1.000), confirmando que el "ratio = M_H/M_lit" era el
 optimizador sin moverse, no un bias físico. PERO los fits reales aún no validan:
@@ -84,7 +95,8 @@ Ceres/Hygiea a literatura; Pallas queda leverage-limited.
 |-------|-------|--------|--------|----|--------|-----|-------|
 | A | 1: tighten priors | 🟢 DONE | trackA/stage1-tighten-priors | #41 | 2026-05-29 | 2026-05-29 | Veredicto: bias estructural; pasar a A2 |
 | A | 2: multi-target joint fit | 🟢 DONE | trackA/stage2-multitarget-joint | #42 | 2026-05-29 | 2026-05-29 | Gate FAIL 0/2; masa multi == single; refuta degeneración M↔deltas |
-| A | 2.5: optimizador perfilado | 🟡 PARCIAL | trackA/stage2-multitarget-joint | #42 | 2026-05-29 | — | Bug optimizador ARREGLADO (closing-loop ratio 1.000); pero Hygiea real → 9× lit. Queda sesgo real-data |
+| A | 2.5: optimizador perfilado | 🟡 PARCIAL (mergeado) | trackA/stage2-multitarget-joint | #42 ✅ | 2026-05-29 | 2026-05-30 | Bug optimizador ARREGLADO (closing-loop ratio 1.000); pero Hygiea real → 9× lit. Queda sesgo real-data |
+| A | 2.6: investigar sesgo real-data Hygiea | ⚪ PENDING | — | — | — | — | **Próxima al retomar**. Hygiea real 9× lit con χ²_red~1.2. Solapa Track B1 |
 | A | 3: OU forward model para drift | ⚪ PENDING | — | — | — | — | Probablemente innecesaria si A2.5 destraba el fit |
 | B | 1: investigar outliers Stage 2 (Alkeste/57942, Eros/176865) | ⚪ PENDING | — | — | — | — | Independiente; científico |
 | B | 2: specificity sobre 22/27 restantes | ⚪ PENDING | — | — | — | — | Completar Stage 3 |
@@ -671,3 +683,4 @@ Track B (independientes entre sí, independientes de Track A):
 | 2026-05-29 | A2 gate FAIL (masa multi==single; refuta degeneración M↔deltas). Próximo: closing-the-loop test antes de A3. | DF |
 | 2026-05-29 | Closing-loop test: el ratio = M_H/M_lit es un **bug del optimizador** (no bias físico). χ²(masa) tiene mínimo real para Hygiea/Ceres; solo Pallas sin leverage. Nueva etapa A2.5 (optimizador perfilado). Revierte el veredicto "cerrar Track A". | DF |
 | 2026-05-29 | A2.5 implementado (optimizador perfilado). Bug optimizador ARREGLADO (closing-loop ratio 1.000). Pero Hygiea real → 9× lit (χ²_red 1.19): aflora sesgo real-data, ahora aislado del optimizador y del leverage. Capa aún no validada. | DF |
+| 2026-05-30 | PR #42 mergeado a main (`02b6946`); branch eliminada. Trabajo **PAUSADO**. Próxima al retomar: Stage 2.6 (investigar sesgo real-data Hygiea). | DF |
