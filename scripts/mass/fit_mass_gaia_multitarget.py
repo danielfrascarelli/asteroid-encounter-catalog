@@ -104,10 +104,19 @@ def _build_bundle(
     loo_max_nfev: int,
     dt_days: float,
     integrator: str,
+    joint_window_days: float | None = None,
 ) -> tuple[TargetBundle, dict] | None:
     """Fetch Gaia obs, run LOO orbit fit, and assemble a TargetBundle.
 
     Returns ``None`` if there are not enough observations for the joint window.
+
+    ``joint_window_days`` (optional) bounds the joint fit window symmetrically to
+    ``|days_from_encounter| <= joint_window_days``. The default (``None``) keeps
+    the historical one-sided window (everything after ``-loo_window_days``), which
+    lets the post-encounter arc run to the end of DR3 and accumulate orbital drift
+    that the free deltas absorb at an arbitrary mass — the non-identifiability
+    diagnosed in ``docs/mass_layer_stage_a2_6_realdata_bias.md``. Set it to
+    ~60-90 d to keep the fit in the deflection-signal region.
     """
     obs = fetch_gaia_full(archive_url, target)
     if obs.height < 15:
@@ -132,6 +141,8 @@ def _build_bundle(
     days_from_enc = jd_tdb - encounter_jd_tdb
     loo_mask = days_from_enc < -loo_window_days
     joint_mask = (days_from_enc > -loo_window_days) & (np.abs(days_from_enc) >= blackout_days)
+    if joint_window_days is not None:
+        joint_mask &= np.abs(days_from_enc) <= joint_window_days
     n_loo = int(loo_mask.sum())
     n_joint = int(joint_mask.sum())
     if n_loo < 8 or n_joint < 8:
@@ -220,6 +231,15 @@ def main() -> int:
     group.add_argument("--targets-json", type=Path, help="JSON list of {target,date} objects")
     parser.add_argument("--loo-window-days", type=float, default=180.0)
     parser.add_argument("--blackout-days", type=float, default=7.0)
+    parser.add_argument(
+        "--joint-window-days",
+        type=float,
+        default=None,
+        help="Bound the joint fit window symmetrically to ±W days around the encounter. "
+        "Default (unset) keeps the one-sided window, which lets the post-encounter arc "
+        "accumulate orbit drift (see docs/mass_layer_stage_a2_6_realdata_bias.md); "
+        "~60-90 d is recommended for real fits.",
+    )
     parser.add_argument("--mpcorb", type=Path, default=None)
     parser.add_argument("--dt-days", type=float, default=1.0)
     parser.add_argument("--integrator", default="whfast", choices=["whfast", "ias15"])
@@ -307,6 +327,7 @@ def main() -> int:
             loo_max_nfev=args.loo_max_nfev,
             dt_days=args.dt_days,
             integrator=args.integrator,
+            joint_window_days=args.joint_window_days,
         )
         if result is None:
             continue
