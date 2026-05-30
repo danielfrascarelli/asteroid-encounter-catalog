@@ -47,15 +47,17 @@
 
 **Fecha de creación**: 2026-05-30
 **Última actualización**: 2026-05-30
-**Estado**: ⚪ **NO ARRANCADO**. Plan recién creado tras disolver `FOLLOWUP_PLAN.md`.
-Nada en progreso. Toda la capa de masas está cerrada (no determinable en DR3);
-este plan es sobre el **catálogo** (publicable) y el cierre del proyecto.
+**Estado**: 🟡 **EN PROGRESO**. **A1 (recall prefiltro, PR #53)** y **B1 (validación
+literatura, PR #54 + esta branch)** cerradas. Siguiente recomendado: **B2**
+(dashboard + README final) o **A2** (caracterización 72M, refactor). La capa de
+masas sigue cerrada (no determinable en DR3); este plan es sobre el **catálogo** y
+el cierre del proyecto.
 
 | Track | Etapa | Estado | Branch | PR | Notas |
 |-------|-------|--------|--------|----|-------|
 | A | 1: recall del prefiltro (audit #2) | ⚪ PENDING | — | — | El item científico más importante; ~2-3 h |
 | A | 2: caracterización catálogo 72M (streaming) | ⚪ PENDING | — | — | Refactor; el catálogo caracterizado actual es solo 158k filas |
-| B | 1: validación literatura completa (Fase 7) | 🟡 IN PROGRESS | `trackB/stage1-literature-validation` | (pendiente) | Gate 4 cuerpos + consolidación DONE; Goffin/Fuentes data-blocked |
+| B | 1: validación literatura completa (Fase 7) | 🟢 DONE | `trackB/stage1-literature-validation` | (pendiente) | Gate 4 cuerpos + Fuentes-Muñoz 2025 (11.8k confirmaciones) + consolidación; Goffin sin datos en VizieR |
 | B | 2: dashboard + README final + reproducibilidad | ⚪ PENDING | — | — | `src/dashboard/app.py` ya existe; falta pulido + README |
 | C | 1: perf followups (numba / cache persistente) | ⚪ PENDING | — | — | No bloqueante; refinement ya en meseta ~4.5-10× |
 | C | 2: experimento falsos negativos threshold Kepler | ⚪ PENDING | — | — | Gatillo para una nota standalone (decisión B3) |
@@ -179,7 +181,7 @@ completo lleve observabilidad Gaia + magnitudes/diámetros estimados.
 
 ### Stage 1 — Validación contra literatura completa
 
-**Estado**: 🟡 IN PROGRESS (gate + consolidación DONE; Goffin/Fuentes 🔴 data-blocked)
+**Estado**: 🟢 DONE (gate + Fuentes-Muñoz 2025 + consolidación; Goffin sin datos en VizieR)
 **Estimación**: ~2-3 días
 **Branch**: `trackB/stage1-literature-validation`
 **Depende de**: nada.
@@ -204,41 +206,44 @@ aparecen (gate de regresión del CLAUDE.md).
 
 #### Entregables
 
-- [ ] `scripts/validate/validate_goffin_2014.py` extendido / `validate_fuentes_munoz_2024.py` — 🔴 **data-blocked** (ver Progreso)
-- [x] `docs/literature_validation.md` — consolidado (gate + Fienga 3/4 + Galád 4/4 + JPL + blockers)
-- [x] Test de regresión `tests/test_validation.py` (gate de 4 cuerpos) — `TestFrozenMajorBodyGate`
+- [x] `scripts/ingest/download_fuentes_munoz.py` + `scripts/validate/validate_fuentes_munoz_2025.py` (parser MRT + cross-match)
+- [x] `docs/literature_validation.md` — consolidado (gate + Fienga 3/4 + Galád 4/4 + JPL + Fuentes-Muñoz + Goffin)
+- [x] Test de regresión `tests/test_validation.py` (gate de 4 cuerpos `TestFrozenMajorBodyGate` + parser `TestFuentesMunozParse`)
+- [~] `validate_goffin_2014.py`: imposible — VizieR `J/A+A/565/A56` no tiene tabla de encuentros (solo masas). No es blocker del pipeline.
 
 #### Criterios de aceptación
 
 - [x] Los 4 cuerpos grandes presentes (gate del CLAUDE.md) → **4/4**, ahora test de regresión.
-- [~] Match rate reportado honestamente: Fienga **3/4**, Galád **4/4**, JPL 8 pares ≤~5e-6 AU.
-  Goffin/Fuentes pendientes por falta de datos fuente (no del pipeline).
+- [x] Match rate reportado honestamente: Fienga **3/4**, Galád **4/4**, JPL 8 pares ≤~5e-6 AU,
+  **Fuentes-Muñoz 2025: 11,804/40,004 (29.5 %) presentes** (lower bound — FPR cubre baseline
+  fuera de la ventana DR3). Goffin: sin lista de encuentros publicada en VizieR (documentado).
 
 #### Cómo retomar
 
 ```bash
 git checkout trackB/stage1-literature-validation
-cat docs/literature_validation.md     # estado consolidado + qué falta
-# Para desbloquear Goffin: conseguir la tabla de ENCUENTROS (no las tablas de
-# masas 5-6) y re-correr validate_goffin_2014.py (loader ya existe, unit-tested).
-# Para Fuentes-Muñoz 2024: ingerir la lista de 231 pares (LPSC #2388) a data/raw/.
+cat docs/literature_validation.md     # estado consolidado
+# Goffin sólo se puede cerrar si aparece la tabla de ENCUENTROS (no las de masas
+# 5-6) en el material electrónico del paper; Fuentes-Muñoz 2025 ya cubre el cruce
+# sistemático de pares de masas como sucesor machine-readable.
 ```
 
 #### Progreso
 
-**2026-05-30 — parcial.** Hecho y verificado: (1) **gate de los 4 cuerpos** como
-test de regresión `TestFrozenMajorBodyGate` contra el catálogo congelado
-(352/47/458/162, closest a ±1 µAU; opt-in `RUN_REAL_CATALOG_TESTS=1`, skip en CI);
-27 passed / 13 skipped en run por defecto. (2) **docs/literature_validation.md**
-consolida Fienga 2003 (3/4, residual mediano 52 µAU; el miss (804,733) es un
-detection gap — una corrida JPL pre-freeze sí lo tenía, near-threshold, consistente
-con el déficit de recall del prefiltro), Galád 2002 (4/4 Hygiea, µAU–20 µAU), y el
-cruce directo JPL Horizons (8 pares, |Δ|≤~5e-6 AU a cadencia JPL).
-**Bloqueado**: el cruce sistemático Goffin 2014 (el snapshot VizieR `J/A+A/565/A56`
-sólo trae las tablas de masas 5–6, no la tabla de encuentros par-a-par) y
-Fuentes-Muñoz 2024 (lista de 231 pares aún no ingerida). Ambos son blockers de
-**datos fuente**, no del pipeline. **Próximo**: conseguir esas listas de pares, o
-cerrar B1 documentando los blockers y pasar a B2.
+**2026-05-30 — DONE.** (1) **Gate de los 4 cuerpos** como test de regresión
+`TestFrozenMajorBodyGate` contra el catálogo congelado (352/47/458/162, closest a
+±1 µAU; opt-in `RUN_REAL_CATALOG_TESTS=1`, skip en CI). (2) **Fuentes-Muñoz et al.
+2025 (AJ 170, 353)** — bajé la Tabla 5 machine-readable de IOP (fuente oficial),
+parseé 40,004 pares numerados (perturber→target) de 1,645 perturbadores numerados
+(provisionales tipo `2013 KY18` y targets provisionales descartados; parser
+unit-tested `TestFuentesMunozParse`), y crucé contra el catálogo: **11,804/40,004
+(29.5 %) presentes** como encuentros <0.05 AU en la ventana DR3 (lower bound, no
+recall: FPR ajusta sobre baseline completo → la mayoría de los encuentros caen
+fuera de la ventana/scope; los presentes son confirmaciones independientes).
+(3) **docs/literature_validation.md** consolida todo: Fienga 3/4, Galád 4/4, JPL 8
+pares, Fuentes-Muñoz 11,804 confirmaciones, y Goffin documentado como
+**imposible** (VizieR sólo trae masas, confirmado vía ReadMe). Suite: 30 passed /
+26 skipped por defecto; lint+black+mypy verdes.
 
 ---
 
@@ -371,3 +376,4 @@ Track C (opcionales, independientes):
 |-------|--------|-------|
 | 2026-05-30 | Plan creado al disolver `FOLLOWUP_PLAN.md` (capa de masas cerrada; info consolidada en ROADMAP + docs). | DF |
 | 2026-05-30 | **Track B Stage 1 parcial**: gate 4 cuerpos como test de regresión + `docs/literature_validation.md` consolidado (Fienga 3/4, Galád 4/4, JPL). Goffin/Fuentes data-blocked. | DF |
+| 2026-05-30 | **Track B Stage 1 DONE**: descargué Fuentes-Muñoz 2025 (AJ 170,353) Tabla 5 de fuente oficial; 11,804/40,004 pares (29.5 %) confirmados en el catálogo DR3. Goffin documentado como imposible (VizieR sin tabla de encuentros). | DF |

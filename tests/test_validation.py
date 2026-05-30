@@ -353,6 +353,76 @@ class TestFrozenMajorBodyGate:
 
 
 # ---------------------------------------------------------------------------
+# Fuentes-Muñoz 2025 Table-5 parser (no network access required)
+# ---------------------------------------------------------------------------
+
+
+class TestFuentesMunozParse:
+    """Unit tests for validate_fuentes_munoz_2025.parse_table5 on a synthetic MRT.
+
+    The parser reads two fixed-width fields: the perturber ``Asteroid`` (bytes
+    1-22) and the pipe-delimited ``List`` of targets (bytes 101-776). The synthetic
+    rows below reproduce that layout: the list always starts at column 101.
+    """
+
+    @staticmethod
+    def _row(asteroid: str, list_str: str) -> str:
+        line = [" "] * 100
+        line[0 : len(asteroid)] = list(asteroid)
+        return "".join(line) + list_str
+
+    def _make_mrt(self, tmp_path: Path) -> Path:
+        header = [
+            "Title: synthetic",
+            "--------------------------------------------------------------------------------",
+            "Byte-by-byte Description",
+            "--------------------------------------------------------------------------------",
+            "Note (1): ...",
+            "--------------------------------------------------------------------------------",
+        ]
+        rows = [
+            # numbered perturber: two numbered targets, one provisional (dropped), trailing "..."
+            self._row("1 Ceres", "251|1847|2007 VQ345|..."),
+            # reciprocal pair to exercise unordered dedup: (5,100) appears from both rows
+            self._row("100 Foo", "5|10"),
+            self._row("5 Bar", "100"),
+            # bare unnamed numbered perturber (no name) → kept
+            self._row("29943", "777"),
+            # provisional-designation perturber (year + letters) → whole row dropped
+            self._row("2013 KY18", "12345|67890"),
+        ]
+        path = tmp_path / "synthetic_mrt.txt"
+        path.write_text("\n".join(header + rows) + "\n")
+        return path
+
+    def test_pairs_and_dedup(self, tmp_path: Path) -> None:
+        from scripts.validate.validate_fuentes_munoz_2025 import parse_table5
+
+        df, stats = parse_table5(self._make_mrt(tmp_path))
+        got = set(zip(df["lo"].to_list(), df["hi"].to_list()))
+        # (1,251),(1,1847) from Ceres; (5,100),(10,100) from Foo; (5,100) again
+        # from Bar (deduped); (777,29943) from the bare unnamed perturber
+        assert got == {(1, 251), (1, 1847), (5, 100), (10, 100), (777, 29943)}
+        assert stats["n_unique_numbered_pairs"] == 5
+
+    def test_provisional_dropped(self, tmp_path: Path) -> None:
+        from scripts.validate.validate_fuentes_munoz_2025 import parse_table5
+
+        _df, stats = parse_table5(self._make_mrt(tmp_path))
+        # Ceres, Foo, Bar, 29943 kept; "2013 KY18" dropped as provisional
+        assert stats["n_perturbers_numbered"] == 4
+        assert stats["n_perturbers_provisional_dropped"] == 1
+        assert stats["n_target_provisional_dropped"] == 1  # "2007 VQ345"
+
+    def test_ellipsis_token_ignored(self, tmp_path: Path) -> None:
+        from scripts.validate.validate_fuentes_munoz_2025 import parse_table5
+
+        df, _stats = parse_table5(self._make_mrt(tmp_path))
+        # "..." must never become a pair
+        assert df.filter((pl.col("lo") < 0) | (pl.col("hi") < 0)).is_empty()
+
+
+# ---------------------------------------------------------------------------
 # Goffin 2014 fixture tests (no network access required)
 # ---------------------------------------------------------------------------
 

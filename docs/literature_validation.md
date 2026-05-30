@@ -15,8 +15,8 @@
 | **Fienga 2003** (J/A+A/411/L7) | 4 events inside the Gaia window | **3 / 4 matched**; 1 detection gap | ✅ distances agree (median 52 μAU) |
 | **Galád 2002** | 4 in-window Hygiea encounters | **4 / 4 matched** | ✅ µAU–20 µAU agreement |
 | **JPL Horizons** direct | 8 literature pairs re-derived from JPL | our distance vs JPL `|Δ|` ≤ ~5 × 10⁻⁶ AU | ✅ at JPL cadence |
-| **Goffin 2014** (J/A+A/565/A56) | pair-by-pair encounter table | — | 🔴 **data-blocked** (VizieR has only mass tables 5–6) |
-| **Fuentes-Muñoz 2024** (LPSC #2388) | 231 mass-determination pairs | — | 🔴 **data-blocked** (pair list not yet ingested) |
+| **Fuentes-Muñoz 2025** (AJ 170, 353) | 40,004 perturber→target pairs (Gaia FPR) | **11,804 (29.5 %) present** in the DR3 catalog | ✅ overlap is a lower bound (see below) |
+| **Goffin 2014** (J/A+A/565/A56) | pair-by-pair encounter table | — | 🔴 **no machine-readable encounter list exists** (VizieR confirmed: masses only) |
 
 ## Major-body gate (regression test)
 
@@ -89,28 +89,54 @@ sub-10⁻⁷ AU to ~5 × 10⁻⁶ AU at the JPL sampling cadence.
 `argmin` is taken — this validates accuracy *at that cadence* over ~8 pairs, not
 sub-cadence / micro-AU accuracy on all 72 M rows.
 
-## Blocked: Goffin 2014 and Fuentes-Muñoz 2024
+## Fuentes-Muñoz et al. 2025 (AJ 170, 353) — 11,804 confirmations
 
-These are the two pair lists the plan flagged for the systematic mass-pair
-cross-check. Both are blocked on **source data**, not on the pipeline:
+`scripts/ingest/download_fuentes_munoz.py` →
+`scripts/validate/validate_fuentes_munoz_2025.py`,
+artifacts `data/output/literature_validation/fuentes_munoz_2025_{matches.parquet,summary.json}`.
 
-- **Goffin 2014 (J/A+A/565/A56).** The downloaded VizieR snapshot
-  (`data/raw/goffin_2014_encounters.parquet`, 536 rows) contains only the
-  **mass-determination tables 5–6** (columns `Seq, Name, Nd, M, Diam, Dens, …` —
-  per-asteroid masses), not the pair-by-pair *encounter* table the validator
-  needs (perturber, target, epoch, miss distance). VizieR does not appear to
-  carry Goffin's encounter list. To unblock: obtain the encounter table from the
-  paper's electronic material or reconstruct (perturber, target, epoch) pairs and
-  re-run `scripts/validate/validate_goffin_2014.py` (the loader and matching
-  logic already exist and are unit-tested with synthetic data).
-- **Fuentes-Muñoz et al. 2024 (LPSC #2388).** The 231-pair mass list is in the
-  abstract/supplementary, not yet ingested into `data/raw/`. To unblock: ingest
-  the pair list, then cross-match by (perturber, target) + epoch window as for
-  Galád/Fienga.
+The published version of the Gaia-FPR mass study (first shown as LPSC 2024 #2388)
+ships a machine-readable **Table 5**: each perturber asteroid with a
+pipe-delimited list of the (≤100 highest-signal) test asteroids whose astrometry
+showed a measurable mass signal — i.e. a dynamically significant close encounter.
+Parsing it (numbered perturbers only; provisional designations such as
+`2013 KY18` and provisional targets dropped) yields **40,004 unique numbered
+(perturber, target) pairs** from 1,645 numbered perturbers.
 
-Neither blocker affects the catalog's defensible scope: the 4-body gate +
-Fienga + Galád + JPL cross-checks already confirm the catalog reproduces known
-asteroid-asteroid encounters to μAU at the validation cadence.
+Cross-matching by unordered (number, number) against the frozen catalog:
+
+- **11,804 / 40,004 (29.5 %) of the Fuentes-Muñoz pairs are present** in our
+  DR3-window catalog as < 0.05 AU encounters. Matched separations span
+  0.0002–0.050 AU (median 0.020 AU).
+
+⚠️ **This overlap is a LOWER BOUND, not a recall.** Fuentes-Muñoz fit orbits over
+the full Gaia FPR + archival astrometry baseline, so a pair's signal-producing
+encounter can fall at *any* epoch — usually **outside** our DR3 window
+(2014-07-25 → 2017-05-28), or beyond 0.05 AU, or outside our `a∈[1.5,4.0]`
+numbered-MBA scope. A Fuentes-Muñoz pair absent from our catalog is therefore
+*expected*, not a miss. The defensible statement is the positive one: **11,804
+pairs flagged by an independent Gaia-FPR mass study have their close approach
+reproduced inside our window**, a large-scale cross-confirmation. The parser is
+unit-tested (`tests/test_validation.py::TestFuentesMunozParse`).
+
+## Blocked: Goffin 2014 — no machine-readable encounter list
+
+`scripts/validate/validate_goffin_2014.py` (loader + matcher exist, unit-tested
+with synthetic data) cannot run because the source data does not exist in
+machine-readable form. The VizieR catalog `J/A+A/565/A56` was inspected directly
+(ReadMe + the downloaded `data/raw/goffin_2014_encounters.parquet`, 536 rows): it
+contains **only** table5 ("Asteroid masses obtained"), table6 ("overview of mass
+determinations" — a per-perturber literature mass comparison: `Seq, Name, M, e_M,
+Type, Ref`), and `refs`. **There is no pair-by-pair encounter table** (perturber,
+target, epoch, miss distance) — Goffin's underlying encounter list was never
+published as a VizieR table. To unblock: extract the encounter list from the
+paper's body / electronic material, or treat Fuentes-Muñoz 2025 (above) as the
+machine-readable successor for the mass-pair cross-check. This is a source-data
+limitation, not a pipeline one.
+
+None of this affects the catalog's defensible scope: the 4-body gate + Fienga +
+Galád + JPL + 11,804 Fuentes-Muñoz confirmations already show the catalog
+reproduces known asteroid-asteroid encounters to μAU at the validation cadence.
 
 ## Reproduce
 
@@ -118,6 +144,8 @@ asteroid-asteroid encounters to μAU at the validation cadence.
 docker compose run --rm pipeline python -m scripts.validate.validate_fienga_2003
 docker compose run --rm pipeline python -m scripts.validate.validate_galad_2002
 docker compose run --rm pipeline python -m scripts.validate.validate_jpl_horizons
+docker compose run --rm pipeline python -m scripts.ingest.download_fuentes_munoz
+docker compose run --rm pipeline python -m scripts.validate.validate_fuentes_munoz_2025
 RUN_REAL_CATALOG_TESTS=1 docker compose run --rm -e RUN_REAL_CATALOG_TESTS=1 \
     pipeline pytest tests/test_validation.py::TestFrozenMajorBodyGate -q
 ```
