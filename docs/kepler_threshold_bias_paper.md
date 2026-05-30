@@ -1,6 +1,6 @@
 # El sesgo del threshold Kepler cerca de 0.05 AU — apéndice de métodos del catálogo
 
-> **Track B Stage 3** del [FOLLOWUP_PLAN.md](../FOLLOWUP_PLAN.md). **Decisión
+> **Track B Stage 3** del follow-up post-deepwork (disuelto; ver [ROADMAP.md](../ROADMAP.md) § "Estado actual"). **Decisión
 > (2026-05-30): este material va como apéndice de métodos/caveats del paper del
 > catálogo, NO como nota standalone** (ver "Decisión de publicación" al final).
 > Caracteriza cuantitativamente los 25,283 cruces del threshold Kepler→N-body

@@ -1,6 +1,6 @@
 # Track A — cierre: ninguna masa de perturbador es determinable en DR3 (incluido Ceres)
 
-> Documento de cierre de **Track A** del [FOLLOWUP_PLAN.md](../FOLLOWUP_PLAN.md).
+> Documento de cierre de **Track A** del follow-up post-deepwork (disuelto; ver [ROADMAP.md](../ROADMAP.md) § "Estado actual").
 > Consolida el veredicto tras A1 → A2 → A2.5 → A2.6 y el **gate-check de A3**
 > (este documento). Estado resultante de Track A: **⚫ CERRADO** — esperar DR4/FPR.
 
