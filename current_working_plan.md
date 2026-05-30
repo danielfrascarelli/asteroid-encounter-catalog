@@ -47,13 +47,15 @@
 
 **Fecha de creación**: 2026-05-30
 **Última actualización**: 2026-05-30
-**Estado**: ⚪ **NO ARRANCADO**. Plan recién creado tras disolver `FOLLOWUP_PLAN.md`.
-Nada en progreso. Toda la capa de masas está cerrada (no determinable en DR3);
-este plan es sobre el **catálogo** (publicable) y el cierre del proyecto.
+**Estado**: 🟡 **EN PROGRESO**. **A1 (recall del prefiltro) cerrada** en
+`trackA/stage1-prefilter-recall` (recall=76.4 % en la cola adversa; fix
+radial-overlap → 100 %; caveat #2 cuantificado). Siguiente recomendado: B1/B2
+(Fase 7) o A2 (caracterización 72M). Toda la capa de masas sigue cerrada (no
+determinable en DR3); este plan es sobre el **catálogo** y el cierre del proyecto.
 
 | Track | Etapa | Estado | Branch | PR | Notas |
 |-------|-------|--------|--------|----|-------|
-| A | 1: recall del prefiltro (audit #2) | ⚪ PENDING | — | — | El item científico más importante; ~2-3 h |
+| A | 1: recall del prefiltro (audit #2) | 🟢 DONE | `trackA/stage1-prefilter-recall` | (pendiente) | Recall=76.4% en cola adversa; fix radial-overlap → 100%. Cuantificado, no cerrado |
 | A | 2: caracterización catálogo 72M (streaming) | ⚪ PENDING | — | — | Refactor; el catálogo caracterizado actual es solo 158k filas |
 | B | 1: validación literatura completa (Fase 7) | ⚪ PENDING | — | — | Goffin 2014, Fuentes-Muñoz 2024 sobre el catálogo congelado |
 | B | 2: dashboard + README final + reproducibilidad | ⚪ PENDING | — | — | `src/dashboard/app.py` ya existe; falta pulido + README |
@@ -76,9 +78,9 @@ este plan es sobre el **catálogo** (publicable) y el cierre del proyecto.
 
 ### Stage 1 — Cuantificar el recall del prefiltro orbital (audit blocker #2)
 
-**Estado**: ⚪ PENDING
+**Estado**: 🟢 DONE
 **Estimación**: ~2-3 h (mayormente cómputo)
-**Branch propuesta**: `trackA/stage1-prefilter-recall`
+**Branch**: `trackA/stage1-prefilter-recall`
 **Depende de**: nada.
 
 #### Objetivo
@@ -103,16 +105,19 @@ catálogo **no puede reclamar completitud** ([FROZEN_RUN.md](FROZEN_RUN.md) cave
 
 #### Entregables
 
-- [ ] `scripts/validate/benchmark_prefilter_recall.py`
-- [ ] `data/output/prefilter_recall/` (subset, ambos catálogos, diff)
-- [ ] `docs/prefilter_recall.md`
-- [ ] Actualizar el caveat #2 en [FROZEN_RUN.md](FROZEN_RUN.md) con el número medido
+- [x] `scripts/validate/benchmark_prefilter_recall.py`
+- [x] `data/output/prefilter_recall/` (subset, encuentros sin prefiltro, missed, summary.json)
+- [x] `docs/prefilter_recall.md`
+- [x] Actualizar el caveat #2 en [FROZEN_RUN.md](FROZEN_RUN.md) con el número medido
 
 #### Criterios de aceptación
 
-- Recall medido sobre el subset adverso con barra de incertidumbre.
-- Veredicto: recall ≥ 99 % → el prefiltro es seguro, caveat #2 se cierra con
-  número; recall < 99 % → cuantificar el sesgo y recomendar ensanchar los umbrales.
+- [x] Recall medido sobre el subset adverso con barra de incertidumbre.
+- [x] Veredicto emitido: recall = **76.38 %** < 99 % → el prefiltro **no es seguro**
+  en la cola; sesgo cuantificado (99.6 % de las pérdidas son el corte `|Δa|≤0.5`)
+  y fix recomendado (prefiltro de **solapamiento radial** con pad = threshold →
+  **100 % recall**, mismo costo). Caveat #2 queda **cuantificado, no cerrado**
+  (cerrarlo exige re-correr el catálogo con el nuevo prefiltro).
 
 #### Cómo retomar
 
@@ -124,7 +129,17 @@ ls data/output/prefilter_recall/      # qué corrió
 
 #### Progreso
 
-— No arrancada —
+**2026-05-30 — DONE.** Medido sobre el subset adverso completo (52,411 cuerpos
+numerados, `a∈[1.5,4.0]`, `e>0.3 ∨ i>15°`, snapshot `MPCORB_20160217.DAT`):
+606,393 encuentros reales `<0.05 AU` sin prefiltro (Kepler); **recall = 76.38 %**
+[IC95 76.27–76.49 %], 143,229 perdidos. El cross-check (2,000 cuerpos) prueba que
+la máscara analítica == pipeline-con-prefiltro byte-a-byte (0 diferencias), así
+que el atajo analítico es exacto. 99.6 % de las pérdidas son el corte `|Δa|≤0.5`
+(ciego a la excentricidad). Fix recomendado y verificado: prefiltro de
+solapamiento radial `max(q₁,q₂) − D ≤ min(Q₁,Q₂)` → **100.0000 % recall, 0
+perdidos**, mismo O(N²). Detalle en [docs/prefilter_recall.md](docs/prefilter_recall.md).
+**Próximo**: el fix NO se aplicó al catálogo congelado (requiere re-corrida full);
+queda como recomendación para una futura corrida o para DR4/FPR.
 
 ---
 
@@ -352,3 +367,4 @@ Track C (opcionales, independientes):
 | Fecha | Cambio | Autor |
 |-------|--------|-------|
 | 2026-05-30 | Plan creado al disolver `FOLLOWUP_PLAN.md` (capa de masas cerrada; info consolidada en ROADMAP + docs). | DF |
+| 2026-05-30 | **Track A Stage 1 DONE**: recall del prefiltro medido (76.4 % en cola adversa, 143k encuentros perdidos por `|Δa|≤0.5`); fix radial-overlap → 100 %. Caveat #2 cuantificado en FROZEN_RUN. | DF |
