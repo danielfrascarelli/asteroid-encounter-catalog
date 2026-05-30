@@ -28,12 +28,18 @@ limits constrain what can be defensibly claimed from it:
      catalog): p99 = **1.99 mAU**, max = **15.2 mAU**, p99 \|Δt_min\|
      = 12 h (capped by the ±12 h N-body window). 0 failed, 0
      unconverged, max energy drift = 5.6 × 10⁻¹⁴.
-   - **25,283 pairs (0.035 % of the 72 M catalog) cross the 0.05 AU
-     threshold when refined to N-body — all in the same direction**
-     (Kepler reported `<0.05 AU`, N-body recomputes `≥0.05 AU`). 0 pairs
-     cross in the opposite direction. So the Kepler catalog has a small
-     systematic over-detection bias near the threshold, no false
-     negatives within the refined subset.
+   - **25,283 pairs (0.29 % of the 8.73 M refined subset) cross the
+     0.05 AU threshold upward when refined to N-body** (Kepler `<0.05`,
+     N-body `≥0.05`); 0 cross downward. **The asymmetry is censoring, not
+     a one-directional bias** (corrected by Track B3,
+     `docs/kepler_threshold_bias_paper.md`): the catalog only contains
+     Kepler `<0.05` pairs, so downward crossings *cannot be observed* —
+     the false-negative rate is **not** zero, it is unmeasured here.
+     Δdist (N−K) is in fact slightly negative on average (median
+     −1×10⁻⁶ AU) with σ ≈ 4×10⁻⁴ AU: the correction is scatter-dominated.
+     Crossings concentrate at 0.045–0.050 AU (1.5 %) and in low-q /
+     high-e / fast orbits. Measuring false negatives needs re-refining
+     pairs with Kepler distance in [0.05, 0.06] AU (future work).
 
    For users who need N-body-grade distances on this subset, use the
    hybrid catalog (see next section) — it carries

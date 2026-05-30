@@ -65,9 +65,11 @@ abiertos a `main`:
 - **#46 — Track A gate-check (cierre)**: el gate de A3 **falla**. Scans de χ²(masa)
   con ventana acotada ±60 d sobre los calibradores muestran que **ningún cuerpo
   ≠ Ceres tiene leverage ≳3σ** (Pallas σ≤1.2; Hygiea ≤2.1 de A2.6; Vesta sin
-  targets). Ceres es el único con leverage (σ=20.3) pero su estimador puntual
-  depende de la ventana (0.77× one-sided vs 4.37× ±60 d) → no calibrado. **A3 NO
-  se arranca; Track A se cierra** esperando DR4/FPR. Doc:
+  targets). Un **experimento de sensibilidad a la ventana sobre Ceres** (PR #51)
+  cierra el caso: aunque Ceres tiene el leverage más fuerte (σ~20), su mínimo de
+  masa **vaga ~100× (0.04–4.37× lit) según la ventana, sin plateau, y la χ²(masa)
+  es multimodal siempre** → **masa no identificable, incluido Ceres**. **A3 NO se
+  arranca; Track A se cierra** con un negativo universal y limpio. Doc:
   [docs/mass_layer_track_a_closure.md](docs/mass_layer_track_a_closure.md).
 - **#47 — Track B1 (outliers Stage 2)**: los dos χ² altos (57942=84.5, 176865=31.9)
   son **misfit along-scan pervasivo**, no sistemática AC (σ_AC≈612mas≫σ_AL≈3mas →
@@ -102,7 +104,8 @@ hay señal.
 | A | 2: multi-target joint fit | 🟢 DONE | trackA/stage2-multitarget-joint | #42 | 2026-05-29 | 2026-05-29 | Gate FAIL 0/2; masa multi == single; refuta degeneración M↔deltas |
 | A | 2.5: optimizador perfilado | 🟡 PARCIAL (mergeado) | trackA/stage2-multitarget-joint | #42 ✅ | 2026-05-29 | 2026-05-30 | Bug optimizador ARREGLADO (closing-loop ratio 1.000); pero Hygiea real → 9× lit. Queda sesgo real-data |
 | A | 2.6: investigar sesgo real-data Hygiea | 🟢 DONE | trackA/stage2.6-realdata-bias | #44 | 2026-05-30 | 2026-05-30 | 9× = basin espurio + drift, NO sesgo físico. Masa no-identificable en DR3 (deltas absorben sobre datos reales). Solo Ceres defendible. Fix `--joint-window-days` incluido |
-| A | gate-check A3 (ventana acotada) | 🟢 DONE | trackA/gate-a3-close | #46 | 2026-05-30 | 2026-05-30 | Gate FAIL: solo Ceres con leverage (σ=20.3), Pallas σ≤1.2. A3 no se arranca |
+| A | gate-check A3 (ventana acotada) | 🟢 DONE | trackA/gate-a3-close | #46 | 2026-05-30 | 2026-05-30 | Gate FAIL: ningún calibrador ≠Ceres ≳3σ, Pallas σ≤1.2. A3 no se arranca |
+| A | Ceres window-sensitivity | 🟢 DONE | trackA/ceres-window-sensitivity | #51 | 2026-05-30 | 2026-05-30 | Ceres no-identificable: mínimo barre 0.04–4.37× según ventana, multimodal. Cierre universal |
 | A | 3: OU forward model para drift | ⚫ ABANDONED | — | — | — | — | No justificada: gate FAIL. El límite es leverage DR3, no la parametrización del drift |
 | B | 1: outliers Stage 2 (Alkeste/57942, Industria/176865) | 🟢 DONE | trackB/stage1-stage2-outliers | #47 | 2026-05-30 | 2026-05-30 | Misfit along-scan pervasivo; refuta AC-systematic/transit-aislado/perturbador-secundario |
 | B | 2: specificity sobre 22/27 restantes | 🟢 DONE | trackB/stage2-specificity-full | #48 | 2026-05-30 | 2026-05-30 | 0/27 detecciones; p_mass nunca <0.08 |
@@ -737,7 +740,8 @@ Track A (RESUELTO — cerrado 2026-05-30):
   closing-loop       ──► bug del optimizador (no físico)
   A2.5 profiled      ──► bug arreglado; aflora sesgo real-data
   A2.6 real-data     ──► no-identificable (M↔deltas activa)
-  A3 gate-check      ──► FAIL (solo Ceres con leverage) ⇒ A3 ABANDONED, Track A CERRADO
+  A3 gate-check      ──► FAIL (ningún calibrador ≠Ceres ≳3σ)
+  Ceres window-scan  ──► Ceres no-identificable (mínimo 0.04–4.37×, multimodal) ⇒ A3 ABANDONED, Track A CERRADO (negativo universal)
 
 Track B (COMPLETO 2026-05-30):
   B1 outliers Stage 2     ──► DONE: misfit along-scan (#47)
@@ -779,3 +783,4 @@ Track B (COMPLETO 2026-05-30):
 | 2026-05-30 | PR #44 mergeado a main (`93dc5b4`); rama eliminada + podadas ramas stale. Fix `--joint-window-days` disponible en producción. Trabajo **PAUSADO**. Al retomar: decisión cerrar Track A vs A3, o pivotar a Track B. | DF |
 | 2026-05-30 | **Retomado.** Decisión: ejecutar todo lo pendiente en paralelo. Gate-check A3 corrido (Pallas/Ceres ±60 d) → **FAIL**: solo Ceres con leverage, y su estimador es window-dependiente → **Track A cerrado**, A3 abandonada (PR #46). | DF |
 | 2026-05-30 | Track B1 (PR #47): outliers Stage 2 = misfit along-scan pervasivo (σ_AC≫σ_AL), no AC-systematic/transit/perturbador-secundario. Track B2 (PR #48): specificity 0/27 detecciones. Track B3 (PR #49): los 25,283 cruces = censura + scatter, no sesgo unidireccional; nota técnica draft. | DF |
+| 2026-05-30 | **Rigor pass (PR #51).** Experimento de sensibilidad a la ventana sobre Ceres: el mínimo de masa barre 0.04–4.37× lit sin plateau, multimodal en toda ventana → **Ceres tampoco es identificable**. Cierre de Track A endurecido a **negativo universal** (ninguna masa DR3, incluido Ceres). **Decisión B3**: nota va como **apéndice de métodos del catálogo**, no standalone (efecto de censura/selección estándar, FN sin medir); corregida la afirmación "no false negatives" en FROZEN_RUN.md. | DF |
