@@ -19,6 +19,19 @@ _CATALOG_PATH = Path("data/output/encounters_characterized.parquet")
 _SIDECAR_PATH = _CATALOG_PATH.parent / (_CATALOG_PATH.stem + "_metadata.json")
 _RUN_REAL_CATALOG_TESTS = os.environ.get("RUN_REAL_CATALOG_TESTS") == "1"
 
+# The frozen Kepler candidate catalog (FROZEN_RUN.md). The major-body gate is a
+# CLAUDE.md acceptance criterion: (1) Ceres, (2) Pallas, (4) Vesta, (10) Hygiea
+# MUST appear in the catalog given their Hill-sphere reach. These counts are the
+# canonical regression baseline recorded in FROZEN_RUN.md § "Major-body gate
+# checks"; a drift means the catalog is no longer the documented frozen artifact.
+_FROZEN_CATALOG_PATH = Path("data/output/encounters_catalog_rebound_005au.parquet")
+_FROZEN_MAJOR_BODY_GATE = {
+    1: {"name": "Ceres", "n_encounters": 352, "closest_au": 0.003819},
+    2: {"name": "Pallas", "n_encounters": 47, "closest_au": 0.006288},
+    4: {"name": "Vesta", "n_encounters": 458, "closest_au": 0.000936},
+    10: {"name": "Hygiea", "n_encounters": 162, "closest_au": 0.005287},
+}
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -276,6 +289,137 @@ class TestRealSidecar:
         deps = data["dependencies"]
         for pkg in ("astropy", "polars", "numpy"):
             assert pkg in deps
+
+
+# ---------------------------------------------------------------------------
+# Major-body gate — frozen catalog regression (CLAUDE.md acceptance criterion)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    not _RUN_REAL_CATALOG_TESTS or not _FROZEN_CATALOG_PATH.exists(),
+    reason="Set RUN_REAL_CATALOG_TESTS=1 and provide the frozen catalog "
+    "(data/output/encounters_catalog_rebound_005au.parquet)",
+)
+class TestFrozenMajorBodyGate:
+    """The 4 large perturbers must be present with the FROZEN_RUN counts.
+
+    Scans only ``number_1``, ``number_2``, ``dist_au`` lazily so the multi-GB
+    parquet is never materialised in full.
+    """
+
+    @staticmethod
+    def _body_hits(body: int) -> pl.DataFrame:
+        return (
+            pl.scan_parquet(_FROZEN_CATALOG_PATH)
+            .select(["number_1", "number_2", "dist_au"])
+            .filter((pl.col("number_1") == body) | (pl.col("number_2") == body))
+            .collect()
+        )
+
+    @pytest.mark.parametrize("body", sorted(_FROZEN_MAJOR_BODY_GATE))
+    def test_major_body_present(self, body: int) -> None:
+        expected = _FROZEN_MAJOR_BODY_GATE[body]
+        hits = self._body_hits(body)
+        assert len(hits) > 0, f"({body}) {expected['name']} missing from frozen catalog"
+
+    @pytest.mark.parametrize("body", sorted(_FROZEN_MAJOR_BODY_GATE))
+    def test_major_body_encounter_count(self, body: int) -> None:
+        expected = _FROZEN_MAJOR_BODY_GATE[body]
+        hits = self._body_hits(body)
+        assert len(hits) == expected["n_encounters"], (
+            f"({body}) {expected['name']}: {len(hits)} encounters, "
+            f"FROZEN_RUN.md baseline is {expected['n_encounters']}. "
+            "Catalog has drifted from the frozen artifact."
+        )
+
+    @pytest.mark.parametrize("body", sorted(_FROZEN_MAJOR_BODY_GATE))
+    def test_major_body_closest_approach(self, body: int) -> None:
+        expected = _FROZEN_MAJOR_BODY_GATE[body]
+        hits = self._body_hits(body)
+        closest = float(hits["dist_au"].min())  # type: ignore[arg-type]
+        assert closest == pytest.approx(expected["closest_au"], abs=1e-6), (
+            f"({body}) {expected['name']}: closest {closest:.6f} AU, "
+            f"FROZEN_RUN.md baseline {expected['closest_au']:.6f} AU"
+        )
+
+    def test_all_four_bodies_present(self) -> None:
+        missing = [
+            f"({b}) {v['name']}"
+            for b, v in _FROZEN_MAJOR_BODY_GATE.items()
+            if len(self._body_hits(b)) == 0
+        ]
+        assert not missing, f"Major-body gate FAILED — missing: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# Fuentes-Muñoz 2025 Table-5 parser (no network access required)
+# ---------------------------------------------------------------------------
+
+
+class TestFuentesMunozParse:
+    """Unit tests for validate_fuentes_munoz_2025.parse_table5 on a synthetic MRT.
+
+    The parser reads two fixed-width fields: the perturber ``Asteroid`` (bytes
+    1-22) and the pipe-delimited ``List`` of targets (bytes 101-776). The synthetic
+    rows below reproduce that layout: the list always starts at column 101.
+    """
+
+    @staticmethod
+    def _row(asteroid: str, list_str: str) -> str:
+        line = [" "] * 100
+        line[0 : len(asteroid)] = list(asteroid)
+        return "".join(line) + list_str
+
+    def _make_mrt(self, tmp_path: Path) -> Path:
+        header = [
+            "Title: synthetic",
+            "--------------------------------------------------------------------------------",
+            "Byte-by-byte Description",
+            "--------------------------------------------------------------------------------",
+            "Note (1): ...",
+            "--------------------------------------------------------------------------------",
+        ]
+        rows = [
+            # numbered perturber: two numbered targets, one provisional (dropped), trailing "..."
+            self._row("1 Ceres", "251|1847|2007 VQ345|..."),
+            # reciprocal pair to exercise unordered dedup: (5,100) appears from both rows
+            self._row("100 Foo", "5|10"),
+            self._row("5 Bar", "100"),
+            # bare unnamed numbered perturber (no name) → kept
+            self._row("29943", "777"),
+            # provisional-designation perturber (year + letters) → whole row dropped
+            self._row("2013 KY18", "12345|67890"),
+        ]
+        path = tmp_path / "synthetic_mrt.txt"
+        path.write_text("\n".join(header + rows) + "\n")
+        return path
+
+    def test_pairs_and_dedup(self, tmp_path: Path) -> None:
+        from scripts.validate.validate_fuentes_munoz_2025 import parse_table5
+
+        df, stats = parse_table5(self._make_mrt(tmp_path))
+        got = set(zip(df["lo"].to_list(), df["hi"].to_list()))
+        # (1,251),(1,1847) from Ceres; (5,100),(10,100) from Foo; (5,100) again
+        # from Bar (deduped); (777,29943) from the bare unnamed perturber
+        assert got == {(1, 251), (1, 1847), (5, 100), (10, 100), (777, 29943)}
+        assert stats["n_unique_numbered_pairs"] == 5
+
+    def test_provisional_dropped(self, tmp_path: Path) -> None:
+        from scripts.validate.validate_fuentes_munoz_2025 import parse_table5
+
+        _df, stats = parse_table5(self._make_mrt(tmp_path))
+        # Ceres, Foo, Bar, 29943 kept; "2013 KY18" dropped as provisional
+        assert stats["n_perturbers_numbered"] == 4
+        assert stats["n_perturbers_provisional_dropped"] == 1
+        assert stats["n_target_provisional_dropped"] == 1  # "2007 VQ345"
+
+    def test_ellipsis_token_ignored(self, tmp_path: Path) -> None:
+        from scripts.validate.validate_fuentes_munoz_2025 import parse_table5
+
+        df, _stats = parse_table5(self._make_mrt(tmp_path))
+        # "..." must never become a pair
+        assert df.filter((pl.col("lo") < 0) | (pl.col("hi") < 0)).is_empty()
 
 
 # ---------------------------------------------------------------------------
