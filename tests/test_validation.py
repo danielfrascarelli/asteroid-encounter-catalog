@@ -19,6 +19,19 @@ _CATALOG_PATH = Path("data/output/encounters_characterized.parquet")
 _SIDECAR_PATH = _CATALOG_PATH.parent / (_CATALOG_PATH.stem + "_metadata.json")
 _RUN_REAL_CATALOG_TESTS = os.environ.get("RUN_REAL_CATALOG_TESTS") == "1"
 
+# The frozen Kepler candidate catalog (FROZEN_RUN.md). The major-body gate is a
+# CLAUDE.md acceptance criterion: (1) Ceres, (2) Pallas, (4) Vesta, (10) Hygiea
+# MUST appear in the catalog given their Hill-sphere reach. These counts are the
+# canonical regression baseline recorded in FROZEN_RUN.md § "Major-body gate
+# checks"; a drift means the catalog is no longer the documented frozen artifact.
+_FROZEN_CATALOG_PATH = Path("data/output/encounters_catalog_rebound_005au.parquet")
+_FROZEN_MAJOR_BODY_GATE = {
+    1: {"name": "Ceres", "n_encounters": 352, "closest_au": 0.003819},
+    2: {"name": "Pallas", "n_encounters": 47, "closest_au": 0.006288},
+    4: {"name": "Vesta", "n_encounters": 458, "closest_au": 0.000936},
+    10: {"name": "Hygiea", "n_encounters": 162, "closest_au": 0.005287},
+}
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -276,6 +289,67 @@ class TestRealSidecar:
         deps = data["dependencies"]
         for pkg in ("astropy", "polars", "numpy"):
             assert pkg in deps
+
+
+# ---------------------------------------------------------------------------
+# Major-body gate — frozen catalog regression (CLAUDE.md acceptance criterion)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    not _RUN_REAL_CATALOG_TESTS or not _FROZEN_CATALOG_PATH.exists(),
+    reason="Set RUN_REAL_CATALOG_TESTS=1 and provide the frozen catalog "
+    "(data/output/encounters_catalog_rebound_005au.parquet)",
+)
+class TestFrozenMajorBodyGate:
+    """The 4 large perturbers must be present with the FROZEN_RUN counts.
+
+    Scans only ``number_1``, ``number_2``, ``dist_au`` lazily so the multi-GB
+    parquet is never materialised in full.
+    """
+
+    @staticmethod
+    def _body_hits(body: int) -> pl.DataFrame:
+        return (
+            pl.scan_parquet(_FROZEN_CATALOG_PATH)
+            .select(["number_1", "number_2", "dist_au"])
+            .filter((pl.col("number_1") == body) | (pl.col("number_2") == body))
+            .collect()
+        )
+
+    @pytest.mark.parametrize("body", sorted(_FROZEN_MAJOR_BODY_GATE))
+    def test_major_body_present(self, body: int) -> None:
+        expected = _FROZEN_MAJOR_BODY_GATE[body]
+        hits = self._body_hits(body)
+        assert len(hits) > 0, f"({body}) {expected['name']} missing from frozen catalog"
+
+    @pytest.mark.parametrize("body", sorted(_FROZEN_MAJOR_BODY_GATE))
+    def test_major_body_encounter_count(self, body: int) -> None:
+        expected = _FROZEN_MAJOR_BODY_GATE[body]
+        hits = self._body_hits(body)
+        assert len(hits) == expected["n_encounters"], (
+            f"({body}) {expected['name']}: {len(hits)} encounters, "
+            f"FROZEN_RUN.md baseline is {expected['n_encounters']}. "
+            "Catalog has drifted from the frozen artifact."
+        )
+
+    @pytest.mark.parametrize("body", sorted(_FROZEN_MAJOR_BODY_GATE))
+    def test_major_body_closest_approach(self, body: int) -> None:
+        expected = _FROZEN_MAJOR_BODY_GATE[body]
+        hits = self._body_hits(body)
+        closest = float(hits["dist_au"].min())  # type: ignore[arg-type]
+        assert closest == pytest.approx(expected["closest_au"], abs=1e-6), (
+            f"({body}) {expected['name']}: closest {closest:.6f} AU, "
+            f"FROZEN_RUN.md baseline {expected['closest_au']:.6f} AU"
+        )
+
+    def test_all_four_bodies_present(self) -> None:
+        missing = [
+            f"({b}) {v['name']}"
+            for b, v in _FROZEN_MAJOR_BODY_GATE.items()
+            if len(self._body_hits(b)) == 0
+        ]
+        assert not missing, f"Major-body gate FAILED — missing: {missing}"
 
 
 # ---------------------------------------------------------------------------

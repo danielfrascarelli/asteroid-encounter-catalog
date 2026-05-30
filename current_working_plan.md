@@ -55,7 +55,7 @@ este plan es sobre el **catálogo** (publicable) y el cierre del proyecto.
 |-------|-------|--------|--------|----|-------|
 | A | 1: recall del prefiltro (audit #2) | ⚪ PENDING | — | — | El item científico más importante; ~2-3 h |
 | A | 2: caracterización catálogo 72M (streaming) | ⚪ PENDING | — | — | Refactor; el catálogo caracterizado actual es solo 158k filas |
-| B | 1: validación literatura completa (Fase 7) | ⚪ PENDING | — | — | Goffin 2014, Fuentes-Muñoz 2024 sobre el catálogo congelado |
+| B | 1: validación literatura completa (Fase 7) | 🟡 IN PROGRESS | `trackB/stage1-literature-validation` | (pendiente) | Gate 4 cuerpos + consolidación DONE; Goffin/Fuentes data-blocked |
 | B | 2: dashboard + README final + reproducibilidad | ⚪ PENDING | — | — | `src/dashboard/app.py` ya existe; falta pulido + README |
 | C | 1: perf followups (numba / cache persistente) | ⚪ PENDING | — | — | No bloqueante; refinement ya en meseta ~4.5-10× |
 | C | 2: experimento falsos negativos threshold Kepler | ⚪ PENDING | — | — | Gatillo para una nota standalone (decisión B3) |
@@ -179,9 +179,9 @@ completo lleve observabilidad Gaia + magnitudes/diámetros estimados.
 
 ### Stage 1 — Validación contra literatura completa
 
-**Estado**: ⚪ PENDING
+**Estado**: 🟡 IN PROGRESS (gate + consolidación DONE; Goffin/Fuentes 🔴 data-blocked)
 **Estimación**: ~2-3 días
-**Branch propuesta**: `trackB/stage1-literature-validation`
+**Branch**: `trackB/stage1-literature-validation`
 **Depende de**: nada.
 
 #### Objetivo
@@ -204,23 +204,41 @@ aparecen (gate de regresión del CLAUDE.md).
 
 #### Entregables
 
-- [ ] `scripts/validate/validate_goffin_2014.py` extendido / `validate_fuentes_munoz_2024.py`
-- [ ] `data/output/literature_validation/` (matches, misses)
-- [ ] `docs/literature_validation.md`
-- [ ] Test de regresión `tests/test_validation.py` (gate de 4 cuerpos)
+- [ ] `scripts/validate/validate_goffin_2014.py` extendido / `validate_fuentes_munoz_2024.py` — 🔴 **data-blocked** (ver Progreso)
+- [x] `docs/literature_validation.md` — consolidado (gate + Fienga 3/4 + Galád 4/4 + JPL + blockers)
+- [x] Test de regresión `tests/test_validation.py` (gate de 4 cuerpos) — `TestFrozenMajorBodyGate`
 
 #### Criterios de aceptación
 
-- Match rate reportado honestamente para Goffin/Fuentes-Muñoz.
-- Los 4 cuerpos grandes presentes (gate del CLAUDE.md).
+- [x] Los 4 cuerpos grandes presentes (gate del CLAUDE.md) → **4/4**, ahora test de regresión.
+- [~] Match rate reportado honestamente: Fienga **3/4**, Galád **4/4**, JPL 8 pares ≤~5e-6 AU.
+  Goffin/Fuentes pendientes por falta de datos fuente (no del pipeline).
 
 #### Cómo retomar
 
-— No arrancada —
+```bash
+git checkout trackB/stage1-literature-validation
+cat docs/literature_validation.md     # estado consolidado + qué falta
+# Para desbloquear Goffin: conseguir la tabla de ENCUENTROS (no las tablas de
+# masas 5-6) y re-correr validate_goffin_2014.py (loader ya existe, unit-tested).
+# Para Fuentes-Muñoz 2024: ingerir la lista de 231 pares (LPSC #2388) a data/raw/.
+```
 
 #### Progreso
 
-— No arrancada —
+**2026-05-30 — parcial.** Hecho y verificado: (1) **gate de los 4 cuerpos** como
+test de regresión `TestFrozenMajorBodyGate` contra el catálogo congelado
+(352/47/458/162, closest a ±1 µAU; opt-in `RUN_REAL_CATALOG_TESTS=1`, skip en CI);
+27 passed / 13 skipped en run por defecto. (2) **docs/literature_validation.md**
+consolida Fienga 2003 (3/4, residual mediano 52 µAU; el miss (804,733) es un
+detection gap — una corrida JPL pre-freeze sí lo tenía, near-threshold, consistente
+con el déficit de recall del prefiltro), Galád 2002 (4/4 Hygiea, µAU–20 µAU), y el
+cruce directo JPL Horizons (8 pares, |Δ|≤~5e-6 AU a cadencia JPL).
+**Bloqueado**: el cruce sistemático Goffin 2014 (el snapshot VizieR `J/A+A/565/A56`
+sólo trae las tablas de masas 5–6, no la tabla de encuentros par-a-par) y
+Fuentes-Muñoz 2024 (lista de 231 pares aún no ingerida). Ambos son blockers de
+**datos fuente**, no del pipeline. **Próximo**: conseguir esas listas de pares, o
+cerrar B1 documentando los blockers y pasar a B2.
 
 ---
 
@@ -352,3 +370,4 @@ Track C (opcionales, independientes):
 | Fecha | Cambio | Autor |
 |-------|--------|-------|
 | 2026-05-30 | Plan creado al disolver `FOLLOWUP_PLAN.md` (capa de masas cerrada; info consolidada en ROADMAP + docs). | DF |
+| 2026-05-30 | **Track B Stage 1 parcial**: gate 4 cuerpos como test de regresión + `docs/literature_validation.md` consolidado (Fienga 3/4, Galád 4/4, JPL). Goffin/Fuentes data-blocked. | DF |
