@@ -45,9 +45,19 @@ limits constrain what can be defensibly claimed from it:
    hybrid catalog (see next section) — it carries
    `refinement_method ∈ {kepler, nbody}` per row.
 2. **Not complete.** The orbital prefilter (\|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30°)
-   is a heuristic that can drop real high-eccentricity / high-inclination
-   crossing orbits. Recall on the high-e/i tail has not been quantified.
-   Audit blocker #2 is still open. The word "complete" must not be used.
+   is a heuristic that drops real high-eccentricity / high-inclination
+   crossing orbits. Recall on the high-e/i tail is now **measured**
+   ([docs/prefilter_recall.md](docs/prefilter_recall.md)): on the adverse
+   subset (numbered, `a∈[1.5,4.0]`, `e>0.3 ∨ i>15°`, 52,411 bodies) recall is
+   **76.38 %** [95 % CI 76.27–76.49 %] — **143,229 of 606,393** real
+   adverse–adverse encounters `<0.05 AU` are absent from a prefiltered catalog
+   (a lower bound; adverse–normal pairs not measured). 99.6 % of the loss is
+   the `|Δa|≤0.5` cut, which is blind to eccentricity. For the dynamically cold
+   bulk of the belt recall is ~99.9 %; the deficit is concentrated in the
+   high-e / large-Δa tail. **Audit blocker #2 is quantified, not closed** —
+   closing it needs a full-catalog re-run with the recommended
+   threshold-padded radial-overlap prefilter (provably 100 % recall, same
+   cost). The word "complete" must not be used.
 3. **Validation precision is sampling-cadence-limited.** The Horizons cross-
    checks (`scripts/validate/validate_jpl_horizons.py`,
    `scripts/validate/validate_novel_a.py`) sample JPL at 1 h or 30 min and
@@ -267,8 +277,12 @@ agreed to within ~10⁻⁷ AU (≈ 12 km) on the regression benchmark — see
   `src.characterize.observability`.  The data in this parquet is unaffected
   because the frame bug was downstream of detection; any future
   characterisation of this catalog will use the corrected frame.
-- **Prefilter recall is unverified.**  Audit blocker #2 — high-eccentricity
-  pairs with \|Δa\| > 0.5 AU could be missing.  Do not claim "complete".
+- **Prefilter recall is measured (76 % on the adverse tail).**  Audit
+  blocker #2 — high-eccentricity pairs with \|Δa\| > 0.5 AU **are** missing:
+  76.38 % recall on the adverse subset, ≥143 k adverse–adverse encounters
+  dropped ([docs/prefilter_recall.md](docs/prefilter_recall.md)). Do not claim
+  "complete". Fix recommended (radial-overlap prefilter → 100 % recall) but not
+  yet applied to this freeze.
 - **MPCORB.DAT in `data/raw/` is the *current* download**, not the
   snapshot used for this run.  Use `data/raw/mpcorb_archive/MPCORB_20160217.*`
   when reproducing.
