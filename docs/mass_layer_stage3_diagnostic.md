@@ -210,3 +210,53 @@ de specificity como éste para no confundir ajuste con detección.
 - [x] `data/output/specificity_test_v2.csv`
 - [x] `data/output/specificity_v2/` (per-candidate JSON + per-fit)
 - [x] `docs/mass_layer_stage3_diagnostic.md` (este documento)
+
+---
+
+## Apéndice — specificity sobre los 27 fits completos (Track B Stage 2)
+
+> Completado en Track B Stage 2 del [FOLLOWUP_PLAN.md](../FOLLOWUP_PLAN.md).
+> Stage 3 original corrió specificity sólo sobre 5 candidatos (los de menor
+> χ²_red). Este apéndice extiende el test a los **22 restantes** (total 27),
+> con `N=50` nulls por candidato, banda orbital `|Δa|≤0.5 AU`, `|ΔH|≤1.5 mag`,
+> exclusión de encuentros a <0.1 AU. Salida combinada:
+> `data/output/specificity_test_v2_full27.csv`.
+
+### Veredicto: 0/27 detecciones específicas
+
+| criterio | umbral | candidatos que pasan |
+|----------|--------|---------------------:|
+| `p_chi2_below` (fit ajusta mejor que nulos) | ≤ 0.05 | 4/27 |
+| `p_mass_above` (masa real sobresale del nulo) | ≤ 0.05 | **0/27** |
+| **ambos (detección real)** | ≤ 0.05 | **0/27** |
+
+- **`p_mass` nunca baja de 0.08** (mediana 0.26, máx 0.48). La masa fitteada del
+  perturbador real **nunca** sobresale de la distribución de masas de
+  perturbadores nulos (orbital- y magnitud-matched). Típicamente cae en el
+  percentil ~26 — i.e. los nulos suelen ajustar masas *más altas* que el real.
+  Es la firma de una capa **dominada por ruido sin leverage**: cualquier cuerpo
+  con geometría similar "ajusta" una masa comparable.
+- **`p_chi2 ≤ 0.05` en 4/27** (94474/49, 13346/19, 5998/46, 7861/19) sólo indica
+  que esos fits tienen χ²_red bajo — pero un nulo con deltas libres ajusta el
+  arco igual de bien, así que no es especificidad al perturbador real. Ninguno
+  de los 4 pasa además `p_mass`. 4/27 ≈ 15 % es consistente con la tasa de
+  falsos positivos esperada bajo el nulo (no hay exceso significativo).
+- Los dos outliers de Stage 2 (57942 χ²_red 84.5, 176865 χ²_red 31.9) tienen
+  `p_chi2 = 0.92 / 1.00` (ajustan **peor** que casi todos los nulos),
+  coherente con [mass_layer_stage2_outliers.md](mass_layer_stage2_outliers.md):
+  misfit along-scan, no señal de masa.
+
+### Lectura
+
+El test de specificity completo **confirma el veredicto de Track A**: con DR3,
+este pipeline no produce **ninguna** determinación de masa estadísticamente
+específica. La capa de masas no es publicable como catálogo de detecciones; el
+único caso con leverage real es Ceres (fuera de este batch LOO), y aun así su
+estimador no está calibrado (ver
+[mass_layer_track_a_closure.md](mass_layer_track_a_closure.md)).
+
+### Entregables del apéndice
+
+- [x] `data/output/specificity_test_v2_stage3_fullbatch.csv` (los 22 nuevos)
+- [x] `data/output/specificity_test_v2_full27.csv` (27 combinados)
+- [x] `data/output/specificity_v2/specificity_*.json` (27 candidatos)
