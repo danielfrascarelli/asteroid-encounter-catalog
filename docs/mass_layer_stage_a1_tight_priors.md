@@ -2,7 +2,7 @@
 
 **Branch**: `trackA/stage1-tighten-priors`
 **Fecha**: 2026-05-29
-**Plan de origen**: [FOLLOWUP_PLAN.md](../FOLLOWUP_PLAN.md), Track A Stage 1.
+**Plan de origen**: follow-up post-deepwork (disuelto; ver [ROADMAP.md](../ROADMAP.md) § "Estado actual"), Track A Stage 1.
 **Diagnóstico previo**: [docs/mass_layer_validation.md](mass_layer_validation.md) — gate FAIL del Stage 4 del deepwork (ratios fit/lit = 0.77 / 0.57 / 0.24 para Ceres / Pallas / Hygiea, |z| > 6 sistemático).
 
 ---

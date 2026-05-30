@@ -1,6 +1,6 @@
 # Track B Stage 1 — diagnóstico de los outliers de Stage 2 (Alkeste/57942, Industria/176865)
 
-> Entregable de **Track B Stage 1** del [FOLLOWUP_PLAN.md](../FOLLOWUP_PLAN.md).
+> Entregable de **Track B Stage 1** del follow-up post-deepwork (disuelto; ver [ROADMAP.md](../ROADMAP.md) § "Estado actual").
 > Diagnostica los dos peores χ²_red del batch de Stage 2 con residuos
 > por-observación descompuestos en along-scan (AL) y across-scan (AC).
 > Herramienta: [scripts/mass/diagnose_stage2_outliers.py](../scripts/mass/diagnose_stage2_outliers.py).

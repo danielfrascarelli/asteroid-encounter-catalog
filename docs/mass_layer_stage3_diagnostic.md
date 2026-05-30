@@ -215,7 +215,7 @@ de specificity como éste para no confundir ajuste con detección.
 
 ## Apéndice — specificity sobre los 27 fits completos (Track B Stage 2)
 
-> Completado en Track B Stage 2 del [FOLLOWUP_PLAN.md](../FOLLOWUP_PLAN.md).
+> Completado en Track B Stage 2 del follow-up post-deepwork (disuelto; ver [ROADMAP.md](../ROADMAP.md) § "Estado actual").
 > Stage 3 original corrió specificity sólo sobre 5 candidatos (los de menor
 > χ²_red). Este apéndice extiende el test a los **22 restantes** (total 27),
 > con `N=50` nulls por candidato, banda orbital `|Δa|≤0.5 AU`, `|ΔH|≤1.5 mag`,
