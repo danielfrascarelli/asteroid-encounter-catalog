@@ -58,9 +58,12 @@ Ejemplo: `trackA/stage1-tighten-priors`. **Nunca trabajar en `main`**.
 
 **Fecha de creación**: 2026-05-29
 **Última actualización**: 2026-05-30
-**Estado**: 🟡 **IN PROGRESS**. Branch activa `trackA/stage2.6-realdata-bias`.
-Stage 2.6 (diagnóstico del sesgo real-data de Hygiea) **completo y cerrado** —
-pendiente PR a main.
+**Estado**: ⏸️ **PAUSADO**. PR #44 (Stage 2.6: diagnóstico del sesgo real-data +
+fix de ventana joint) **mergeado a main** (merge commit `93dc5b4`). Branch
+`trackA/stage2.6-realdata-bias` eliminada (local + remoto). También podadas las
+ramas remotas stale ya mergeadas (`trackA/stage2-multitarget-joint`,
+`docs/followup-pause-a2.5`). Sin branch de trabajo activa (queda `perf/refine-kepler-cache`,
+WIP separado del cache Kepler, sin mergear). 
 **Hallazgo de Stage 2.6**: el "9× real-data" de A2.5 **no era un sesgo físico
 coherente**. Es (a) un **basin espurio** del optimizador sobre una χ²(masa)
 **dentada y multimodal** — la degeneración M↔deltas está *activa sobre datos
@@ -74,11 +77,13 @@ limpio ≳3σ. Perturbador secundario descartado (ninguno masivo). **Veredicto: 
 masa de Hygiea no es determinable con DR3 en este pipeline**; solo Ceres (25σ)
 tiene leverage defendible. Diagnóstico:
 [docs/mass_layer_stage_a2_6_realdata_bias.md](docs/mass_layer_stage_a2_6_realdata_bias.md).
-**Al retomar (tras PR de 2.6)**: decidir entre (i) cerrar Track A con el
-veredicto "no determinable en DR3 salvo Ceres", o (ii) arrancar **A3 (modelo OU
-del drift)** — pero solo si antes, con ventana acotada, algún calibrador además
-de Ceres muestra señal ≳3σ (hoy la evidencia dice que no). Fix barato pendiente:
-ventana joint simétrica/acotada en `_build_bundle`.
+**Al retomar**: decisión humana entre (i) **cerrar Track A** con el veredicto
+"masa no determinable en DR3 salvo Ceres", o (ii) arrancar **A3 (modelo OU del
+drift)** — pero solo si antes, con la ventana acotada (`--joint-window-days`, ya
+disponible), algún calibrador además de Ceres muestra señal ≳3σ. Hoy la evidencia
+de 2.6 dice que no. Alternativa de mayor valor: **Track B** (outliers Stage 2,
+specificity completo, o el side-paper del sesgo Kepler), ortogonal a la capa de
+masas y sin el cuello de botella de leverage de DR3.
 **Etapa pausada**: Track A Stage 2.5 (optimizador perfilado) — **🟡 PARCIAL**.
 A2.5 **arregló el bug del optimizador** (closing-loop sintético recupera la masa
 inyectada exacta, ratio 1.000), confirmando que el "ratio = M_H/M_lit" era el
@@ -106,7 +111,7 @@ Ceres/Hygiea a literatura; Pallas queda leverage-limited.
 | A | 1: tighten priors | 🟢 DONE | trackA/stage1-tighten-priors | #41 | 2026-05-29 | 2026-05-29 | Veredicto: bias estructural; pasar a A2 |
 | A | 2: multi-target joint fit | 🟢 DONE | trackA/stage2-multitarget-joint | #42 | 2026-05-29 | 2026-05-29 | Gate FAIL 0/2; masa multi == single; refuta degeneración M↔deltas |
 | A | 2.5: optimizador perfilado | 🟡 PARCIAL (mergeado) | trackA/stage2-multitarget-joint | #42 ✅ | 2026-05-29 | 2026-05-30 | Bug optimizador ARREGLADO (closing-loop ratio 1.000); pero Hygiea real → 9× lit. Queda sesgo real-data |
-| A | 2.6: investigar sesgo real-data Hygiea | 🟡 DONE (pend. PR) | trackA/stage2.6-realdata-bias | — | 2026-05-30 | 2026-05-30 | 9× = basin espurio + drift, NO sesgo físico. Masa no-identificable en DR3 (deltas absorben sobre datos reales). Solo Ceres defendible |
+| A | 2.6: investigar sesgo real-data Hygiea | 🟢 DONE | trackA/stage2.6-realdata-bias | #44 | 2026-05-30 | 2026-05-30 | 9× = basin espurio + drift, NO sesgo físico. Masa no-identificable en DR3 (deltas absorben sobre datos reales). Solo Ceres defendible. Fix `--joint-window-days` incluido |
 | A | 3: OU forward model para drift | ⚪ PENDING | — | — | — | — | Solo si, con ventana acotada, un calibrador ≠Ceres muestra ≳3σ. Hoy evidencia: no |
 | B | 1: investigar outliers Stage 2 (Alkeste/57942, Eros/176865) | ⚪ PENDING | — | — | — | — | Independiente; científico |
 | B | 2: specificity sobre 22/27 restantes | ⚪ PENDING | — | — | — | — | Completar Stage 3 |
@@ -425,10 +430,12 @@ No es un bias físico ni la degeneración M↔deltas:
 
 ### Stage 2.6 — Diagnóstico del sesgo real-data de Hygiea
 
-**Estado**: 🟡 DONE — diagnóstico cerrado, pendiente PR a main
-**Branch**: `trackA/stage2.6-realdata-bias` (creada 2026-05-30)
+**Estado**: 🟢 DONE — PR #44 mergeado a main (`93dc5b4`)
+**Branch**: `trackA/stage2.6-realdata-bias` (eliminada tras merge)
 **Depende de**: A2.5 (bug del optimizador arreglado).
 **Diagnóstico**: [docs/mass_layer_stage_a2_6_realdata_bias.md](docs/mass_layer_stage_a2_6_realdata_bias.md)
+
+**PR**: #44 (mergeado a main `93dc5b4`).
 
 #### Objetivo
 
@@ -747,3 +754,4 @@ Track B (independientes entre sí, independientes de Track A):
 | 2026-05-29 | A2.5 implementado (optimizador perfilado). Bug optimizador ARREGLADO (closing-loop ratio 1.000). Pero Hygiea real → 9× lit (χ²_red 1.19): aflora sesgo real-data, ahora aislado del optimizador y del leverage. Capa aún no validada. | DF |
 | 2026-05-30 | PR #42 mergeado a main (`02b6946`); branch eliminada. Trabajo **PAUSADO**. Próxima al retomar: Stage 2.6 (investigar sesgo real-data Hygiea). | DF |
 | 2026-05-30 | A2.6 cerrado. El "9×" de A2.5 = basin espurio sobre χ²(masa) dentada/multimodal (degeneración M↔deltas activa en datos reales) + deriva orbital del arco joint unilateral (45989). Ventana ±60 d cura 45989 pero no identifica la masa. Perturbador secundario descartado. Veredicto: masa de Hygiea no determinable en DR3; solo Ceres defendible. | DF |
+| 2026-05-30 | PR #44 mergeado a main (`93dc5b4`); rama eliminada + podadas ramas stale. Fix `--joint-window-days` disponible en producción. Trabajo **PAUSADO**. Al retomar: decisión cerrar Track A vs A3, o pivotar a Track B. | DF |
