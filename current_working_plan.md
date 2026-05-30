@@ -388,9 +388,5 @@ Track C (opcionales, independientes):
 | Fecha | Cambio | Autor |
 |-------|--------|-------|
 | 2026-05-30 | Plan creado al disolver `FOLLOWUP_PLAN.md` (capa de masas cerrada; info consolidada en ROADMAP + docs). | DF |
-<<<<<<< HEAD
-| 2026-05-30 | **Track B Stage 1 parcial**: gate 4 cuerpos como test de regresión + `docs/literature_validation.md` consolidado (Fienga 3/4, Galád 4/4, JPL). Goffin/Fuentes data-blocked. | DF |
-| 2026-05-30 | **Track B Stage 1 DONE**: descargué Fuentes-Muñoz 2025 (AJ 170,353) Tabla 5 de fuente oficial; 11,804/40,004 pares (29.5 %) confirmados en el catálogo DR3. Goffin documentado como imposible (VizieR sin tabla de encuentros). | DF |
-=======
 | 2026-05-30 | **Track A Stage 1 DONE**: recall del prefiltro medido (76.4 % en cola adversa, 143k encuentros perdidos por `|Δa|≤0.5`); fix radial-overlap → 100 %. Caveat #2 cuantificado en FROZEN_RUN. | DF |
->>>>>>> origin/main
+| 2026-05-30 | **Track B Stage 1 DONE**: gate 4 cuerpos como test de regresión + Fuentes-Muñoz 2025 (AJ 170,353) Tabla 5 de fuente oficial → 11,804/40,004 pares (29.5 %) confirmados en el catálogo DR3. Goffin documentado como imposible (VizieR sin tabla de encuentros). | DF |
