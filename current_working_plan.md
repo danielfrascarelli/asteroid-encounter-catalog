@@ -58,7 +58,7 @@ el cierre del proyecto.
 | A | 1: recall del prefiltro (audit #2) | 🟢 DONE | `trackA/stage1-prefilter-recall` | (pendiente) | Recall=76.4% en cola adversa; fix radial-overlap → 100%. Cuantificado, no cerrado |
 | A | 2: caracterización catálogo 72M (streaming) | 🟢 DONE | `trackA/stage2-characterize-bigcatalog` | (pendiente) | 72.2M caracterizadas (18.9% observables), 0 OOM; streaming chunked + tests de paridad |
 | B | 1: validación literatura completa (Fase 7) | 🟢 DONE | `trackB/stage1-literature-validation` | (pendiente) | Gate 4 cuerpos + Fuentes-Muñoz 2025 (11.8k confirmaciones) + consolidación; Goffin sin datos en VizieR |
-| B | 2: dashboard + README final + reproducibilidad | ⚪ PENDING | — | — | `src/dashboard/app.py` ya existe; falta pulido + README |
+| B | 2: dashboard + README final + reproducibilidad | 🟡 IN PROGRESS | `trackB/stage2-dashboard-readme` | (pendiente) | Data layer memory-safe + README final + reproducibilidad DONE; falta QA visual humana del dashboard |
 | C | 1: perf followups (numba / cache persistente) | ⚪ PENDING | — | — | No bloqueante; refinement ya en meseta ~4.5-10× |
 | C | 2: experimento falsos negativos threshold Kepler | ⚪ PENDING | — | — | Gatillo para una nota standalone (decisión B3) |
 | C | 3: bookkeeping (audit #6, refs stale) | ⚪ PENDING | — | — | Cerrar #6 (respondido por cierre Track A); podar refs |
@@ -284,9 +284,9 @@ pares, Fuentes-Muñoz 11,804 confirmaciones, y Goffin documentado como
 
 ### Stage 2 — Dashboard, README final y reproducibilidad
 
-**Estado**: ⚪ PENDING
+**Estado**: 🟡 IN PROGRESS (data layer + README + reproducibilidad DONE; falta QA visual humana del dashboard)
 **Estimación**: ~2-3 días
-**Branch propuesta**: `trackB/stage2-dashboard-readme`
+**Branch**: `trackB/stage2-dashboard-readme`
 **Depende de**: B1 (idealmente, para mostrar validación en el dashboard).
 
 #### Objetivo
@@ -307,22 +307,39 @@ funcionan en Docker limpio).
 
 #### Entregables
 
-- [ ] Dashboard pulido (`src/dashboard/app.py`) levantando en `http://localhost:8501`
-- [ ] `README.md` final
-- [ ] Checklist de reproducibilidad verificado
+- [x] Data layer memory-safe (`src/dashboard/data.py`): stats globales por agregación lazy + display capado a los N más cercanos; el dashboard ahora usa `encounters_characterized_full.parquet` (72M) si existe, con fallback al de 158k. Tests `tests/test_dashboard_data.py`.
+- [x] `README.md` final: validación corregida (Fienga 3/4, Galád 4/4, Fuentes-Muñoz 11.8k, gate 4 cuerpos), recall del prefiltro, catálogo caracterizado full, paths de scripts corregidos.
+- [x] Checklist de reproducibilidad (sección "🔁 Reproducibilidad" en README, end-to-end desde `docker compose build`).
+- [~] QA visual del dashboard (boot headless OK, health 200; falta revisión humana en navegador — Streamlit no es verificable sin cliente).
 
 #### Criterios de aceptación
 
-- `docker compose up dashboard` levanta y muestra el catálogo.
-- README permite reproducir desde cero.
+- [x] `docker compose up dashboard` levanta (boot headless verificado: health HTTP 200, sin traceback); carga memory-safe verificada contra el 72M real (stats 0.7s, closest-300k 4.5s).
+- [x] README permite reproducir desde cero (checklist con todos los comandos en Docker).
 
 #### Cómo retomar
 
-— No arrancada —
+```bash
+git checkout trackB/stage2-dashboard-readme
+docker compose up dashboard   # QA visual en http://localhost:8501 (revisión humana)
+```
 
 #### Progreso
 
-— No arrancada —
+**2026-05-31 — data layer + README + reproducibilidad DONE.** (1) Dashboard:
+extraje el acceso a datos a `src/dashboard/data.py` (puro, testeable): stats
+globales por agregación lazy (no materializa el frame) y display capado a los
+300k encuentros más cercanos (top-k lazy) → maneja el 72M sin OOM; prefiere
+`encounters_characterized_full.parquet` con fallback al de 158k. `app.py`
+consume eso; corregí el header/docstring que sobre-afirmaban (la capa de masas
+está cerrada). Boot headless verificado (health 200), `tests/test_dashboard_data.py`
+verde, y verificado contra el 72M real. Monté `./src` en el servicio dashboard
+del compose. (2) README final: corregí la validación (era "4/4 Fienga / 4M
+encuentros" → Fienga 3/4, Galád 4/4, **Fuentes-Muñoz 11.8k**, gate 4 cuerpos),
+añadí recall del prefiltro (76.4 %), el catálogo caracterizado full, paths de
+scripts (`scripts.ingest.*`/`scripts.validate.*`), y una sección de
+**Reproducibilidad** end-to-end. **Falta**: QA visual humana del dashboard en el
+navegador (no verificable de forma autónoma).
 
 ---
 
@@ -413,3 +430,4 @@ Track C (opcionales, independientes):
 | 2026-05-30 | **Track A Stage 1 DONE**: recall del prefiltro medido (76.4 % en cola adversa, 143k encuentros perdidos por `|Δa|≤0.5`); fix radial-overlap → 100 %. Caveat #2 cuantificado en FROZEN_RUN. | DF |
 | 2026-05-30 | **Track B Stage 1 DONE**: gate 4 cuerpos como test de regresión + Fuentes-Muñoz 2025 (AJ 170,353) Tabla 5 de fuente oficial → 11,804/40,004 pares (29.5 %) confirmados en el catálogo DR3. Goffin documentado como imposible (VizieR sin tabla de encuentros). | DF |
 | 2026-05-31 | **Track A Stage 2 DONE**: refactor streaming de caracterización (`characterize_catalog_streaming`); corrida sobre el híbrido 72.2M sin OOM (73 chunks, 18.9 % observables, gate 4/4); tests de paridad. | DF |
+| 2026-05-31 | **Track B Stage 2 (parcial)**: data layer memory-safe del dashboard (`src/dashboard/data.py`, usa el 72M), README final (validación corregida + recall prefiltro + reproducibilidad). Falta QA visual humana del dashboard. | DF |
