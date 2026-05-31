@@ -267,11 +267,17 @@ agreed to within ~10⁻⁷ AU (≈ 12 km) on the regression benchmark — see
 ## Caveats and known limitations (freeze-aware)
 
 - **Observability columns are computed elsewhere.**  `solar_elongation_deg`,
-  `gaia_observable`, and apparent magnitude are *not* on this parquet —
-  they live on `data/output/encounters_characterized.parquet`, which is a
-  characterisation of the smaller 158 k-row detection run, not this 72 M
-  catalog.  Re-characterising 72 M rows requires a streaming refactor that
-  is **not** part of this freeze.
+  `gaia_observable`, and apparent magnitude are *not* on this parquet — they
+  live on the characterised catalogs.  The streaming refactor that earlier was
+  "not part of this freeze" now exists (`characterize_catalog_streaming`,
+  Track A2): **`data/output/encounters_characterized_full.parquet`** carries
+  observability + magnitudes/diameters for the **full 72,236,904-row** catalog
+  (characterised from the hybrid Stage-B catalog; **13,640,870 = 18.9 %
+  Gaia-observable**; all four major bodies intact, counts identical to the gate
+  above). It is written chunked (bounded RAM, no global `dist_au` sort — it
+  preserves input row order); see its `_metadata.json` sidecar. The older
+  `data/output/encounters_characterized.parquet` (158 k rows) is the small
+  in-memory run, retained for backwards compatibility.
 - **Frame fix landed after the catalog was written.**  PR #21 (audit
   blocker #1) corrected the Earth-position frame in
   `src.characterize.observability`.  The data in this parquet is unaffected

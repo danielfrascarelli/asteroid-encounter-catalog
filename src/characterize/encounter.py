@@ -106,6 +106,8 @@ def characterize_catalog(
     elements: pl.DataFrame,
     mpcorb: pl.DataFrame,
     albedo: float = 0.14,
+    *,
+    sort: bool = True,
 ) -> pl.DataFrame:
     """Enrich the detection catalog with physical and observational properties.
 
@@ -123,6 +125,12 @@ def characterize_catalog(
     albedo:
         Default geometric albedo for diameter estimation when an
         asteroid-specific value is unavailable.
+    sort:
+        When True (default) the result is sorted by ``dist_au`` ascending.
+        Set to False for the streaming path (:func:`characterize_catalog_streaming`),
+        where a global sort across chunks is neither possible nor needed — each
+        encounter is characterised independently, so chunked output preserves
+        the input row order.
 
     Returns
     -------
@@ -268,7 +276,7 @@ def characterize_catalog(
     # 9. Assemble output DataFrame                                         #
     # ------------------------------------------------------------------ #
     logger.info("Assembling enriched catalog…")
-    return pl.DataFrame(
+    enriched = pl.DataFrame(
         {
             "number_1": df["number_1"],
             "number_2": df["number_2"],
@@ -296,4 +304,177 @@ def characterize_catalog(
             "gaia_observable_2": observable_2,
             "gaia_observable": observable,
         }
-    ).sort("dist_au")
+    )
+    return enriched.sort("dist_au") if sort else enriched
+
+
+# Detection columns read from the input catalog — the only ones
+# characterize_catalog needs. Reading just these keeps memory bounded even when
+# the source carries the wide hybrid schema (refinement_method, *_kepler, …).
+_DETECTION_COLS = [
+    "number_1",
+    "number_2",
+    "designation_1",
+    "designation_2",
+    "jd_tdb",
+    "dist_au",
+    "rel_vel_au_day",
+]
+
+
+def characterize_catalog_streaming(
+    input_path: str,
+    elements: pl.DataFrame,
+    mpcorb: pl.DataFrame,
+    out_path: str,
+    run_id: str,
+    *,
+    albedo: float = 0.14,
+    chunk_size: int = 1_000_000,
+    mpcorb_path: object | None = None,
+    config_dict: dict | None = None,
+) -> dict:
+    """Characterise an arbitrarily large catalog by streaming it in chunks.
+
+    The in-memory :func:`characterize_catalog` materialises ~10 N-length arrays
+    (two Kepler position fields, Earth positions, …) and OOMs on the 72 M-row
+    frozen catalog (~31 GB peak). Characterisation is **row-independent** (the
+    only cross-row step is the final sort), so this reads the input parquet in
+    ``chunk_size`` batches, characterises each (``sort=False``), and appends to a
+    single output parquet via a streaming writer — peak RAM is set by one chunk,
+    not the whole catalog.
+
+    Only :data:`_DETECTION_COLS` are read from the input, so a wide hybrid-schema
+    source is handled without loading its extra columns. The output is **not**
+    globally sorted by ``dist_au`` (unlike the in-memory path); it preserves the
+    input row order. A provenance sidecar (``<stem>_metadata.json``) is written
+    next to the output, mirroring :func:`src.catalog.writer.write_catalog`.
+
+    Parameters
+    ----------
+    input_path:
+        Detection catalog parquet (Kepler or hybrid). Read in batches.
+    elements, mpcorb, albedo:
+        As for :func:`characterize_catalog`.
+    out_path:
+        Destination parquet for the enriched full catalog.
+    run_id:
+        Run identifier written to every row and the sidecar.
+    chunk_size:
+        Rows per batch. 1 M ≈ <2 GB peak per chunk.
+    mpcorb_path, config_dict:
+        Optional provenance for the sidecar.
+
+    Returns
+    -------
+    dict
+        Summary: ``n_encounters``, ``n_gaia_observable``, ``n_chunks``, and the
+        major-body ``gate`` (presence + closest approach per required body).
+    """
+    import json
+    from datetime import UTC, datetime
+
+    import pyarrow.parquet as pq
+
+    from src.catalog.schema import CATALOG_SCHEMA
+    from src.catalog.writer import _dep_versions, _hash_file
+
+    required_bodies = (1, 2, 4, 10)
+
+    pf = pq.ParquetFile(input_path)
+    writer: pq.ParquetWriter | None = None
+    n_total = 0
+    n_obs = 0
+    n_chunks = 0
+    gate: dict[int, dict[str, float]] = {
+        b: {"n_encounters": 0, "closest_au": float("inf")} for b in required_bodies
+    }
+
+    logger.info(
+        "Streaming characterisation: %s → %s (chunk_size=%d)", input_path, out_path, chunk_size
+    )
+    try:
+        for batch in pf.iter_batches(batch_size=chunk_size, columns=_DETECTION_COLS):
+            chunk = pl.from_arrow(batch)
+            if isinstance(chunk, pl.Series):  # single-column safety (never here)
+                chunk = chunk.to_frame()
+            enriched = characterize_catalog(chunk, elements, mpcorb, albedo=albedo, sort=False)
+            enriched = enriched.with_columns(pl.lit(run_id).alias("run_id"))
+            present = [c for c in CATALOG_SCHEMA if c in enriched.columns]
+            enriched = enriched.select(present).with_columns(
+                [pl.col(c).cast(CATALOG_SCHEMA[c]) for c in present]
+            )
+
+            n_total += len(enriched)
+            n_obs += int(enriched["gaia_observable"].sum())
+            n_chunks += 1
+            for b in required_bodies:
+                hits = enriched.filter((pl.col("number_1") == b) | (pl.col("number_2") == b))
+                if len(hits):
+                    gate[b]["n_encounters"] += len(hits)
+                    closest = float(hits["dist_au"].min())  # type: ignore[arg-type]
+                    gate[b]["closest_au"] = min(gate[b]["closest_au"], closest)
+
+            table = enriched.to_arrow()
+            if writer is None:
+                writer = pq.ParquetWriter(out_path, table.schema, compression="zstd")
+            else:
+                table = table.cast(writer.schema)  # guard against per-chunk type drift
+            writer.write_table(table)
+            logger.info("  chunk %d: %d rows (total %d)", n_chunks, len(enriched), n_total)
+    finally:
+        if writer is not None:
+            writer.close()
+
+    gate_out = {
+        str(b): {
+            "present": gate[b]["n_encounters"] > 0,
+            "n_encounters": gate[b]["n_encounters"],
+            "closest_au": (
+                None if gate[b]["closest_au"] == float("inf") else gate[b]["closest_au"]
+            ),
+        }
+        for b in required_bodies
+    }
+
+    meta: dict = {
+        "run_id": run_id,
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "n_encounters": n_total,
+        "n_gaia_observable": n_obs,
+        "n_chunks": n_chunks,
+        "chunk_size": chunk_size,
+        "input_catalog": str(input_path),
+        "catalog_path": str(out_path),
+        "sorted_by_dist": False,
+        "schema_columns": list(CATALOG_SCHEMA),
+        "major_body_gate": gate_out,
+        "dependencies": _dep_versions(),
+    }
+    from pathlib import Path as _Path
+
+    mp = _Path(str(mpcorb_path)) if mpcorb_path is not None else None
+    if mp is not None and mp.exists():
+        meta["mpcorb"] = {
+            "path": str(mp),
+            "sha256_prefix": _hash_file(mp),
+            "size_bytes": mp.stat().st_size,
+        }
+    if config_dict is not None:
+        meta["config"] = config_dict
+
+    sidecar = _Path(out_path).parent / (_Path(out_path).stem + "_metadata.json")
+    sidecar.write_text(json.dumps(meta, indent=2, default=str))
+    logger.info(
+        "Streaming characterisation done: %d rows in %d chunks → %s (sidecar %s)",
+        n_total,
+        n_chunks,
+        out_path,
+        sidecar,
+    )
+    return {
+        "n_encounters": n_total,
+        "n_gaia_observable": n_obs,
+        "n_chunks": n_chunks,
+        "gate": gate_out,
+    }
