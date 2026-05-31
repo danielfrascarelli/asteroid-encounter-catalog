@@ -60,7 +60,7 @@ sigue cerrada (no determinable en DR3).
 | B | 1: validación literatura completa (Fase 7) | 🟢 DONE | `trackB/stage1-literature-validation` | (pendiente) | Gate 4 cuerpos + Fuentes-Muñoz 2025 (11.8k confirmaciones) + consolidación; Goffin sin datos en VizieR |
 | B | 2: dashboard + README final + reproducibilidad | 🟡 IN PROGRESS | `trackB/stage2-dashboard-readme` | (pendiente) | Data layer memory-safe + README final + reproducibilidad DONE; falta QA visual humana del dashboard |
 | C | 1: perf followups (numba / cache persistente) | ⚪ PENDING | — | — | No bloqueante; refinement ya en meseta ~4.5-10× |
-| C | 2: experimento falsos negativos threshold Kepler | ⚪ PENDING | — | — | Gatillo para una nota standalone (decisión B3) |
+| C | 2: experimento falsos negativos threshold Kepler | 🟢 DONE | `trackC/stage2-kepler-false-negatives` | (pendiente) | Tasa medida 0.70 % en [0.05,0.06); matriz de confusión cerrada; RNAAS standalone viable (opcional) |
 | C | 3: bookkeeping (audit #6, refs stale) | 🟢 DONE | `trackC/stage3-bookkeeping` | (pendiente) | #6 resuelto por cierre; ref stale podado (perf/refine-kepler-cache conservado); ROADMAP actualizado |
 
 **Recomendación de orden**:
@@ -361,8 +361,19 @@ propagaciones entre runs. Sólo si una corrida futura grande lo justifica.
 
 ### Stage 2 — Experimento de falsos negativos del threshold Kepler
 
-**Estado**: ⚪ PENDING · **Branch**: `trackC/stage2-kepler-false-negatives`
+**Estado**: 🟢 DONE · **Branch**: `trackC/stage2-kepler-false-negatives`
 **Depende de**: nada.
+
+**2026-05-31 — DONE.** `scripts/validate/measure_threshold_false_negatives.py`:
+detección Kepler a 0.06 AU sobre 10.000 cuerpos → **17.469 pares en [0.05,0.06)**
+re-refinados con N-body (±12 h, IAS15; `spawn` para evitar el deadlock BLAS+fork).
+**122 cruzan hacia abajo → tasa de falsos negativos = 0.70 %** [IC95 0.59–0.83 %]
+(~0.42 % excluyendo near_boundary). Δdist mediana −3×10⁻⁷, σ=3.7×10⁻⁴ AU:
+scatter simétrico, NO sesgo. Matriz de confusión cerca de 0.05 AU cerrada
+(~1.5 % arriba / ~0.4–0.7 % abajo). Extrapolación: ~10⁵ encuentros <0.05 censurados
+catalog-wide. Actualicé [docs/kepler_threshold_bias_paper.md](docs/kepler_threshold_bias_paper.md)
+(sección medida + decisión: **standalone RNAAS ahora es viable, opcional — llamada del autor**)
+y FROZEN_RUN límite 1. Artefactos en `data/output/kepler_false_negatives/`.
 
 La nota del sesgo Kepler ([docs/kepler_threshold_bias_paper.md](docs/kepler_threshold_bias_paper.md))
 mide la sobre-detección pero **no** la tasa de falsos negativos (el catálogo no
@@ -436,3 +447,4 @@ Track C (opcionales, independientes):
 | 2026-05-31 | **Track A Stage 2 DONE**: refactor streaming de caracterización (`characterize_catalog_streaming`); corrida sobre el híbrido 72.2M sin OOM (73 chunks, 18.9 % observables, gate 4/4); tests de paridad. | DF |
 | 2026-05-31 | **Track B Stage 2 (parcial)**: data layer memory-safe del dashboard (`src/dashboard/data.py`, usa el 72M), README final (validación corregida + recall prefiltro + reproducibilidad). Falta QA visual humana del dashboard. | DF |
 | 2026-05-31 | **Track C Stage 3 DONE**: bookkeeping — audit #6 resuelto por cierre en ROADMAP, bug #2 actualizado a "cuantificado", nota de cierre PRs #53–#56; podado `origin/docs/followup-pause-a2.6` (conservado `perf/refine-kepler-cache`). | DF |
+| 2026-05-31 | **Track C Stage 2 DONE**: medida la tasa de falsos negativos del threshold Kepler (0.70 % en [0.05,0.06) sobre 17.469 pares N-body); matriz de confusión cerrada; nota actualizada (RNAAS standalone viable, opcional). | DF |

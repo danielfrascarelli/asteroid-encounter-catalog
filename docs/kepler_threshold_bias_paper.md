@@ -102,19 +102,57 @@ criterio de selección del subset N-body (`q_min<1.8 OR e_max>0.3`).
    encuentros rápidos.** Un usuario interesado en NEAs / Marte-crossers debe
    tratar las detecciones Kepler cerca del threshold con especial cautela.
 
-## Experimento para medir la tasa de falsos negativos (trabajo futuro)
+## Tasa de falsos negativos — MEDIDA (2026-05-31, Track C2)
 
-La cantidad faltante —cuántos encuentros reales (<0.05 AU N-body) pierde el
-prefiltro Kepler— requiere re-refinar con N-body una muestra de pares con
-**d_Kepler ∈ [0.05, ~0.06] AU**, que el catálogo actual descarta. Plan:
+La cantidad que faltaba —cuántos encuentros reales (<0.05 AU N-body) censura el
+catálogo Kepler— ahora está **medida**
+([scripts/validate/measure_threshold_false_negatives.py](../scripts/validate/measure_threshold_false_negatives.py),
+artefactos en `data/output/kepler_false_negatives/`). Método: detección Kepler a
+threshold **0.06 AU** sobre **10.000** cuerpos numerados (a∈[1.5,4.0], muestra
+seeded del snapshot congelado), aislando los pares con `d_Kepler ∈ [0.05, 0.06)`
+(los que el catálogo de 0.05 descarta), y re-refinando cada uno bajo N-body
+completo (±12 h, IAS15-grade, Sol+Júpiter+Saturno+4 mayores).
 
-1. Re-correr la detección con threshold 0.06 AU (sólo el prefiltro Kepler) sobre
-   una muestra orbitalmente representativa.
-2. N-body-refinar los pares en [0.05, 0.06] y contar cuántos bajan de 0.05.
-3. Combinar con la tasa de sobre-detección de esta nota para una matriz de
-   confusión completa del prefiltro cerca del threshold.
+Resultado sobre **17.469 pares de banda** (0 fallidos):
 
-## Decisión de publicación (2026-05-30)
+- **122 cruzan hacia abajo** (N-body < 0.05 AU) → **tasa de falsos negativos en
+  la banda = 0.70 %** [IC95 0.59 %, 0.83 %].
+- 48 de esos 122 cruces son `near_boundary` (mínimo posiblemente fuera de la
+  ventana ±12 h); excluyéndolos, un piso conservador es 74/17.469 = **0.42 %**.
+  La tasa real cae en **~0.4–0.7 %** de la banda.
+- `Δdist = d_Nbody − d_Kepler`: mediana **−3×10⁻⁷ AU**, media −2×10⁻⁵, **σ =
+  3.7×10⁻⁴ AU** — scatter simétrico dominante, consistente con la §2 (el efecto
+  es ruido cerca del corte, NO un sesgo unidireccional, en **ambos** lados).
+
+**Matriz de confusión cerca de 0.05 AU (cerrada):** los cruces son simétricos y
+scatter-dominados. Hacia arriba: ~1.5 % en el bin de borde [0.045,0.05) (§1).
+Hacia abajo: ~0.4–0.7 % de [0.05,0.06). El catálogo, al contener sólo
+Kepler<0.05, **observa los cruces hacia arriba pero censura los de abajo** — y
+ahora sabemos que esos no observados pesan ~0.4–0.7 % de la banda adyacente.
+
+**Extrapolación catalog-wide** (orden de magnitud): la banda [0.05,0.06) escala
+∝N²; 17.469 pares en 10k cuerpos ⇒ ~3.5×10⁷ en los 449k numerados ⇒ **~1.5–2.5×10⁵
+encuentros reales <0.05 AU censurados** por el corte Kepler (independiente del
+déficit de recall del prefiltro, [prefilter_recall.md](prefilter_recall.md)).
+Caveat: sujeto al near_boundary y a que estos pares además deben pasar el prefiltro.
+
+## Decisión de publicación
+
+### Actualización 2026-05-31 (tras medir los falsos negativos, Track C2)
+
+El **gatillo** que la decisión original dejó abierto —medir la tasa de falsos
+negativos y cerrar la matriz de confusión— **se cumplió** (sección anterior). El
+número genuinamente novel ya no está sin medir: la matriz cerca de 0.05 AU está
+completa (cruces simétricos ~1.5 % arriba / ~0.4–0.7 % abajo, scatter-dominados,
+σ=3.7×10⁻⁴). Eso **vuelve viable una nota técnica standalone** (p. ej. RNAAS):
+"crossing rates simétricos Kepler↔N-body en un umbral de distancia, medidos sobre
+un catálogo Gaia DR3 de 72 M encuentros". Sigue siendo física de bajo perfil
+(sesgo de selección genérico), así que la recomendación es **opcional**: si se
+quiere un output de publicación de bajo costo, el material ya está; si no, queda
+como apéndice de métodos del paper del catálogo. **Decisión de escribirla o no:
+del autor** (es una llamada de alcance de publicación, no técnica).
+
+### Decisión original (2026-05-30)
 
 **Decidido: apéndice de métodos/caveats del paper del catálogo, NO nota
 standalone.** Razones científicas:

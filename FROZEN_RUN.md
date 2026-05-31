@@ -34,12 +34,16 @@ limits constrain what can be defensibly claimed from it:
      a one-directional bias** (corrected by Track B3,
      `docs/kepler_threshold_bias_paper.md`): the catalog only contains
      Kepler `<0.05` pairs, so downward crossings *cannot be observed* —
-     the false-negative rate is **not** zero, it is unmeasured here.
-     Δdist (N−K) is in fact slightly negative on average (median
-     −1×10⁻⁶ AU) with σ ≈ 4×10⁻⁴ AU: the correction is scatter-dominated.
+     the false-negative rate is **not** zero. It is now **measured**
+     (Track C2, `docs/kepler_threshold_bias_paper.md`): re-refining 17,469
+     pairs with Kepler distance in [0.05, 0.06) AU under N-body, **0.70 %**
+     [95 % CI 0.59–0.83 %] cross downward below 0.05 AU (~0.42 % excluding
+     near-boundary cases) — symmetric with the upward crossings, scatter-
+     dominated. Δdist (N−K) median −3×10⁻⁷ AU, σ ≈ 3.7×10⁻⁴ AU. Catalog-wide
+     this implies ~10⁵ real <0.05 AU encounters censored by the Kepler cut
+     (order-of-magnitude; separate from the prefilter-recall deficit).
      Crossings concentrate at 0.045–0.050 AU (1.5 %) and in low-q /
-     high-e / fast orbits. Measuring false negatives needs re-refining
-     pairs with Kepler distance in [0.05, 0.06] AU (future work).
+     high-e / fast orbits.
 
    For users who need N-body-grade distances on this subset, use the
    hybrid catalog (see next section) — it carries
