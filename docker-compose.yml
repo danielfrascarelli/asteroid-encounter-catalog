@@ -34,7 +34,10 @@ services:
     volumes:
       - ./data:/app/data
       - ./config.yaml:/app/config.yaml:ro
-    # dashboard requiere que data/output/ tenga un catálogo generado previamente
+      # Mount source so dashboard edits show up without rebuilding the image
+      - ./src:/app/src
+    # dashboard requiere que data/output/ tenga un catálogo caracterizado
+    # (encounters_characterized_full.parquet o encounters_characterized.parquet)
 
   # ── Tests ────────────────────────────────────────────────────────────────────
   # Uso: docker compose run --rm test

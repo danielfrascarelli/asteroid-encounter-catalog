@@ -72,8 +72,17 @@ docker compose run --rm pipeline python -m scripts.pipeline.run_pipeline
 docker compose run --rm pipeline python -m scripts.pipeline.characterize_catalog
 ```
 
-Produce `data/output/encounters_characterized.parquet` y el sidecar de metadatos.
-Para los counts y hashes de la corrida congelada, ver [`FROZEN_RUN.md`](FROZEN_RUN.md).
+Para caracterizar el catálogo congelado completo (72 M filas) sin OOM, usar el
+modo streaming (chunked, RAM acotada por chunk):
+
+```bash
+docker compose run --rm pipeline python -m scripts.pipeline.characterize_catalog \
+    --input data/output/encounters_catalog_hybrid_stageb.parquet --streaming on
+# → data/output/encounters_characterized_full.parquet (72.236.904 filas, 18,9% Gaia-observables)
+```
+
+Produce el catálogo caracterizado y su sidecar de metadatos. Para los counts y
+hashes de la corrida congelada, ver [`FROZEN_RUN.md`](FROZEN_RUN.md).
 
 ### Subset rápido para pruebas
 
@@ -196,9 +205,16 @@ resonancias con Júpiter.
 ### Notas honestas sobre alcance
 
 - **Catálogo geométrico de candidatos**: defensible como tal. Los 72 M pares
-  son los que pasan el filtro bajo la pipeline congelada. NO se puede
-  afirmar completitud (prefilter heurístico, audit #2 abierto) ni precisión
-  μAU global (validación limitada a 8 pares + grilla 1 h de JPL).
+  son los que pasan el filtro bajo la pipeline congelada. NO se puede afirmar
+  completitud ni precisión μAU global (validación limitada a 8 pares + grilla
+  1 h de JPL).
+- **Completitud del prefiltro (audit #2): cuantificada.** El prefiltro orbital
+  (|Δa|≤0.5 AU ∧ |Δi|≤30°) tiene **76,4 % de recall en la cola adversa**
+  (alta-e/alta-i): pierde ~143 k encuentros reales, casi todos por el corte
+  |Δa|≤0.5 (ciego a la excentricidad). Fix recomendado y verificado: prefiltro
+  de solapamiento radial → 100 % recall. Detalle en
+  [`docs/prefilter_recall.md`](docs/prefilter_recall.md). No usar la palabra
+  "completo" sobre el catálogo congelado.
 - **Capa de masas**: NO publicable. El archivo
   `mass_followup_candidates.csv` (41 filas) son *targets de seguimiento*,
   no medidas. El test de specificidad da 0/41
@@ -206,9 +222,11 @@ resonancias con Júpiter.
   y los chi²_red del LOO batch dan mediana 425 / max 7.2 × 10⁵ — el
   modelo está mal especificado para esto. La capa requiere joint orbit +
   mass con covarianza AL real (audit #6, semanas de trabajo).
-- **Catálogos históricos**: `encounters_catalog.parquet` (158.672 filas)
-  y `encounters_characterized.parquet` son referencias de desarrollo;
-  la corrida congelada (72M) es la única canónica.
+- **Catálogos caracterizados**: `encounters_characterized_full.parquet`
+  (72.236.904 filas, con observabilidad Gaia + magnitudes/diámetros, generado
+  vía streaming) cubre el catálogo congelado completo. El antiguo
+  `encounters_characterized.parquet` (158.672 filas) es una referencia de
+  desarrollo. La corrida congelada (72M) es la única canónica.
 - (2) Pallas (i = 34.9°) aparece con 47 encuentros en el catálogo (el más
   cercano a 6.3 × 10⁻³ AU) — su alta inclinación orbital la mantiene
   parcialmente separada del plano del cinturón.
@@ -225,33 +243,45 @@ docker compose run --rm test pytest tests/ -v   # ~300 tests, todos pasan (regre
 
 ### 2. Cross-match contra catálogos publicados
 
-Dos catálogos independientes de encuentros conocidos se descargan automáticamente:
+Resumen consolidado en [`docs/literature_validation.md`](docs/literature_validation.md).
+Catálogos independientes de encuentros conocidos:
 
-- **Fienga et al. (2003)** [A&A 406, 751] — predicciones N-body 2003–2022, VizieR `J/A+A/406/751`.
-- **Galád & Gray (2002)** [A&A 391, 1115] — candidatos para determinación de masas, parseados del HTML del artículo.
-
-Para correr:
+- **Gate de cuerpos grandes** (criterio del CLAUDE.md): (1) Ceres, (2) Pallas,
+  (4) Vesta, (10) Hygiea presentes con conteos 352/47/458/162 — test de
+  regresión `tests/test_validation.py::TestFrozenMajorBodyGate`.
+- **Fienga et al. (2003)** [A&A 406, 751] — **3/4** en ventana (residual mediano
+  52 µAU; el par (804,733) es un detection gap near-threshold).
+- **Galád & Gray (2002)** [A&A 391, 1115] — **4/4** encuentros de Hygiea (µAU–20 µAU).
+- **Fuentes-Muñoz et al. (2025)** [AJ 170, 353] — **11.804 / 40.004 (29,5 %)**
+  de los pares perturbador→objetivo de su Tabla 5 (Gaia FPR) están presentes en
+  el catálogo DR3. Es un **lower bound** (FPR ajusta sobre baseline completo →
+  la mayoría de los encuentros caen fuera de la ventana DR3); los presentes son
+  confirmaciones independientes.
 
 ```bash
 docker compose run --rm pipeline python -m scripts.ingest.download_fienga_2003
 docker compose run --rm pipeline python -m scripts.ingest.download_galad_2002
-
+docker compose run --rm pipeline python -m scripts.ingest.download_fuentes_munoz
 # Después del pipeline:
 docker compose run --rm pipeline python -m scripts.validate.validate_fienga_2003
 docker compose run --rm pipeline python -m scripts.validate.validate_galad_2002
+docker compose run --rm pipeline python -m scripts.validate.validate_fuentes_munoz_2025
 ```
 
-Resultados a 0.05 AU sobre el catálogo Kepler de 4M encuentros: **100% match** (4/4 Fienga + 4/4 Galád en la ventana Gaia).
+> Goffin (2014) no se puede cruzar par-a-par: su catálogo VizieR `J/A+A/565/A56`
+> contiene sólo tablas de masas, no la lista de encuentros (ver el doc consolidado).
 
 ### 3. Spot-check contra JPL Horizons (ground truth)
 
 Cada par matcheado se vuelve a consultar contra JPL Horizons (DE440 + N-body completo) en una ventana fina alrededor de la fecha:
 
 ```bash
-docker compose run --rm pipeline python -m scripts.validate_jpl_horizons
+docker compose run --rm pipeline python -m scripts.validate.validate_jpl_horizons
 ```
 
-Resultados: MAE(nuestro − JPL) = 0.0002 AU; MAE(literatura − JPL) = 0.00004 AU. JPL agrees con la literatura, confirmando ambos catálogos como referencias confiables.
+Resultados (8 pares de literatura): |nuestro − JPL| ≤ ~5 × 10⁻⁶ AU **a la cadencia
+de muestreo de JPL** (1 h / 30 min) — no es una prueba de precisión sub-cadencia
+global (ver [`FROZEN_RUN.md`](FROZEN_RUN.md) límite 3).
 
 ### 4. Multi-snapshot MPCORB (precisión histórica)
 
@@ -259,10 +289,54 @@ La propagación Kepler 2-cuerpos acumula error si la época de los elementos orb
 
 ```bash
 # Descarga un snapshot histórico del Wayback Machine al año pedido
-docker compose run --rm pipeline python -m scripts.download_mpcorb_historical --year 2015 --month 6
+docker compose run --rm pipeline python -m scripts.ingest.download_mpcorb_historical --year 2015 --month 6
 ```
 
 El pipeline auto-detecta los snapshots disponibles en `data/raw/mpcorb_archive/` y selecciona el de época más cercana al centro de la ventana. Para la ventana Gaia (2014–2017), un snapshot 2015 reduce el error de ~0.03 AU (MPCORB actual ≈ 2026) a < 0.001 AU.
+
+## 🔁 Reproducibilidad
+
+Todo corre dentro de Docker; no se requiere Python local. Para reproducir el
+catálogo congelado desde cero:
+
+```bash
+# 0. Build de la imagen
+docker compose build
+
+# 1. Datos: MPCORB actual + snapshot histórico cercano a la ventana Gaia
+docker compose run --rm pipeline python -m scripts.ingest.download_mpcorb
+docker compose run --rm pipeline python -m scripts.ingest.download_mpcorb_historical --year 2016 --month 2
+#    (la corrida congelada usó MPCORB_20160217; el pipeline auto-selecciona el
+#     snapshot de época más cercana al centro de la ventana — ver FROZEN_RUN.md)
+
+# 2. Pipeline de detección + caracterización (streaming para el catálogo completo)
+docker compose run --rm pipeline python -m scripts.pipeline.run_pipeline --config config.local.yaml
+docker compose run --rm pipeline python -m scripts.pipeline.characterize_catalog \
+    --input data/output/encounters_catalog_hybrid_stageb.parquet --streaming on
+
+# 3. Validación contra literatura
+docker compose run --rm pipeline python -m scripts.ingest.download_fienga_2003
+docker compose run --rm pipeline python -m scripts.ingest.download_galad_2002
+docker compose run --rm pipeline python -m scripts.ingest.download_fuentes_munoz
+docker compose run --rm pipeline python -m scripts.validate.validate_fienga_2003
+docker compose run --rm pipeline python -m scripts.validate.validate_galad_2002
+docker compose run --rm pipeline python -m scripts.validate.validate_fuentes_munoz_2025
+
+# 4. Gate de regresión de los 4 cuerpos grandes (requiere el catálogo congelado local)
+RUN_REAL_CATALOG_TESTS=1 docker compose run --rm -e RUN_REAL_CATALOG_TESTS=1 \
+    pipeline pytest tests/test_validation.py::TestFrozenMajorBodyGate -q
+
+# 5. Dashboard
+docker compose up dashboard      # http://localhost:8501
+```
+
+**Notas de reproducibilidad** (ver [`FROZEN_RUN.md`](FROZEN_RUN.md) para hashes):
+
+- La réplica bit-a-bit requiere el mismo commit de código y las mismas versiones
+  de dependencias listadas en el sidecar de provenance.
+- MPCORB se actualiza: cada corrida registra el hash/fecha del snapshot usado.
+- Los datos crudos y los outputs (`data/raw`, `data/output`) están gitignored;
+  se regeneran con los comandos de arriba.
 
 ## 🛠️ Desarrollo
 
@@ -288,7 +362,7 @@ Para adjuntar el debugger de VS Code a un proceso corriendo en Docker:
 ```bash
 # 1. Levantar el contenedor en modo debug (queda esperando la conexión)
 docker compose -f docker-compose.yml -f docker-compose.debug.yml \
-  run --rm --service-ports pipeline -m scripts.download_gaia_sso --config config.yaml
+  run --rm --service-ports pipeline -m scripts.ingest.download_gaia_sso --config config.yaml
 
 # 2. En VS Code: Run & Debug → "Docker: Attach to pipeline" → ▶
 ```
@@ -299,7 +373,7 @@ El proceso no arranca hasta que VS Code se conecte. Podés poner breakpoints en 
 
 - Tanga, P., et al. (2023). *Gaia Data Release 3. The Solar System survey*. A&A 674, A12. [[link]](https://www.aanda.org/articles/aa/full_html/2023/06/aa43796-22/aa43796-22.html)
 - Goffin, E. (2014). *Astrometric asteroid masses: a simultaneous determination*. A&A 565, A56.
-- Fuentes-Muñoz, O., et al. (2024). *Asteroid masses from Gaia FPR*. LPSC #2388.
+- Fuentes-Muñoz, O., Farnocchia, D., Giorgini, J. D., & Park, R. S. (2025). *Asteroid Mass Estimation by Mutual Perturbations during Close Encounters after Gaia FPR*. AJ 170, 353. [DOI:10.3847/1538-3881/ae0cc9](https://doi.org/10.3847/1538-3881/ae0cc9)
 - Documentación oficial de Gaia DR3: [gea.esac.esa.int](https://gea.esac.esa.int/archive/documentation/)
 - Formato MPCORB: [minorplanetcenter.net](https://www.minorplanetcenter.net/iau/info/MPOrbitFormat.html)
 

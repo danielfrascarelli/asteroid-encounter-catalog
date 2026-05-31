@@ -1,10 +1,13 @@
 """Streamlit dashboard — Gaia DR3 Asteroid Close-Encounter Catalog.
 
 Four tabs:
-  1. Encounter Catalog  — full 119 k encounter catalog with filters
-  2. Novel Encounters   — 379 science-grade candidates (filtered subset)
+  1. Encounter Catalog  — the characterised catalog with filters (memory-safe:
+     loads the full 72 M run if present, else the 158 k run; see
+     :mod:`src.dashboard.data`)
+  2. Novel Encounters   — science-grade candidate subset
   3. Gaia Coverage      — per-encounter transit coverage audit
-  4. Mass Candidates    — Cat B candidates + published mass-fit results
+  4. Mass Candidates    — exploratory follow-up targets (NB: no publishable mass
+     comes from this pipeline in DR3 — see FROZEN_RUN.md)
 """
 
 from __future__ import annotations
@@ -14,6 +17,12 @@ from pathlib import Path
 import plotly.express as px
 import polars as pl
 import streamlit as st
+
+from src.dashboard.data import (
+    catalog_stats,
+    load_catalog_display,
+    resolve_catalog_path,
+)
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -30,7 +39,6 @@ st.set_page_config(
 # Data paths
 # ---------------------------------------------------------------------------
 
-_CATALOG_PATH = Path("data/output/encounters_characterized.parquet")
 _NOVEL_PATH = Path("data/output/relevant_novel_encounters.csv")
 _COVERAGE_PATH = Path("data/output/gaia_coverage_audit.csv")
 _CANDIDATES_PATH = Path("data/output/mass_candidates.csv")
@@ -41,10 +49,18 @@ _CANDIDATES_PATH = Path("data/output/mass_candidates.csv")
 
 
 @st.cache_data(show_spinner="Loading encounter catalog…")
-def _load_catalog() -> pl.DataFrame | None:
-    if not _CATALOG_PATH.exists():
+def _load_catalog() -> tuple[pl.DataFrame, bool, dict, str] | None:
+    """Return (display_df, capped, global_stats, catalog_name) or None.
+
+    Memory-safe: global stats come from a lazy aggregation; the display frame is
+    capped to the closest :data:`DISPLAY_CAP` encounters for the full 72 M catalog.
+    """
+    path = resolve_catalog_path()
+    if path is None:
         return None
-    return pl.read_parquet(_CATALOG_PATH)
+    stats = catalog_stats(path)
+    df, capped = load_catalog_display(path)
+    return df, capped, stats, path.name
 
 
 @st.cache_data(show_spinner="Loading novel encounters…")
@@ -74,9 +90,11 @@ def _load_candidates() -> pl.DataFrame | None:
 
 st.title("🪨 Gaia DR3 Asteroid Close Encounters")
 st.caption(
-    "Systematic catalog of asteroid pair separations during the Gaia observation window "
-    "(July 2014 – May 2017). "
-    "N-body propagation (REBOUND) · KD-tree detection · AL-weighted mass fitting."
+    "Systematic catalog of asteroid-pair 3-D separations < 0.05 AU during the Gaia DR3 "
+    "observation window (July 2014 – May 2017). "
+    "REBOUND coarse scan · KD-tree detection · Kepler/N-body hybrid refinement. "
+    "Geometric candidate catalog — not a mass catalog (the mass layer is not "
+    "determinable in DR3; see FROZEN_RUN.md)."
 )
 
 tab_catalog, tab_novel, tab_coverage, tab_mass = st.tabs(
@@ -93,20 +111,33 @@ tab_catalog, tab_novel, tab_coverage, tab_mass = st.tabs(
 # ===========================================================================
 
 with tab_catalog:
-    df_all = _load_catalog()
-    if df_all is None:
-        st.warning("Catalog not found. Run the pipeline first (`scripts/run_pipeline.py`).")
+    _loaded = _load_catalog()
+    if _loaded is None:
+        st.warning(
+            "Catalog not found. Run the pipeline then characterise it: "
+            "`python -m scripts.pipeline.characterize_catalog "
+            "--input data/output/encounters_catalog_hybrid_stageb.parquet --streaming on`."
+        )
     else:
-        # ── Metrics ────────────────────────────────────────────────────────
-        n_total = len(df_all)
-        n_gaia = int(df_all["gaia_observable"].sum())
-        d_min = float(df_all["dist_au"].min())  # type: ignore[arg-type]
+        df_all, capped, stats, catalog_name = _loaded
+        # ── Metrics (global, from a lazy aggregation — true totals) ─────────
+        n_total = stats["n_total"]
+        n_gaia = stats["n_gaia_observable"]
+        d_min = stats["dist_min_au"]
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Total encounters", f"{n_total:,}")
         c2.metric("Gaia-observable", f"{n_gaia:,}", f"{n_gaia/n_total*100:.0f}%")
         c3.metric("Closest approach", f"{d_min:.5f} AU")
         c4.metric("Time span", "Jul 2014 – May 2017")
+
+        st.caption(f"Source: `{catalog_name}`")
+        if capped:
+            st.info(
+                f"Interactive views below show the **closest {len(df_all):,}** of "
+                f"{n_total:,} encounters (the catalog is too large to load in full). "
+                "Headline metrics above are computed over the entire catalog."
+            )
 
         st.divider()
 
