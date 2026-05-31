@@ -47,11 +47,11 @@
 
 **Fecha de creación**: 2026-05-30
 **Última actualización**: 2026-05-31
-**Estado**: 🟢 **CAMINO PRINCIPAL COMPLETO**. **A1 (PR #53)**, **B1 (#54)**, **A2
-(#55)**, **B2 (#56)** y **C3 (bookkeeping)** cerradas. Único residual: **QA visual
-humana del dashboard** (B2, no autónoma). Opcionales pendientes: **C1** (perf) y
-**C2** (experimento de falsos negativos del threshold Kepler). La capa de masas
-sigue cerrada (no determinable en DR3).
+**Estado**: 🟢 **PLAN COMPLETO**. Las 7 etapas cerradas: **A1 (PR #53)**, **B1
+(#54)**, **A2 (#55)**, **B2 (#56)**, **C3 (#57)**, **C2 (#58)** y **C1**
+(perf, evaluado y descartado). Único residual no-autónomo: **QA visual humana del
+dashboard** (B2). La capa de masas sigue cerrada (no determinable en DR3; sólo
+reabre con DR4/FPR).
 
 | Track | Etapa | Estado | Branch | PR | Notas |
 |-------|-------|--------|--------|----|-------|
@@ -59,7 +59,7 @@ sigue cerrada (no determinable en DR3).
 | A | 2: caracterización catálogo 72M (streaming) | 🟢 DONE | `trackA/stage2-characterize-bigcatalog` | (pendiente) | 72.2M caracterizadas (18.9% observables), 0 OOM; streaming chunked + tests de paridad |
 | B | 1: validación literatura completa (Fase 7) | 🟢 DONE | `trackB/stage1-literature-validation` | (pendiente) | Gate 4 cuerpos + Fuentes-Muñoz 2025 (11.8k confirmaciones) + consolidación; Goffin sin datos en VizieR |
 | B | 2: dashboard + README final + reproducibilidad | 🟡 IN PROGRESS | `trackB/stage2-dashboard-readme` | (pendiente) | Data layer memory-safe + README final + reproducibilidad DONE; falta QA visual humana del dashboard |
-| C | 1: perf followups (numba / cache persistente) | ⚪ PENDING | — | — | No bloqueante; refinement ya en meseta ~4.5-10× |
+| C | 1: perf followups (numba / cache persistente) | 🟢 DONE | `trackC/stage1-perf` | (pendiente) | Evaluado → numba y cache persistente descartados con mediciones (docs/perf_evaluation.md) |
 | C | 2: experimento falsos negativos threshold Kepler | 🟢 DONE | `trackC/stage2-kepler-false-negatives` | (pendiente) | Tasa medida 0.70 % en [0.05,0.06); matriz de confusión cerrada; RNAAS standalone viable (opcional) |
 | C | 3: bookkeeping (audit #6, refs stale) | 🟢 DONE | `trackC/stage3-bookkeeping` | (pendiente) | #6 resuelto por cierre; ref stale podado (perf/refine-kepler-cache conservado); ROADMAP actualizado |
 
@@ -347,15 +347,19 @@ navegador (no verificable de forma autónoma).
 
 ### Stage 1 — Perf followups (no bloqueante)
 
-**Estado**: ⚪ PENDING · **Branch**: `trackC/stage1-perf`
+**Estado**: 🟢 DONE (evaluado → ambas descartadas con mediciones) · **Branch**: `trackC/stage1-perf`
 
-El refinement ya está en su meseta (~4.5-10× sobre baseline; ver memoria
-`project_perf_followups`). Quedan optimizaciones opcionales: **numba** en el
-hot-path de Kepler (`src/propagate/kepler.py`), **cache persistente** de
-propagaciones entre runs. Sólo si una corrida futura grande lo justifica.
-
-- [ ] Evaluar numba en `solve_kepler` / `_refine_chunk_arr`
-- [ ] Cache persistente de fine-grid entre runs
+- [x] **numba en `solve_kepler` / hot-path Kepler**: **NO se justifica.** El solver
+      ya es numpy-vectorizado (el único loop es la iteración Newton sobre todo el
+      array) → ~7.3 M elem/s `solve_kepler`, ~3.7 M elem/s `kepler_to_cartesian`
+      single-thread, y el pipeline ya paraleliza por procesos (×n_workers ≈ 100 M
+      elem/s agregado). numba acelera loops escalares (no hay), añade dependencia
+      (CLAUDE.md la desaconseja) y oversubscribiría contra el Pool de procesos.
+- [x] **Cache persistente de fine-grid**: **NO se justifica.** Sólo ayudaría en
+      re-corridas idénticas (raras); la parte cara (trayectoria N-body coarse) ya
+      está cacheada (`src/propagate/cache.py`, hit <1 s). El refinamiento Kepler
+      fino es barato.
+- Bench reproducible: `scripts/bench/bench_kepler.py`. Detalle: [docs/perf_evaluation.md](docs/perf_evaluation.md).
 
 ---
 
@@ -448,3 +452,4 @@ Track C (opcionales, independientes):
 | 2026-05-31 | **Track B Stage 2 (parcial)**: data layer memory-safe del dashboard (`src/dashboard/data.py`, usa el 72M), README final (validación corregida + recall prefiltro + reproducibilidad). Falta QA visual humana del dashboard. | DF |
 | 2026-05-31 | **Track C Stage 3 DONE**: bookkeeping — audit #6 resuelto por cierre en ROADMAP, bug #2 actualizado a "cuantificado", nota de cierre PRs #53–#56; podado `origin/docs/followup-pause-a2.6` (conservado `perf/refine-kepler-cache`). | DF |
 | 2026-05-31 | **Track C Stage 2 DONE**: medida la tasa de falsos negativos del threshold Kepler (0.70 % en [0.05,0.06) sobre 17.469 pares N-body); matriz de confusión cerrada; nota actualizada (RNAAS standalone viable, opcional). | DF |
+| 2026-05-31 | **Track C Stage 1 DONE**: perf followups evaluados y descartados con mediciones (numba innecesario sobre solver vectorizado + paralelo por procesos; cache fine-grid de bajo valor). `docs/perf_evaluation.md` + `scripts/bench/bench_kepler.py`. **Plan completo.** | DF |
