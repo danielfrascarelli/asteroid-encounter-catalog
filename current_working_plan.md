@@ -47,11 +47,11 @@
 
 **Fecha de creación**: 2026-05-30
 **Última actualización**: 2026-05-31
-**Estado**: 🟡 **EN PROGRESO**. **A1 (PR #53)**, **B1 (PR #54)** y **A2
-(caracterización 72M streaming)** cerradas. Sólo queda **B2** (dashboard + README
-final + reproducibilidad) en el camino principal, más Track C opcional. La capa de
-masas sigue cerrada (no determinable en DR3); este plan es sobre el **catálogo** y
-el cierre del proyecto.
+**Estado**: 🟢 **CAMINO PRINCIPAL COMPLETO**. **A1 (PR #53)**, **B1 (#54)**, **A2
+(#55)**, **B2 (#56)** y **C3 (bookkeeping)** cerradas. Único residual: **QA visual
+humana del dashboard** (B2, no autónoma). Opcionales pendientes: **C1** (perf) y
+**C2** (experimento de falsos negativos del threshold Kepler). La capa de masas
+sigue cerrada (no determinable en DR3).
 
 | Track | Etapa | Estado | Branch | PR | Notas |
 |-------|-------|--------|--------|----|-------|
@@ -61,7 +61,7 @@ el cierre del proyecto.
 | B | 2: dashboard + README final + reproducibilidad | 🟡 IN PROGRESS | `trackB/stage2-dashboard-readme` | (pendiente) | Data layer memory-safe + README final + reproducibilidad DONE; falta QA visual humana del dashboard |
 | C | 1: perf followups (numba / cache persistente) | ⚪ PENDING | — | — | No bloqueante; refinement ya en meseta ~4.5-10× |
 | C | 2: experimento falsos negativos threshold Kepler | ⚪ PENDING | — | — | Gatillo para una nota standalone (decisión B3) |
-| C | 3: bookkeeping (audit #6, refs stale) | ⚪ PENDING | — | — | Cerrar #6 (respondido por cierre Track A); podar refs |
+| C | 3: bookkeeping (audit #6, refs stale) | 🟢 DONE | `trackC/stage3-bookkeeping` | (pendiente) | #6 resuelto por cierre; ref stale podado (perf/refine-kepler-cache conservado); ROADMAP actualizado |
 
 **Recomendación de orden**:
 
@@ -379,15 +379,19 @@ cerca del threshold) justificaría una **nota técnica standalone** (p. ej. RNAA
 
 ### Stage 3 — Bookkeeping
 
-**Estado**: ⚪ PENDING · **Branch**: `trackC/stage3-bookkeeping`
+**Estado**: 🟢 DONE · **Branch**: `trackC/stage3-bookkeeping`
 
-- [ ] **Cerrar audit blocker #6 (mass fitting)**: ya quedó **respondido** por el
-      cierre de Track A (capa no viable en DR3). Marcarlo resuelto en el tracking,
-      no como abierto. (Memoria `audit_followups`.)
-- [ ] Podar refs/branches stale: `perf/refine-kepler-cache` (su contenido ya está
-      en `main`; **conservar el ref** porque FROZEN_RUN lo cita como provenance
-      `06de6d0`), `origin/docs/followup-pause-a2.6`.
-- [ ] Revisar `SCIENTIFIC_AUDIT.md` y cerrar formalmente los bloqueantes resueltos.
+- [x] **Audit blocker #6 (mass fitting)** marcado **resuelto por cierre** en ROADMAP
+      (la capa de masas no es determinable en DR3). Los otros dos abiertos también
+      quedan cerrados: **#2** (recall del prefiltro) cuantificado por A1, y
+      **big-catalog characterize** hecho por A2.
+- [x] Podado el ref stale `origin/docs/followup-pause-a2.6` (borrado del remoto).
+      **Conservado** `perf/refine-kepler-cache` (FROZEN_RUN lo cita como provenance
+      `06de6d0`, verificado presente).
+- [x] `SCIENTIFIC_AUDIT.md` ya no existe en el repo (fue removido; sólo aparece en
+      mensajes de commit). El tracking vivo de bloqueantes está en ROADMAP.md /
+      FROZEN_RUN.md, que quedaron actualizados (bug #2 → cuantificado; nota de cierre
+      del current_working_plan con PRs #53–#56).
 
 ---
 
@@ -431,3 +435,4 @@ Track C (opcionales, independientes):
 | 2026-05-30 | **Track B Stage 1 DONE**: gate 4 cuerpos como test de regresión + Fuentes-Muñoz 2025 (AJ 170,353) Tabla 5 de fuente oficial → 11,804/40,004 pares (29.5 %) confirmados en el catálogo DR3. Goffin documentado como imposible (VizieR sin tabla de encuentros). | DF |
 | 2026-05-31 | **Track A Stage 2 DONE**: refactor streaming de caracterización (`characterize_catalog_streaming`); corrida sobre el híbrido 72.2M sin OOM (73 chunks, 18.9 % observables, gate 4/4); tests de paridad. | DF |
 | 2026-05-31 | **Track B Stage 2 (parcial)**: data layer memory-safe del dashboard (`src/dashboard/data.py`, usa el 72M), README final (validación corregida + recall prefiltro + reproducibilidad). Falta QA visual humana del dashboard. | DF |
+| 2026-05-31 | **Track C Stage 3 DONE**: bookkeeping — audit #6 resuelto por cierre en ROADMAP, bug #2 actualizado a "cuantificado", nota de cierre PRs #53–#56; podado `origin/docs/followup-pause-a2.6` (conservado `perf/refine-kepler-cache`). | DF |
