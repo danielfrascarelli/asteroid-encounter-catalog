@@ -46,17 +46,17 @@
 ## Estado global
 
 **Fecha de creación**: 2026-05-30
-**Última actualización**: 2026-05-30
-**Estado**: 🟡 **EN PROGRESO**. **A1 (recall prefiltro, PR #53)** y **B1 (validación
-literatura, PR #54)** cerradas y mergeadas a `main`. Siguiente recomendado: **B2**
-(dashboard + README final) o **A2** (caracterización 72M, refactor). La capa de
+**Última actualización**: 2026-05-31
+**Estado**: 🟡 **EN PROGRESO**. **A1 (PR #53)**, **B1 (PR #54)** y **A2
+(caracterización 72M streaming)** cerradas. Sólo queda **B2** (dashboard + README
+final + reproducibilidad) en el camino principal, más Track C opcional. La capa de
 masas sigue cerrada (no determinable en DR3); este plan es sobre el **catálogo** y
 el cierre del proyecto.
 
 | Track | Etapa | Estado | Branch | PR | Notas |
 |-------|-------|--------|--------|----|-------|
 | A | 1: recall del prefiltro (audit #2) | 🟢 DONE | `trackA/stage1-prefilter-recall` | (pendiente) | Recall=76.4% en cola adversa; fix radial-overlap → 100%. Cuantificado, no cerrado |
-| A | 2: caracterización catálogo 72M (streaming) | ⚪ PENDING | — | — | Refactor; el catálogo caracterizado actual es solo 158k filas |
+| A | 2: caracterización catálogo 72M (streaming) | 🟢 DONE | `trackA/stage2-characterize-bigcatalog` | (pendiente) | 72.2M caracterizadas (18.9% observables), 0 OOM; streaming chunked + tests de paridad |
 | B | 1: validación literatura completa (Fase 7) | 🟢 DONE | `trackB/stage1-literature-validation` | (pendiente) | Gate 4 cuerpos + Fuentes-Muñoz 2025 (11.8k confirmaciones) + consolidación; Goffin sin datos en VizieR |
 | B | 2: dashboard + README final + reproducibilidad | ⚪ PENDING | — | — | `src/dashboard/app.py` ya existe; falta pulido + README |
 | C | 1: perf followups (numba / cache persistente) | ⚪ PENDING | — | — | No bloqueante; refinement ya en meseta ~4.5-10× |
@@ -145,9 +145,9 @@ queda como recomendación para una futura corrida o para DR4/FPR.
 
 ### Stage 2 — Caracterización del catálogo completo (72M filas, streaming)
 
-**Estado**: ⚪ PENDING
+**Estado**: 🟢 DONE (refactor + tests + corrida 72M completa, 0 OOM)
 **Estimación**: ~2-4 días (refactor + corrida)
-**Branch propuesta**: `trackA/stage2-characterize-bigcatalog`
+**Branch**: `trackA/stage2-characterize-bigcatalog`
 **Depende de**: nada (pero correr después de A1).
 
 #### Objetivo
@@ -170,23 +170,45 @@ completo lleve observabilidad Gaia + magnitudes/diámetros estimados.
 
 #### Entregables
 
-- [ ] Refactor streaming en `src/characterize/`
-- [ ] `data/output/encounters_characterized_full.parquet` (72M)
-- [ ] Tests de paridad
-- [ ] Nota en [FROZEN_RUN.md](FROZEN_RUN.md) (las columnas de observabilidad ahora cubren el catálogo completo)
+- [x] Refactor streaming en `src/characterize/` (`characterize_catalog_streaming`, chunked, RAM acotada por chunk)
+- [x] `data/output/encounters_characterized_full.parquet` (72,236,904 filas, 5.77 GB) + sidecar `_metadata.json`
+- [x] Tests de paridad (`tests/test_characterize.py::TestStreamingParity`: chunked==in-memory, archivo streamed==in-memory, sidecar)
+- [x] Nota en [FROZEN_RUN.md](FROZEN_RUN.md) (observabilidad ahora cubre el catálogo completo)
 
 #### Criterios de aceptación
 
-- Corre sobre 72M sin OOM (pico de RAM acotado y documentado).
-- Paridad con el run de 158k sobre el solapamiento.
+- [x] Corre sobre 72M sin OOM: 73 chunks de 1M en 8635 s (~2.4 h), exit 0, pico acotado por chunk (~<2 GB)
+  en una máquina que antes OOMeaba a 31 GB. 13,640,870 (18.9 %) Gaia-observables; gate 4/4 idéntico (352/47/458/162).
+- [x] Paridad verificada sobre input idéntico: in-memory `characterize_catalog(sort=False)` == primeras 50k filas
+  del streamed 72M (exacto), más los unit tests. La "paridad vs 158k" del plan original no aplica: ese run es una
+  **detección distinta**, no un subset del 72M; el test correcto es paridad sobre el mismo input.
 
 #### Cómo retomar
 
-— No arrancada —
+```bash
+git checkout trackA/stage2-characterize-bigcatalog
+cat logs/characterize_full.log            # progreso de la corrida 72M
+ls -la data/output/encounters_characterized_full.parquet  # sidecar _metadata.json al lado
+# Re-correr: docker compose run --rm pipeline python -m scripts.pipeline.characterize_catalog \
+#   --input data/output/encounters_catalog_hybrid_stageb.parquet --streaming on
+```
 
 #### Progreso
 
-— No arrancada —
+**2026-05-30 — refactor DONE, corrida en curso.** `characterize_catalog` ahora acepta
+`sort=False`; nueva `characterize_catalog_streaming(input, …)` lee el parquet por
+chunks (`pyarrow.iter_batches`, sólo las 7 columnas de detección), caracteriza cada
+chunk y lo escribe incrementalmente con `pq.ParquetWriter` (RAM acotada por chunk,
+no por catálogo). El script `characterize_catalog.py` decide streaming por conteo de
+filas (`--streaming auto|on|off`, `--chunk-size`), y el output de streaming va a
+`encounters_characterized_full.parquet` (no pisa el run de 158k). Output **no**
+ordenado globalmente por dist (preserva orden de input; caracterización es
+row-independiente). Tests de paridad verdes. **Corrida 72M completa** (2026-05-31 01:50, exit 0):
+72,236,904 filas en 73 chunks, 8635 s; 13,640,870 (18.9 %) Gaia-observables; gate
+4/4 idéntico al FROZEN_RUN (352/47/458/162). Output 5.77 GB +
+`encounters_characterized_full_metadata.json`. Paridad sobre input idéntico
+verificada (primeras 50k == in-memory). Sin OOM (máquina que antes OOMeaba a 31 GB).
+FROZEN_RUN actualizado. **Etapa cerrada.**
 
 ---
 
@@ -390,3 +412,4 @@ Track C (opcionales, independientes):
 | 2026-05-30 | Plan creado al disolver `FOLLOWUP_PLAN.md` (capa de masas cerrada; info consolidada en ROADMAP + docs). | DF |
 | 2026-05-30 | **Track A Stage 1 DONE**: recall del prefiltro medido (76.4 % en cola adversa, 143k encuentros perdidos por `|Δa|≤0.5`); fix radial-overlap → 100 %. Caveat #2 cuantificado en FROZEN_RUN. | DF |
 | 2026-05-30 | **Track B Stage 1 DONE**: gate 4 cuerpos como test de regresión + Fuentes-Muñoz 2025 (AJ 170,353) Tabla 5 de fuente oficial → 11,804/40,004 pares (29.5 %) confirmados en el catálogo DR3. Goffin documentado como imposible (VizieR sin tabla de encuentros). | DF |
+| 2026-05-31 | **Track A Stage 2 DONE**: refactor streaming de caracterización (`characterize_catalog_streaming`); corrida sobre el híbrido 72.2M sin OOM (73 chunks, 18.9 % observables, gate 4/4); tests de paridad. | DF |

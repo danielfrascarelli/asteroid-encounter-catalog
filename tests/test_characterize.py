@@ -265,6 +265,136 @@ def _two_body_fixture():
     return encounters, elements, mpcorb
 
 
+def _multi_body_fixture():
+    """A 6-row encounter set spanning several bodies (for chunking tests).
+
+    Mixes already-ordered and swapped pairs, distinct JDs, and a body with
+    unknown H (999, absent from mpcorb) so the NaN paths are exercised too.
+    """
+    import polars as pl
+
+    encounters = pl.DataFrame(
+        {
+            "number_1": [100, 200, 300, 100, 400, 999],
+            "number_2": [200, 100, 100, 300, 200, 100],
+            "designation_1": ["A100", "A200", "A300", "A100", "A400", "A999"],
+            "designation_2": ["A200", "A100", "A100", "A300", "A200", "A100"],
+            "jd_tdb": [
+                2_457_000.0,
+                2_457_010.0,
+                2_457_020.0,
+                2_457_030.0,
+                2_457_040.0,
+                2_457_050.0,
+            ],
+            "dist_au": [0.01, 0.02, 0.03, 0.015, 0.025, 0.035],
+            "rel_vel_au_day": [0.001, 0.002, 0.003, 0.0015, 0.0025, 0.0035],
+        }
+    )
+    elements = pl.DataFrame(
+        {
+            "number": [100, 200, 300, 400, 999],
+            "a_au": [2.5, 3.0, 2.2, 2.7, 2.9],
+            "e": [0.1, 0.2, 0.15, 0.05, 0.3],
+            "i_deg": [5.0, 10.0, 7.0, 3.0, 12.0],
+            "Omega_deg": [30.0, 60.0, 45.0, 20.0, 75.0],
+            "omega_deg": [40.0, 70.0, 55.0, 25.0, 85.0],
+            "M_deg": [50.0, 80.0, 65.0, 35.0, 95.0],
+            "epoch_jd": [2_457_000.0] * 5,
+        }
+    )
+    mpcorb = pl.DataFrame(
+        {
+            "number": [100, 200, 300, 400],  # 999 deliberately absent → NaN H
+            "H": [4.0, 14.0, 8.0, 6.0],
+            "G": [0.15, 0.15, 0.15, 0.15],
+        }
+    )
+    return encounters, elements, mpcorb
+
+
+class TestStreamingParity:
+    """The chunked/streaming path must reproduce the in-memory result exactly."""
+
+    def test_chunked_equals_full_unsorted(self) -> None:
+        import polars as pl
+
+        from src.characterize.encounter import characterize_catalog
+
+        encounters, elements, mpcorb = _multi_body_fixture()
+        full = characterize_catalog(encounters, elements, mpcorb, sort=False)
+
+        # Characterise in 3-row slices and concatenate — must equal the full
+        # single-pass result row-for-row, since characterisation is row-independent.
+        chunks = [
+            characterize_catalog(encounters[i : i + 3], elements, mpcorb, sort=False)
+            for i in range(0, len(encounters), 3)
+        ]
+        chunked = pl.concat(chunks)
+        from polars.testing import assert_frame_equal
+
+        assert_frame_equal(full, chunked, check_row_order=True)
+
+    def test_streaming_file_matches_inmemory(self, tmp_path) -> None:
+        import polars as pl
+
+        from src.catalog.schema import CATALOG_SCHEMA
+        from src.characterize.encounter import (
+            characterize_catalog,
+            characterize_catalog_streaming,
+        )
+
+        encounters, elements, mpcorb = _multi_body_fixture()
+        in_path = tmp_path / "enc.parquet"
+        out_path = tmp_path / "enc_characterized.parquet"
+        encounters.write_parquet(in_path)
+
+        summary = characterize_catalog_streaming(
+            str(in_path),
+            elements,
+            mpcorb,
+            str(out_path),
+            run_id="test-stream",
+            chunk_size=4,  # forces >1 chunk over 6 rows
+        )
+        assert summary["n_encounters"] == 6
+        assert summary["n_chunks"] == 2
+
+        streamed = pl.read_parquet(out_path)
+        # In-memory reference, cast to the same on-disk schema + run_id column.
+        ref = characterize_catalog(encounters, elements, mpcorb, sort=False)
+        ref = ref.with_columns(pl.lit("test-stream").alias("run_id"))
+        present = [c for c in CATALOG_SCHEMA if c in ref.columns]
+        ref = ref.select(present).with_columns([pl.col(c).cast(CATALOG_SCHEMA[c]) for c in present])
+        streamed = streamed.select(present)
+
+        from polars.testing import assert_frame_equal
+
+        assert_frame_equal(ref, streamed, check_row_order=True)
+
+    def test_streaming_sidecar_written(self, tmp_path) -> None:
+        import json
+
+        from src.characterize.encounter import characterize_catalog_streaming
+
+        encounters, elements, mpcorb = _multi_body_fixture()
+        in_path = tmp_path / "enc.parquet"
+        out_path = tmp_path / "enc_characterized.parquet"
+        encounters.write_parquet(in_path)
+        characterize_catalog_streaming(
+            str(in_path), elements, mpcorb, str(out_path), run_id="test-stream", chunk_size=4
+        )
+        sidecar = tmp_path / "enc_characterized_metadata.json"
+        assert sidecar.exists()
+        meta = json.loads(sidecar.read_text())
+        assert meta["n_encounters"] == 6
+        assert meta["sorted_by_dist"] is False
+        # Gate tracks the four required bodies (1/2/4/10); none are in this
+        # synthetic fixture, so all must report present=False with a recorded slot.
+        assert set(meta["major_body_gate"]) == {"1", "2", "4", "10"}
+        assert all(not g["present"] for g in meta["major_body_gate"].values())
+
+
 class TestCharacterizeCatalog:
     def test_body_1_is_always_larger(self) -> None:
         """After characterize, H_1 ≤ H_2 row-by-row (lower H = brighter = larger)."""
