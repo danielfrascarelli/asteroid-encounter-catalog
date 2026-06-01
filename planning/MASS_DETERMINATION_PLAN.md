@@ -73,13 +73,27 @@ perturber bajo estudio).
 sobre la ventana Gaia. **Depende de:** T1.
 
 ### T3 — Ecuaciones variacionales (el corazón del método)
-**Entregable:** `src/orbdet/variational.py` — integración de la matriz de
-transición ∂x(t)/∂x₀ y de la parcial ∂x(t)/∂GM_perturber, junto con la dinámica.
-**Gate:** las parciales coinciden con diferencias finitas a < 1e-6 relativo.
-**Nota técnica:** rebound expone `sim.add_variation()` para parciales respecto a
-condiciones iniciales; la parcial respecto a GM puede requerir una partícula
-variacional adicional o, como atajo inicial, diferencias finitas en GM.
-**Depende de:** T2.
+**Entregable:** `src/orbdet/variational.py` — parciales ∂x(t)/∂x₀ (matriz de
+transición de estado) y ∂x(t)/∂GM_perturber, junto con la dinámica de T2.
+
+**Decisión de diseño (2026-06-01): enfoque (a) — diferencias finitas para
+∂x/∂GM.**
+- **∂x/∂elementos (∂x/∂x₀):** analítico vía `sim.add_variation()` de rebound
+  (partículas variacionales de 1er orden respecto a las condiciones iniciales).
+- **∂x/∂GM_perturber:** **diferencias finitas** — propagar a GM±δ y diferencia
+  central, con δ relativo elegido (~1e-3·GM) y verificación de convergencia
+  (Richardson / barrido de δ).
+- **Por qué (a) y no (b) (partícula variacional analítica respecto a la masa):**
+  desbloquea T4/T5/T6 end-to-end cuanto antes con código simple y robusto; el
+  costo extra de 2 propagaciones por evaluación de la parcial de masa es
+  aceptable en esta fase. La variante analítica (b) queda como **optimización
+  posterior** (más exacta y rápida en producción, bastante más código y sutil),
+  a reconsiderar si el costo o el ruido numérico de las DF se vuelven limitantes
+  en T7 (stacking multi-asteroide).
+
+**Gate:** (i) ∂x/∂elementos analítico coincide con su diferencia finita a < 1e-6
+relativo; (ii) ∂x/∂GM por DF es estable bajo refinamiento de δ (meseta de
+Richardson). **Depende de:** T2.
 
 ### T4 — Modelo de observación + covarianza anisotrópica
 **Entregable:** `src/orbdet/observation.py` — estado heliocéntrico → baricéntrico
