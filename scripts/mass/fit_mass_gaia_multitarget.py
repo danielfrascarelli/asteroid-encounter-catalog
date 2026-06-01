@@ -43,7 +43,7 @@ from src.mass.forward_model_joint_multitarget import (
     fit_joint_multitarget_profiled,
 )
 from src.propagate.nbody import _MAJOR_ASTEROIDS
-from src.utils.config import load_config
+from src.utils.config import GaiaReleaseConfig, load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -105,6 +105,7 @@ def _build_bundle(
     dt_days: float,
     integrator: str,
     joint_window_days: float | None = None,
+    release_cfg: GaiaReleaseConfig | None = None,
 ) -> tuple[TargetBundle, dict] | None:
     """Fetch Gaia obs, run LOO orbit fit, and assemble a TargetBundle.
 
@@ -118,12 +119,13 @@ def _build_bundle(
     diagnosed in ``docs/mass_layer_stage_a2_6_realdata_bias.md``. Set it to
     ~60-90 d to keep the fit in the deflection-signal region.
     """
-    obs = fetch_gaia_full(archive_url, target)
+    obs = fetch_gaia_full(archive_url, target, release_cfg)
     if obs.height < 15:
         logger.warning("  target %d: too few transits (%d), skipping", target, obs.height)
         return None
 
-    jd_tcb = obs["epoch"].to_numpy() + _J2010_TCB_JD
+    epoch_ref = release_cfg.epoch_ref_jd_tcb if release_cfg is not None else _J2010_TCB_JD
+    jd_tcb = obs["epoch"].to_numpy() + epoch_ref
     jd_tdb = Time(jd_tcb, format="jd", scale="tcb").tdb.jd.astype(float)
     gaia_xyz = np.column_stack(
         [obs["x_gaia"].to_numpy(), obs["y_gaia"].to_numpy(), obs["z_gaia"].to_numpy()]
