@@ -68,6 +68,9 @@ def write_detection_sidecar(
     fine_step_hours: float | None = None,
     use_tiered: bool = False,
     force_kepler_refine: bool = False,
+    n_asteroids: int | None = None,
+    prefilter_effective: str | None = None,
+    prefilter_max_n: int | None = None,
     gate_checks: dict[str, Any] | None = None,
 ) -> Path:
     """Write a provenance sidecar JSON next to a *detection* catalog parquet.
@@ -98,6 +101,19 @@ def write_detection_sidecar(
         Whether the bulk grid ran at ``coarse_step_hours`` while refinement used Kepler.
     force_kepler_refine:
         Whether refinement was forced to Kepler regardless of scan method.
+    n_asteroids:
+        Number of bodies fed to detection.  Recorded so the *effective* prefilter
+        behaviour can be audited (the pair-list prefilter is skipped above a size
+        threshold regardless of the declared config flag).
+    prefilter_effective:
+        How the orbital pair-list prefilter actually behaved
+        (``"applied"`` / ``"skipped_large_n"`` / ``"disabled"``), from
+        :func:`src.detect.pipeline.effective_prefilter_mode`.  Distinguishes
+        declared config (``prefilter.enabled``) from what shaped the catalog: a
+        run with ``enabled=true`` but ``n > prefilter_max_n`` did NOT apply the
+        ``|Δa|`` cut.
+    prefilter_max_n:
+        Size threshold above which the pair-list prefilter is skipped.
     gate_checks:
         Result of the major-body gate check (Ceres / Pallas / Vesta / Hygiea
         presence + closest-approach).  When provided, persisted into the
@@ -137,7 +153,14 @@ def write_detection_sidecar(
         "tiered_mode": use_tiered,
         "fine_step_hours": fine_step_hours,
         "prefilter": {
+            # `enabled` is the *declared* config flag.  `effective` is what
+            # actually shaped the catalog: the pair-list prefilter is skipped
+            # when n_asteroids > max_n, so `enabled=true` does NOT imply the
+            # |Δa| cut was applied.  See effective_prefilter_mode().
             "enabled": cfg.detection.prefilter.enabled,
+            "effective": prefilter_effective,
+            "n_asteroids": n_asteroids,
+            "max_n": prefilter_max_n,
             "semimajor_diff_max_au": cfg.detection.prefilter.semimajor_diff_max_au,
             "inclination_diff_max_deg": cfg.detection.prefilter.inclination_diff_max_deg,
         },

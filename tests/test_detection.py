@@ -28,7 +28,7 @@ import polars as pl
 import pytest
 
 from src.detect.kdtree_scan import scan_time_grid
-from src.detect.pipeline import detect_encounters
+from src.detect.pipeline import detect_encounters, effective_prefilter_mode
 from src.detect.prefilter import compatible_pairs
 from src.detect.refine import _quadratic_min, refine_candidates
 from src.propagate.grid import make_time_grid
@@ -157,6 +157,24 @@ def test_prefilter_no_pairs_for_single_asteroid() -> None:
     elems = _make_elements(a=[2.5])
     pairs = compatible_pairs(elems)
     assert pairs.shape == (0, 2)
+
+
+def test_effective_prefilter_mode_disabled() -> None:
+    # Config flag off → "disabled" regardless of N.
+    assert effective_prefilter_mode(10, enabled=False) == "disabled"
+    assert effective_prefilter_mode(1_000_000, enabled=False) == "disabled"
+
+
+def test_effective_prefilter_mode_applied_small_n() -> None:
+    # Enabled and N ≤ max_n → pair-list built.
+    assert effective_prefilter_mode(5_000, enabled=True, max_n=5_000) == "applied"
+    assert effective_prefilter_mode(100, enabled=True) == "applied"
+
+
+def test_effective_prefilter_mode_skipped_large_n() -> None:
+    # Enabled but N > max_n → pair-list skipped, KD-tree only (the frozen-run case).
+    assert effective_prefilter_mode(5_001, enabled=True, max_n=5_000) == "skipped_large_n"
+    assert effective_prefilter_mode(150_000, enabled=True) == "skipped_large_n"
 
 
 def test_prefilter_no_pairs_for_empty_elements() -> None:
