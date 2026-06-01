@@ -1,6 +1,6 @@
 # Plan: Determinación de masas de asteroides estilo Fuentes-Muñoz
 
-> **Estado:** ⬜ PENDIENTE
+> **Estado:** 🟡 ACTIVO
 > **Última actualización:** 2026-06-01
 > Plan para convertir el catálogo de encuentros en **determinaciones de masa
 > publicables**, replicando la metodología de **solución global simultánea**
@@ -35,8 +35,8 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 
 | # | tarea | fase | estado | entregable / gate |
 |---|-------|------|--------|-------------------|
-| T1 | Esqueleto `orbdet` + primitivas matemáticas (constants, kepler, frames, time) | 0 | ⬜ | `src/orbdet/`, tests de invariantes + aislamiento |
-| T2 | Modelo dinámico N-cuerpos (rebound: Sol+planetas+asteroides grandes+perturber) | 0 | ⬜ | vs JPL Horizons en era Gaia |
+| T1 | Esqueleto `orbdet` + primitivas matemáticas (constants, kepler, frames, time) | 0 | ✅ | `src/orbdet/` · #70 (65 tests) |
+| T2 | Modelo dinámico N-cuerpos (rebound: Sol+planetas+asteroides grandes+perturber) | 0 | ✅* | `src/orbdet/dynamics.py` · validado vs límite dos-cuerpos a 1e-8 AU; *cross-check Horizons marcado, pendiente de entorno con acceso JPL |
 | T3 | Ecuaciones variacionales (∂estado/∂elementos y ∂estado/∂GM) | 0 | ⬜ | parciales ≈ diferencias finitas |
 | T4 | Modelo de observación + covarianza along-scan anisotrópica | 0 | ⬜ | residuos al nivel del ruido AL |
 | T5 | Corrector diferencial (OD por mínimos cuadrados, arco completo) | 0 | ⬜ | recupera órbita sintética conocida |
