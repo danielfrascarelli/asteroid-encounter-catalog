@@ -3,13 +3,23 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 logger = logging.getLogger(__name__)
+
+# Gaia DR3 defaults, used to synthesise a "dr3" release block when a legacy
+# config carries only the flat ``gaia_sso.table`` field (no ``releases`` map).
+# Keeps pre-FPR configs valid without edits. These mirror the constants the
+# DR3 ingest/mass layer used before the release selector existed.
+_DR3_EPOCH_REF_JD_TCB = 2455197.5  # epoch = JD_TCB - this (days since J2010.0 TCB)
+_DR3_WINDOW_START = "2014-07-25T00:00:00"
+_DR3_WINDOW_END = "2017-05-28T00:00:00"
+_DR3_MP_MAX = 160_000
+_DR3_DEFAULT_TABLE = "gaiadr3.sso_observation"
 
 
 # ---------------------------------------------------------------------------
@@ -41,13 +51,66 @@ class MpcorbSourceConfig:
 
 
 @dataclass
-class GaiaSSOSourceConfig:
+class GaiaReleaseConfig:
+    """Per-release metadata that differs between Gaia DR3 and FPR.
+
+    Everything that is coupled to the Gaia data release lives here so a single
+    ``release`` flag swaps all of it atomically (avoiding states like
+    "FPR table + DR3 window"). See ``docs/gaia_fpr_data_model.md``.
+    """
+
     table: str
+    epoch_ref_jd_tcb: float
+    window_start: str  # ISO 8601 UTC
+    window_end: str  # ISO 8601 UTC
+    mp_max: int
+    # Columns to drop from the shared base set for this release. FPR's
+    # sso_observation has no ``g_mag`` (no photometry), so a SELECT including it
+    # would fail. Empty for DR3.
+    columns_drop: list[str] = field(default_factory=list)
+
+
+@dataclass
+class GaiaSSOSourceConfig:
     archive_url: str
     columns: list[str]
+    # Active release selector ("dr3" | "fpr") and the per-release metadata map.
+    release: str = "dr3"
+    releases: dict[str, GaiaReleaseConfig] = field(default_factory=dict)
+    # Legacy/deprecated flat table name. Only consulted when ``releases`` is
+    # empty (pre-FPR configs); a synthetic dr3 release is built from it.
+    table: str | None = None
     batch_size: int = 5_000
     n_workers: int | str = "auto"
     max_retries: int = 3
+
+    def active(self) -> GaiaReleaseConfig:
+        """Resolve the currently selected release block.
+
+        Falls back to a synthetic DR3 release when a legacy config provides only
+        the flat ``table`` field and no ``releases`` map.
+        """
+        if self.releases:
+            if self.release not in self.releases:
+                raise ValueError(
+                    f"gaia_sso.release = '{self.release}' not found in releases "
+                    f"{sorted(self.releases)}"
+                )
+            return self.releases[self.release]
+        # Legacy path: synthesise dr3 from flat fields + DR3 defaults.
+        return GaiaReleaseConfig(
+            table=self.table or _DR3_DEFAULT_TABLE,
+            epoch_ref_jd_tcb=_DR3_EPOCH_REF_JD_TCB,
+            window_start=_DR3_WINDOW_START,
+            window_end=_DR3_WINDOW_END,
+            mp_max=_DR3_MP_MAX,
+            columns_drop=[],
+        )
+
+    def active_columns(self) -> list[str]:
+        """Base columns minus the active release's ``columns_drop`` (order kept)."""
+        drop = set(self.active().columns_drop)
+        return [c for c in self.columns if c not in drop]
 
 
 @dataclass
@@ -259,6 +322,31 @@ def _require(d: dict[str, Any], *keys: str) -> None:
             raise ValueError(f"Missing required config key: '{k}'")
 
 
+def _build_gaia_sso(d: dict[str, Any]) -> GaiaSSOSourceConfig:
+    """Construct GaiaSSOSourceConfig, converting the nested ``releases`` map."""
+    releases = {
+        name: GaiaReleaseConfig(
+            table=rel["table"],
+            epoch_ref_jd_tcb=float(rel["epoch_ref_jd_tcb"]),
+            window_start=rel["window_start"],
+            window_end=rel["window_end"],
+            mp_max=int(rel["mp_max"]),
+            columns_drop=list(rel.get("columns_drop", [])),
+        )
+        for name, rel in (d.get("releases") or {}).items()
+    }
+    return GaiaSSOSourceConfig(
+        archive_url=d["archive_url"],
+        columns=d["columns"],
+        release=d.get("release", "dr3"),
+        releases=releases,
+        table=d.get("table"),
+        batch_size=d.get("batch_size", 5_000),
+        n_workers=d.get("n_workers", "auto"),
+        max_retries=d.get("max_retries", 3),
+    )
+
+
 def _build(raw: dict[str, Any]) -> PipelineConfig:
     """Construct a PipelineConfig from a raw merged dict, failing fast on missing keys."""
     _require(
@@ -295,7 +383,27 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
         "galad_2002",
     )
     _require(s["mpcorb"], "url", "local_filename", "refresh_days")
-    _require(s["gaia_sso"], "table", "archive_url", "columns")
+    _require(s["gaia_sso"], "archive_url", "columns")
+    # New release-selector schema: validate each release block. Legacy configs
+    # without ``releases`` are accepted (synthetic dr3 built at .active()).
+    gaia_releases = s["gaia_sso"].get("releases")
+    if gaia_releases:
+        active = s["gaia_sso"].get("release", "dr3")
+        if active not in gaia_releases:
+            raise ValueError(
+                f"gaia_sso.release = '{active}' not in releases {sorted(gaia_releases)}"
+            )
+        for rel_name, rel in gaia_releases.items():
+            _require(
+                rel,
+                "table",
+                "epoch_ref_jd_tcb",
+                "window_start",
+                "window_end",
+                "mp_max",
+            )
+    elif "table" not in s["gaia_sso"]:
+        raise ValueError("gaia_sso needs either a 'releases' map or a legacy 'table' field")
     _require(s["gaia_orbits"], "archive_url")
     _require(s["jpl_horizons"], "api_url", "rate_limit_seconds")
     _require(s["fienga_2003"], "vizier_catalog", "output_filename")
@@ -347,7 +455,7 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
         paths=PathsConfig(**p),
         sources=SourcesConfig(
             mpcorb=MpcorbSourceConfig(**s["mpcorb"]),
-            gaia_sso=GaiaSSOSourceConfig(**s["gaia_sso"]),
+            gaia_sso=_build_gaia_sso(s["gaia_sso"]),
             gaia_orbits=GaiaOrbitsSourceConfig(**s["gaia_orbits"]),
             jpl_horizons=JplHorizonsSourceConfig(**s["jpl_horizons"]),
             fienga_2003=Fienga2003SourceConfig(**s["fienga_2003"]),

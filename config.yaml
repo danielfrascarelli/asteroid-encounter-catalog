@@ -38,12 +38,14 @@ sources:
     refresh_days: 30                 # Re-descargar si la copia local es más vieja
 
   gaia_sso:
-    table: "gaiadr3.sso_observation"
+    # Selector de release Gaia. Cambiar este flag arrastra tabla, epoca de
+    # referencia, ventana temporal y mp_max (ver bloque 'releases').
+    release: "dr3"                     # "dr3" | "fpr"
     archive_url: "https://gea.esac.esa.int/tap-server/tap"
     batch_size: 50000                  # number_mp values per TAP job — dense ranges (mp 1-100) have ~22k rows, sparse (mp 150k+) ~4.5k rows; stays under server result-file limit
     n_workers: 10                     # sequential downloads — avoids concurrent job race conditions on the Gaia TAP server
     max_retries: 10                   # retry attempts per failed batch (exponential backoff: 30s, 60s, 120s)
-    columns:                         # Subset de columnas a descargar
+    columns:                         # Subset de columnas base (compartidas; cada release puede dropear)
       - solution_id
       - source_id
       - denomination
@@ -58,6 +60,24 @@ sources:
       - x_gaia
       - y_gaia
       - z_gaia
+    # Metadata especifica por release. Solo difiere lo que esta acoplado al
+    # release; el resto (archive_url, batch, columnas base) es compartido.
+    releases:
+      dr3:
+        table: "gaiadr3.sso_observation"
+        epoch_ref_jd_tcb: 2455197.5      # epoch = JD_TCB - este (dias desde J2010.0 TCB)
+        window_start: "2014-07-25T00:00:00"
+        window_end:   "2017-05-28T00:00:00"
+        mp_max: 160000
+        columns_drop: []                 # DR3 tiene todas las columnas base
+      fpr:
+        # Ver docs/gaia_fpr_data_model.md (probe Stage 0, 2026-06-01)
+        table: "gaiafpr.sso_observation"
+        epoch_ref_jd_tcb: 2455197.5      # identica a DR3 (confirmado en el probe)
+        window_start: "2014-07-26T00:00:00"
+        window_end:   "2020-01-21T00:00:00"  # ~65.8 meses, casi 2x DR3
+        mp_max: 400000                   # mp_max real = 399961
+        columns_drop: ["g_mag"]          # FPR no incluye fotometria en sso_observation
 
   gaia_orbits:
     archive_url: "https://gea.esac.esa.int/tap-server/tap"
