@@ -58,8 +58,65 @@ def test_known_pairs(config_path: Path) -> None:
 def test_sources_config(config_path: Path) -> None:
     cfg = load_config(base_path=config_path, local_path=None)
     assert "minorplanetcenter" in cfg.sources.mpcorb.url
-    assert cfg.sources.gaia_sso.table == "gaiadr3.sso_observation"
+    assert cfg.sources.gaia_sso.active().table == "gaiadr3.sso_observation"
     assert "epoch" in cfg.sources.gaia_sso.columns
+
+
+# ---------------------------------------------------------------------------
+# Gaia release selector (DR3 / FPR)
+# ---------------------------------------------------------------------------
+
+
+def test_release_defaults_to_dr3(config_path: Path) -> None:
+    cfg = load_config(base_path=config_path, local_path=None)
+    gaia = cfg.sources.gaia_sso
+    assert gaia.release == "dr3"
+    active = gaia.active()
+    assert active.table == "gaiadr3.sso_observation"
+    assert active.epoch_ref_jd_tcb == pytest.approx(2455197.5)
+    assert active.mp_max == 160_000
+    # DR3 keeps all base columns
+    assert "g_mag" in gaia.active_columns()
+
+
+def test_release_fpr_via_local_override(config_path: Path, tmp_path: Path) -> None:
+    local = tmp_path / "config.local.yaml"
+    local.write_text('sources:\n  gaia_sso:\n    release: "fpr"\n')
+    cfg = load_config(base_path=config_path, local_path=local)
+    gaia = cfg.sources.gaia_sso
+    assert gaia.release == "fpr"
+    active = gaia.active()
+    assert active.table == "gaiafpr.sso_observation"
+    assert active.window_end.startswith("2020")
+    assert active.mp_max == 400_000
+    # FPR drops g_mag (no photometry in sso_observation)
+    assert "g_mag" in gaia.columns  # still in the shared base list
+    assert "g_mag" not in gaia.active_columns()
+
+
+def test_unknown_release_raises(config_path: Path, tmp_path: Path) -> None:
+    local = tmp_path / "config.local.yaml"
+    local.write_text('sources:\n  gaia_sso:\n    release: "dr99"\n')
+    with pytest.raises(ValueError, match="dr99"):
+        load_config(base_path=config_path, local_path=local)
+
+
+def test_legacy_flat_table_config(tmp_path: Path) -> None:
+    """A pre-FPR config with a flat ``table`` and no ``releases`` still works."""
+    from src.utils.config import _build_gaia_sso
+
+    gaia = _build_gaia_sso(
+        {
+            "table": "gaiadr3.sso_observation",
+            "archive_url": "https://example/tap",
+            "columns": ["epoch", "ra", "dec", "g_mag"],
+        }
+    )
+    active = gaia.active()  # synthesised dr3
+    assert active.table == "gaiadr3.sso_observation"
+    assert active.epoch_ref_jd_tcb == pytest.approx(2455197.5)
+    assert active.window_start.startswith("2014")
+    assert gaia.active_columns() == ["epoch", "ra", "dec", "g_mag"]
 
 
 # ---------------------------------------------------------------------------
