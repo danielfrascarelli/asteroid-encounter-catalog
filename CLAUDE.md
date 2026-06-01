@@ -104,9 +104,14 @@ Toda la lógica interna usa Julian Date en escala TDB (Barycentric Dynamical Tim
 │   ├── dashboard/               # Streamlit app
 │   └── utils/                   # Tiempo, geometría, IO
 ├── notebooks/                   # Exploración interactiva (NO pipeline)
+├── planning/                    # Planes y trackers de tareas (ver planning/TASK_TRACKING_GUIDE.md)
 ├── tests/
 └── scripts/                     # Entry points CLI
 ```
+
+> Los planes y trackers de tareas viven en `planning/` y siguen la convención de
+> [planning/TASK_TRACKING_GUIDE.md](planning/TASK_TRACKING_GUIDE.md). Los `.md` de
+> la raíz son charter/referencia/resultados, no trackers.
 
 ---
 
