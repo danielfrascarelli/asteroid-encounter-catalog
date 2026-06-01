@@ -54,6 +54,9 @@ _REQUIRED_COLUMNS = {
 _DEFAULT_MP_MAX = 160_000
 _DEFAULT_BATCH_SIZE = 5_000
 _RETRY_BASE_SECONDS = 30.0
+# Default TAP table (DR3). Overridable per release — FPR uses
+# ``gaiafpr.sso_observation`` (see docs/gaia_fpr_data_model.md).
+_DEFAULT_TABLE = "gaiadr3.sso_observation"
 
 
 def _chunk_path(cache_dir: Path, mp_start: int | None, mp_end: int | None) -> Path:
@@ -113,6 +116,7 @@ def _fetch_range(
     mp_end: int | None,
     cache_path: Path,
     max_retries: int = 3,
+    table: str = _DEFAULT_TABLE,
 ) -> tuple[pl.DataFrame, float]:
     """Fetch one number_mp sub-range (or NULL) via a synchronous TAP query.
 
@@ -128,7 +132,7 @@ def _fetch_range(
         where = "number_mp IS NULL"
     else:
         where = f"number_mp BETWEEN {mp_start} AND {mp_end}"
-    adql = f"SELECT {col_list} FROM gaiadr3.sso_observation WHERE {where}"
+    adql = f"SELECT {col_list} FROM {table} WHERE {where}"
     label = "unnumbered" if mp_start is None else f"mp {mp_start}–{mp_end}"
 
     last_exc: Exception | None = None
@@ -149,9 +153,13 @@ def _fetch_range(
             t0 = time.monotonic()
             tap = TapPlus(url=archive_url)
             job = tap.launch_job(adql)
-            table = job.get_results()
+            result_table = job.get_results()
             elapsed = time.monotonic() - t0
-            df = pl.DataFrame() if len(table) == 0 else pl.from_pandas(table.to_pandas())
+            df = (
+                pl.DataFrame()
+                if len(result_table) == 0
+                else pl.from_pandas(result_table.to_pandas())
+            )
             df = df.rename({c: c.lower() for c in df.columns if c != c.lower()})
             part = cache_path.with_suffix(".part")
             df.write_parquet(part, compression="zstd")
@@ -172,12 +180,12 @@ def _fetch_range(
     raise RuntimeError(f"All {max_retries + 1} attempts failed for {label}") from last_exc
 
 
-def _query_mp_max(archive_url: str) -> int:
+def _query_mp_max(archive_url: str, table: str = _DEFAULT_TABLE) -> int:
     """Return MAX(number_mp) from the table (fast single-row query)."""
     tap = TapPlus(url=archive_url)
-    job = tap.launch_job("SELECT MAX(number_mp) AS mp_max FROM gaiadr3.sso_observation")
-    table = job.get_results()
-    val = table["mp_max"][0]
+    job = tap.launch_job(f"SELECT MAX(number_mp) AS mp_max FROM {table}")
+    result = job.get_results()
+    val = result["mp_max"][0]
     return int(val) if val is not None else _DEFAULT_MP_MAX
 
 
@@ -191,8 +199,15 @@ def download_gaia_sso(
     batch_size: int = _DEFAULT_BATCH_SIZE,
     cache_dir: Path | None = None,
     max_retries: int = 3,
+    table: str = _DEFAULT_TABLE,
 ) -> pl.DataFrame:
-    """Download ``gaiadr3.sso_observation`` via parallel TAP jobs.
+    """Download a Gaia SSO observation table via parallel TAP jobs.
+
+    Works for any per-transit SSO table; *table* selects the Gaia release
+    (``gaiadr3.sso_observation`` by default, ``gaiafpr.sso_observation`` for
+    FPR). The caller is responsible for passing release-appropriate *columns*
+    (FPR has no ``g_mag``) and a release-scoped *dest*/*cache_dir* so DR3 and
+    FPR artefacts never mix.
 
     Each batch is saved to *cache_dir* as soon as it completes. On rerun,
     completed chunks are skipped. If *batch_size* differs from a previous run,
@@ -247,8 +262,8 @@ def download_gaia_sso(
     col_list = ", ".join(columns)
 
     if mp_max is None:
-        logger.info("Querying MAX(number_mp) from %s…", archive_url)
-        mp_max = _query_mp_max(archive_url)
+        logger.info("Querying MAX(number_mp) from %s (%s)…", table, archive_url)
+        mp_max = _query_mp_max(archive_url, table)
 
     step = max(1, batch_size)
     ranges: list[tuple[int | None, int | None]] = [
@@ -279,8 +294,8 @@ def download_gaia_sso(
     pending = still_pending
 
     logger.info(
-        "gaiadr3.sso_observation — %d cached | %d pending | "
-        "%d workers | batch_size %d | number_mp 1–%d + unnumbered",
+        "%s — %d cached | %d pending | " "%d workers | batch_size %d | number_mp 1–%d + unnumbered",
+        table,
         len(cached),
         len(pending),
         n_workers,
@@ -302,6 +317,7 @@ def download_gaia_sso(
                     e,
                     _chunk_path(cache_dir, s, e),
                     max_retries,
+                    table,
                 ): (s, e)
                 for s, e in pending
             }
