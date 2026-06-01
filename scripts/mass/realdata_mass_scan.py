@@ -170,11 +170,21 @@ def main() -> int:
     parser.add_argument("--likelihood", choices=["al", "mahalanobis2d"], default="mahalanobis2d")
     parser.add_argument("--priors", choices=sorted(PRIOR_PRESETS), default="default")
     parser.add_argument("--out-prefix", type=Path, required=True)
+    parser.add_argument(
+        "--release",
+        default=None,
+        help="Gaia release ('dr3' | 'fpr'). Defaults to config's gaia_sso.release.",
+    )
     args = parser.parse_args()
 
     priors = resolve_priors(args.priors)
     cfg = load_config(args.config)
-    archive_url = cfg.sources.gaia_sso.archive_url
+    gaia = cfg.sources.gaia_sso
+    if args.release is not None:
+        gaia.release = args.release
+    release_cfg = gaia.active()
+    archive_url = gaia.archive_url
+    logger.info("Gaia release: %s (table %s)", gaia.release, release_cfg.table)
 
     if args.targets_csv is not None:
         target_specs = _read_targets_from_csv(args.targets_csv, args.perturber)
@@ -228,6 +238,7 @@ def main() -> int:
             dt_days=args.dt_days,
             integrator=args.integrator,
             joint_window_days=args.joint_window_days,
+            release_cfg=release_cfg,
         )
         if result is None:
             continue
