@@ -15,7 +15,7 @@
 
 **Duración estimada**: 5–7 semanas.
 
-**Foco**: Programación de alto nivel (data engineering, algoritmos espaciales, paralelización). La física se mantiene deliberadamente simple — se usan elementos orbitales públicos y propagación con librerías existentes.
+**Foco**: Programación de alto nivel (data engineering, algoritmos espaciales, paralelización) **y física tan rigurosa como haga falta para obtener resultados científicamente publicables**. No hay límite autoimpuesto de simplicidad física: cuando un resultado lo exija (p. ej. determinación de masas de asteroides), se implementa el modelado completo en vez de atajos — determinación de órbitas por mínimos cuadrados sobre el arco completo, ecuaciones variacionales para las parciales (∂obs/∂elementos y ∂obs/∂GM), ajuste simultáneo órbitas+masa, y modelo de errores astrométricos de Gaia (covarianza along-scan anisotrópica). Se parte de elementos orbitales públicos y librerías existentes (rebound, astropy), pero se las extiende —o se integran herramientas de astrodinámica de terceros— donde la ciencia lo requiera. El criterio de éxito es la **defendibilidad científica del resultado**, no la simplicidad de la implementación.
 
 ---
 
