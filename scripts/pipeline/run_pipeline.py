@@ -26,7 +26,7 @@ import polars as pl
 from astropy.time import Time
 
 from src.catalog.writer import write_detection_sidecar
-from src.detect.pipeline import detect_encounters
+from src.detect.pipeline import PREFILTER_MAX_N, detect_encounters, effective_prefilter_mode
 from src.ingest.mpcorb import parse_mpcorb
 from src.ingest.mpcorb_archive import discover_snapshots, select_for_window
 from src.propagate.grid import make_time_grid, propagate_full_grid
@@ -319,6 +319,9 @@ def main() -> int:
         fine_step_hours=fine_step_hours,
         use_tiered=use_tiered,
         force_kepler_refine=use_tiered,
+        n_asteroids=len(elements),
+        prefilter_effective=effective_prefilter_mode(len(elements), enabled=det.prefilter.enabled),
+        prefilter_max_n=PREFILTER_MAX_N,
         gate_checks=gate_checks,
     )
 

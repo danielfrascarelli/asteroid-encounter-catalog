@@ -54,14 +54,36 @@ limits constrain what can be defensibly claimed from it:
    ([docs/prefilter_recall.md](docs/prefilter_recall.md)): on the adverse
    subset (numbered, `a∈[1.5,4.0]`, `e>0.3 ∨ i>15°`, 52,411 bodies) recall is
    **76.38 %** [95 % CI 76.27–76.49 %] — **143,229 of 606,393** real
-   adverse–adverse encounters `<0.05 AU` are absent from a prefiltered catalog
-   (a lower bound; adverse–normal pairs not measured). 99.6 % of the loss is
-   the `|Δa|≤0.5` cut, which is blind to eccentricity. For the dynamically cold
-   bulk of the belt recall is ~99.9 %; the deficit is concentrated in the
-   high-e / large-Δa tail. **Audit blocker #2 is quantified, not closed** —
-   closing it needs a full-catalog re-run with the recommended
-   threshold-padded radial-overlap prefilter (provably 100 % recall, same
-   cost). The word "complete" must not be used.
+   adverse–adverse encounters `<0.05 AU` would be absent **from a prefiltered
+   catalog** (a lower bound; adverse–normal pairs not measured). 99.6 % of that
+   loss is the `|Δa|≤0.5` cut, which is blind to eccentricity.
+
+   **Important caveat (corrected 2026-05-31):** that recall figure is
+   **counterfactual for this freeze**. The pair-list prefilter is only built for
+   `N ≤ 5000`; this run is main-belt scale (≫ 5000 bodies), so `compatible_pairs`
+   was **skipped** and only the KD-tree spatial query applied (sidecar
+   `prefilter.effective = "skipped_large_n"`). So the `|Δa|≤0.5` cut did **not**
+   drop pairs from *this* catalog — `prefilter_recall.md` measures the damage the
+   prefilter *would* cause *if applied at small N*, not damage suffered here.
+   The freeze is still **not complete**, but for different reasons: (a) the
+   KD-tree coarse cadence (Δt = 12 h) can miss fast minima between grid samples,
+   and (b) the 0.05 AU Kepler threshold censors real `<0.05 AU` N-body
+   encounters (measured false-negative rate **0.70 %** in [0.05, 0.06),
+   `docs/kepler_threshold_bias_paper.md`). The word "complete" must not be used.
+2b. **N-body perturber set is truncated (Sun + Jupiter + Saturn), measured
+   ceiling ≤ 80 μAU.** The scan used only Sun/Jupiter/Saturn as massive bodies
+   (no Uranus/Neptune/terrestrials, no major asteroids) with astropy's *builtin*
+   low-precision ephemeris, not DE440. The Stage A/B error budget below is
+   therefore *internal* (Kepler vs. this 3-body model), not vs. true dynamics.
+   The systematic from the missing planets is now **measured**
+   ([docs/nbody_perturber_ceiling.md](docs/nbody_perturber_ceiling.md)): on a
+   90-pair stratified sample, re-refining with all 8 planets shifts the
+   closest-approach distance by `|Δdist|` median **1.3 μAU**, p99 67 μAU, max
+   **80 μAU** (worst on the high-e tail; signed median ≈ 0). That is 0.16 % of
+   the 0.05 AU threshold and ~100× smaller than the Kepler-2-body refinement
+   error (Stage B max 15.2 mAU) — i.e. the perturber truncation is **not** the
+   dominant error term. Adequate for a candidate catalog; a DE440-referenced
+   bound vs. true dynamics is still out of scope.
 3. **Validation precision is sampling-cadence-limited.** The Horizons cross-
    checks (`scripts/validate/validate_jpl_horizons.py`,
    `scripts/validate/validate_novel_a.py`) sample JPL at 1 h or 30 min and
@@ -71,8 +93,9 @@ limits constrain what can be defensibly claimed from it:
 
 What this freeze **does** support: claims about the candidate list under the
 exact configuration recorded in the provenance sidecar — "pairs whose
-Kepler-refined minimum distance was ≤ 0.05 AU under the prefilter that was
-applied". Anything stronger (completeness, sub-km accuracy, mass detection)
+Kepler-refined minimum distance was ≤ 0.05 AU, detected by the KD-tree spatial
+scan with no `|Δa|` pair-list prefilter applied (see the prefilter caveat
+above)". Anything stronger (completeness, sub-km accuracy, mass detection)
 needs separate validation work that is **not** in this freeze.
 
 ## TL;DR
@@ -89,8 +112,8 @@ needs separate validation work that is **not** in this freeze.
 | scan method | rebound (whfast, Sun + Jupiter + Saturn, dt = 1 h) |
 | coarse grid | Δt = 12 h |
 | refine method | **Kepler 2-body** (forced by tiered mode) on Δt = 120 s window of ±2 h |
-| prefilter | enabled — \|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30° (heuristic; recall not quantified) |
-| pipeline code | `main` at commit `b1c4d9a` (audit rounds 1+2 merged) plus the `fine_time_step_seconds=120` setting backported to `config.yaml` so this catalog is reproducible from current main with the same config |
+| prefilter | config `enabled=true` (\|Δa\| ≤ 0.5 AU, \|Δi\| ≤ 30°), **but effectively `skipped_large_n`** — the run is main-belt scale (≫ 5000 bodies), so `detect_encounters` skipped the `compatible_pairs` pair-list and used the KD-tree spatial query alone. The `|Δa|` cut **did NOT shape this catalog** (sidecar `prefilter.effective = "skipped_large_n"`). |
+| pipeline code | `main` at commit `b1c4d9a` (audit rounds 1+2 merged) plus the `fine_time_step_seconds=120` setting backported to `config.yaml` so this catalog is reproducible from current main with the same config. **Caveat (2026-05-31):** the provenance sidecar is *backfilled* (`run_id = "backfill_…"`, empty `git` field) and the catalog file (2026-05-24) predates this merge (2026-05-25) by ~24 h, so the exact generating commit is **not** captured — the sidecar params were reconstructed from `config.yaml`. Treat the recorded commit as approximate. |
 
 ## Hybrid Kepler/N-body catalog (Stage B successor)
 
@@ -287,12 +310,18 @@ agreed to within ~10⁻⁷ AU (≈ 12 km) on the regression benchmark — see
   `src.characterize.observability`.  The data in this parquet is unaffected
   because the frame bug was downstream of detection; any future
   characterisation of this catalog will use the corrected frame.
-- **Prefilter recall is measured (76 % on the adverse tail).**  Audit
-  blocker #2 — high-eccentricity pairs with \|Δa\| > 0.5 AU **are** missing:
-  76.38 % recall on the adverse subset, ≥143 k adverse–adverse encounters
-  dropped ([docs/prefilter_recall.md](docs/prefilter_recall.md)). Do not claim
-  "complete". Fix recommended (radial-overlap prefilter → 100 % recall) but not
-  yet applied to this freeze.
+- **Prefilter recall is measured (76 % on the adverse tail) — but the cut was
+  not applied to this freeze.**  Audit blocker #2 quantified the damage the
+  `|Δa| > 0.5 AU` pair-list prefilter *would* cause: 76.38 % recall on the
+  adverse subset, ≥143 k adverse–adverse encounters dropped
+  ([docs/prefilter_recall.md](docs/prefilter_recall.md)). **Corrected
+  2026-05-31:** this freeze ran at main-belt scale (≫ 5000 bodies), so the
+  pair-list prefilter was skipped (`prefilter.effective = "skipped_large_n"` in
+  the sidecar) and those pairs are **not** dropped by `|Δa|` here. Completeness
+  is instead bounded by the 12 h KD-tree cadence and the 0.05 AU threshold
+  censoring (0.70 %). Still do not claim "complete". The radial-overlap
+  prefilter (→ 100 % recall) remains the recommended fix *if* a prefilter is
+  ever enabled at small N.
 - **MPCORB.DAT in `data/raw/` is the *current* download**, not the
   snapshot used for this run.  Use `data/raw/mpcorb_archive/MPCORB_20160217.*`
   when reproducing.

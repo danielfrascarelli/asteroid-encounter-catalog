@@ -20,6 +20,31 @@ logger = logging.getLogger(__name__)
 # Above this N, np.triu_indices materialises O(N²) pairs (>35 GB at N=94k).
 # Skip prefilter and rely on the KD-tree spatial query alone.
 _PREFILTER_MAX_N = 5_000
+PREFILTER_MAX_N = _PREFILTER_MAX_N  # public alias for provenance/auditing
+
+
+def effective_prefilter_mode(n: int, *, enabled: bool, max_n: int = _PREFILTER_MAX_N) -> str:
+    """Return how the orbital pair-list prefilter actually behaved for ``n`` bodies.
+
+    The ``|Δa|``/``|Δi|`` pair-list prefilter (:func:`compatible_pairs`) is only
+    built when ``n <= max_n``; above that it is silently skipped because
+    materialising O(N²) pairs is infeasible (the KD-tree spatial query alone is
+    used instead).  The declared config flag ``prefilter.enabled`` therefore does
+    **not** tell you whether the ``|Δa|`` cut was applied to a given catalog.
+    This helper makes the *effective* behaviour explicit for the provenance
+    sidecar.
+
+    Returns
+    -------
+    str
+        ``"disabled"`` (config off), ``"applied"`` (pair-list built), or
+        ``"skipped_large_n"`` (config on but ``n > max_n`` → KD-tree only, so the
+        ``|Δa|`` cut did NOT shape the catalog).
+    """
+    if not enabled:
+        return "disabled"
+    return "applied" if n <= max_n else "skipped_large_n"
+
 
 _SCHEMA = {
     "number_1": pl.Int32,

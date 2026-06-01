@@ -53,13 +53,35 @@ month-rounded predictions, so the ~10–20 day `our date` offsets are expected.)
 
 **Miss: (804) → (733)** at 2015-02-01 (Fienga 0.0138 AU). It is **absent from
 the frozen Kepler and hybrid catalogs** — a detection gap, not a refinement
-error. Note `data/output/jpl_horizons_validation.csv` (a *pre-freeze* run, dated
-before the catalog was assembled) did capture this pair at our_date 2015-02-12,
-dist 0.013753 AU, agreeing with JPL to 6 × 10⁻⁷ AU — so the event is real and
-near-threshold; the current frozen catalog simply does not contain it. The most
-likely cause is the orbital prefilter or the coarse-scan widening at this
-near-0.014 AU geometry; it is consistent with the prefilter-recall deficit
-documented in [docs/prefilter_recall.md](prefilter_recall.md).
+error. `data/output/jpl_horizons_validation.csv` (a *pre-freeze* run) captured it
+at our_date 2015-02-12, dist 0.013753 AU, agreeing with JPL to 6 × 10⁻⁷ AU — so
+the event is real and near-threshold.
+
+**Root cause diagnosed (FOLLOWUP_PLAN item 3 —
+[scripts/validate/diagnose_fienga_804_733.py](../scripts/validate/diagnose_fienga_804_733.py)).**
+The earlier "most likely the prefilter or coarse-scan widening" hypothesis is
+**refuted**:
+
+- Both bodies are in the frozen subset (`a ∈ [1.5, 4.0]`) and appear in other
+  encounters (804: 141, 733: 66), so both were scanned.
+- `Δa = 0.559 AU > 0.5` *would* be dropped by the `|Δa| ≤ 0.5` prefilter — but
+  that prefilter is **skipped** for the frozen run (N = 449 454 ≫ 5000,
+  `prefilter.effective = "skipped_large_n"`; the skip has existed since
+  2026-05-14, before the catalog was generated on 2026-05-24). So the `|Δa|` cut
+  never ran and cannot explain the miss.
+- On the 12 h coarse grid the pair's separation drops to ~0.0136 AU and stays
+  within the widened query radius (0.0572 AU) for ~160 samples — the KD-tree scan
+  had ample opportunity to pair them, so cadence is not the cause either.
+- **The current code detects it cleanly**: `detect_encounters` on the two bodies
+  (prefilter off, mirroring the large-N path) recovers 0.013547 AU at
+  2015-02-12, matching JPL.
+
+So the absence is a **detection gap specific to the frozen artifact**, not a
+censoring property of the method. The frozen sidecar is backfilled (empty `git`
+field, `run_id = "backfill_..."`) and the catalog file predates its declared
+commit `b1c4d9a` by ~24 h, so the exact generating code is unrecorded — the gap
+is **recoverable on a re-run with current code** and is unrelated to the
+prefilter-recall deficit in [docs/prefilter_recall.md](prefilter_recall.md).
 
 ## Galád 2002 — 4 / 4
 

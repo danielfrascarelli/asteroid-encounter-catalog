@@ -13,6 +13,23 @@ regresión de validación.
 
 ---
 
+## Estado de implementación (2026-05-31) — los 3 ítems CERRADOS
+
+| ítem | estado | entregable |
+|------|--------|------------|
+| 1 — prefilter declarado vs. efectivo | ✅ | `effective_prefilter_mode()` + writer registra `prefilter.effective`/`n_asteroids`/`max_n`; sidecar frozen parcheado a `skipped_large_n`; FROZEN_RUN.md §2/:92/:290 corregidos; 3 tests nuevos |
+| 2 — techo del N-body | ✅ | `scripts/validate/measure_nbody_perturber_ceiling.py` + [docs/nbody_perturber_ceiling.md](docs/nbody_perturber_ceiling.md): medido \|Δdist\| mediana 1.3 μAU, máx **80 μAU** (≪ error Kepler 15.2 mAU) → perturber set **no** es el término dominante |
+| 3 — regresión Fienga (804,733) | ✅ | `scripts/validate/diagnose_fienga_804_733.py`: hipótesis prefilter/cadencia **refutada**; es un **gap del artefacto** (código actual lo detecta a 0.013547 AU), recuperable re-corriendo; docs/literature_validation.md corregido |
+
+**Hallazgo transversal (refuerza ítem 1):** el sidecar frozen es *backfilleado*
+(`run_id="backfill_…"`, `git: {}`) y el parquet (2026-05-24) predata el commit
+declarado `b1c4d9a` (2026-05-25) por ~24 h → el commit generador exacto no está
+capturado. Anotado en FROZEN_RUN.md.
+
+El detalle de cada ítem queda abajo como referencia del diseño original.
+
+---
+
 ## Ítem 1 — Inconsistencia prefilter declarado vs. efectivo
 
 **Severidad:** alta (afecta cómo se interpreta la completitud del catálogo).
