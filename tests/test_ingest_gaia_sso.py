@@ -171,6 +171,35 @@ def test_progress_logging(
 
 
 # ---------------------------------------------------------------------------
+# Release table parameterization (DR3 / FPR)
+# ---------------------------------------------------------------------------
+
+
+@patch("src.ingest.gaia_sso.TapPlus")
+def test_fetch_range_uses_default_dr3_table(mock_tap_cls: MagicMock, tmp_path: Path) -> None:
+    mock_tap_cls.return_value = _tap_mock_for(_make_sso_df())
+    _fetch_range("http://fake", "epoch, ra", 1, 10, tmp_path / "c.parquet")
+    adql = mock_tap_cls.return_value.launch_job.call_args[0][0]
+    assert "gaiadr3.sso_observation" in adql
+
+
+@patch("src.ingest.gaia_sso.TapPlus")
+def test_fetch_range_uses_fpr_table_when_given(mock_tap_cls: MagicMock, tmp_path: Path) -> None:
+    mock_tap_cls.return_value = _tap_mock_for(_make_sso_df())
+    _fetch_range(
+        "http://fake",
+        "epoch, ra",
+        1,
+        10,
+        tmp_path / "c.parquet",
+        table="gaiafpr.sso_observation",
+    )
+    adql = mock_tap_cls.return_value.launch_job.call_args[0][0]
+    assert "gaiafpr.sso_observation" in adql
+    assert "gaiadr3" not in adql
+
+
+# ---------------------------------------------------------------------------
 # Chunk path naming
 # ---------------------------------------------------------------------------
 
