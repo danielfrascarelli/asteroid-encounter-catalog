@@ -63,7 +63,7 @@ from scipy.optimize import least_squares
 from src.astrometry.forward_model import forward_model, residuals_mas
 from src.ingest.mpcorb import parse_mpcorb
 from src.propagate.nbody import _MAJOR_ASTEROIDS
-from src.utils.config import load_config
+from src.utils.config import GaiaReleaseConfig, load_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,6 +74,7 @@ logger = logging.getLogger(__name__)
 _J2010_TCB_JD = 2455197.5
 _GAIA_START_JD_TCB = 2456863.5  # 2014-07-25
 _GAIA_END_JD_TCB = 2457910.5  # 2017-05-28
+_DR3_TABLE = "gaiadr3.sso_observation"
 
 _MPCORB_ARCHIVE_DIR = Path("data/raw/mpcorb_archive")
 
@@ -107,17 +108,42 @@ def _best_mpcorb_snapshot(archive_dir: Path, encounter_jd: float) -> Path:
     return best_path
 
 
-def fetch_gaia_full(archive_url: str, target: int) -> pl.DataFrame:
-    d_min = _GAIA_START_JD_TCB - _J2010_TCB_JD
-    d_max = _GAIA_END_JD_TCB - _J2010_TCB_JD
+def fetch_gaia_full(
+    archive_url: str,
+    target: int,
+    release_cfg: GaiaReleaseConfig | None = None,
+) -> pl.DataFrame:
+    """Fetch all Gaia observations of *target* over the release's full window.
+
+    *release_cfg* selects the Gaia release. When ``None`` (the default kept for
+    backward compatibility with existing callers) the DR3 table, window and
+    epoch reference are used. With an FPR release config the FPR table and its
+    ~66-month window apply, and rejected transits are filtered out if the
+    release exposes a ``reject_flag_column``.
+    """
+    if release_cfg is None:
+        table = _DR3_TABLE
+        epoch_ref = _J2010_TCB_JD
+        d_min = _GAIA_START_JD_TCB - epoch_ref
+        d_max = _GAIA_END_JD_TCB - epoch_ref
+        reject_col: str | None = None
+    else:
+        table = release_cfg.table
+        epoch_ref = release_cfg.epoch_ref_jd_tcb
+        d_min = float(Time(release_cfg.window_start, scale="utc").tcb.jd) - epoch_ref
+        d_max = float(Time(release_cfg.window_end, scale="utc").tcb.jd) - epoch_ref
+        reject_col = release_cfg.reject_flag_column
+
+    reject_clause = f"AND {reject_col} = 'false' " if reject_col else ""
     adql = (
         "SELECT number_mp, epoch, ra, dec, "
         "ra_error_systematic, dec_error_systematic, ra_dec_correlation_systematic, "
         "ra_error_random, dec_error_random, ra_dec_correlation_random, "
         "position_angle_scan, x_gaia, y_gaia, z_gaia "
-        "FROM gaiadr3.sso_observation "
+        f"FROM {table} "
         f"WHERE number_mp = {target} "
         f"AND epoch BETWEEN {d_min:.6f} AND {d_max:.6f} "
+        f"{reject_clause}"
         "ORDER BY epoch"
     )
     tap = TapPlus(url=archive_url)
@@ -603,10 +629,20 @@ def main() -> int:
         "selected by decreasing mass from _MAJOR_ASTEROIDS (max 20, "
         "min 0 to disable, 4 = Big-4 only). Default: 20 (all).",
     )
+    p.add_argument(
+        "--release",
+        default=None,
+        help="Gaia release ('dr3' | 'fpr'). Defaults to config's gaia_sso.release.",
+    )
     args = p.parse_args()
 
     cfg = load_config(args.config)
-    archive_url = cfg.sources.gaia_sso.archive_url
+    gaia = cfg.sources.gaia_sso
+    if args.release is not None:
+        gaia.release = args.release
+    release = gaia.release
+    release_cfg = gaia.active()
+    archive_url = gaia.archive_url
 
     enc_jd_tdb = float(Time(args.date, scale="utc").tdb.jd)
 
@@ -616,15 +652,15 @@ def main() -> int:
         logger.info("Auto-selected MPCORB snapshot: %s", args.mpcorb.name)
 
     # ── Fetch all Gaia observations ──────────────────────────────────────────
-    logger.info("Fetching all Gaia DR3 observations of target %d…", args.target)
-    obs = fetch_gaia_full(archive_url, args.target)
-    logger.info("  → %d transits over full DR3 window", obs.height)
+    logger.info("Fetching all Gaia %s observations of target %d…", release.upper(), args.target)
+    obs = fetch_gaia_full(archive_url, args.target, release_cfg)
+    logger.info("  → %d transits over full %s window", obs.height, release.upper())
     if obs.height < 15:
         logger.error("Too few transits (%d) for LOO fit.", obs.height)
         return 1
 
     epochs_days = obs["epoch"].to_numpy()
-    jd_tcb = epochs_days + _J2010_TCB_JD
+    jd_tcb = epochs_days + release_cfg.epoch_ref_jd_tcb
     jd_tdb = Time(jd_tcb, format="jd", scale="tcb").tdb.jd.astype(float)
     gaia_xyz = np.column_stack(
         [
@@ -813,10 +849,12 @@ def main() -> int:
 
     # ── Save ─────────────────────────────────────────────────────────────────
     tag = f"{args.perturber:06d}_{args.target:06d}_loo"
-    out_path = args.output or Path("data/output") / f"fit_{tag}.json"
+    out_path = args.output or Path("data/output") / f"fits_{release}" / f"fit_{tag}.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     summary = {
         "method": "gaia_loo_al_weighted",
+        "gaia_release": release,
+        "gaia_table": release_cfg.table,
         "perturber": args.perturber,
         "target": args.target,
         "encounter_date": args.date,

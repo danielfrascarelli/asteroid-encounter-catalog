@@ -78,6 +78,7 @@ sources:
         window_end:   "2020-01-21T00:00:00"  # ~65.8 meses, casi 2x DR3
         mp_max: 400000                   # mp_max real = 399961
         columns_drop: ["g_mag"]          # FPR no incluye fotometria en sso_observation
+        reject_flag_column: "is_rejected"  # la capa de masas filtra astrometria rechazada
 
   gaia_orbits:
     archive_url: "https://gea.esac.esa.int/tap-server/tap"

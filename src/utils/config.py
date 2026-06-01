@@ -68,6 +68,10 @@ class GaiaReleaseConfig:
     # sso_observation has no ``g_mag`` (no photometry), so a SELECT including it
     # would fail. Empty for DR3.
     columns_drop: list[str] = field(default_factory=list)
+    # Boolean column flagging astrometric rejections, if the release exposes one
+    # (FPR: ``is_rejected``). When set, the mass-layer fetch filters it out so
+    # rejected transits don't corrupt the fit. None for DR3 (no such column).
+    reject_flag_column: str | None = None
 
 
 @dataclass
@@ -332,6 +336,7 @@ def _build_gaia_sso(d: dict[str, Any]) -> GaiaSSOSourceConfig:
             window_end=rel["window_end"],
             mp_max=int(rel["mp_max"]),
             columns_drop=list(rel.get("columns_drop", [])),
+            reject_flag_column=rel.get("reject_flag_column"),
         )
         for name, rel in (d.get("releases") or {}).items()
     }
