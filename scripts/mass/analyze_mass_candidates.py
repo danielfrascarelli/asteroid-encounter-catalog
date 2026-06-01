@@ -81,7 +81,9 @@ _GAIA_PRECISION_MUAS = 100.0
 # Default paths.
 _ENCOUNTERS_PATH = Path("data/output/relevant_novel_encounters.csv")
 _OUTPUT_PATH = Path("data/output/mass_candidates.csv")
-_GAIA_SSO_PATH = Path("data/raw/gaia_sso.parquet")
+# Release-scoped by default (ingest writes gaia_sso_{release}.parquet). Pass
+# --gaia_sso data/raw/gaia_sso_fpr.parquet to use the FPR bulk download.
+_GAIA_SSO_PATH = Path("data/raw/gaia_sso_dr3.parquet")
 
 
 # ---------------------------------------------------------------------------
