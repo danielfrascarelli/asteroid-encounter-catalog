@@ -42,7 +42,7 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 | T5 | Corrector diferencial (OD por mínimos cuadrados, arco completo) | 0 | ✅ | `src/orbdet/least_squares.py` (LM genérico) + `orbit_determination.py`; gate verde: recupera órbita sintética sin ruido (χ²<1e-6) y con ruido AL (χ²_red≈1, <5σ) |
 | — | *(alternativa)* evaluar integrar OrbFit de terceros | 0 | ⬜ | spike de decisión (ver abajo) |
 | T6 | Ajuste conjunto órbita+masa de un perturber | 1 | ✅ | `src/orbdet/mass_determination.py`; closing-loop verde: masa sintética inyectada recuperada ratio≈1.0 (sin ruido <2e-3; con ruido AL dentro de 3σ, σ informativa) |
-| T7 | Stacking multi-asteroide (GM compartido, N targets) | 1 | ⬜ | σ(GM) ∝ 1/√N; rompe no-identificabilidad |
+| T7 | Stacking multi-asteroide (GM compartido, N targets) | 1 | ✅ | `mass_determination.determine_shared_mass` (sistema en flecha 1+6N); gate verde: σ(GM)∝1/√N (s2/s1≈1/√2, s4/s1≈0.5 a <5%) |
 | T8 | Modelo de fuerzas + pesos completo (efemérides, debiasing, outliers) | 1 | ⬜ | χ²_red ≈ 1 en datos reales |
 | T9 | Adaptador FPR → motor (obs + covarianza por tránsito) | 2 | ⬜ | corre Big-4 end-to-end sobre FPR |
 | T10 | Validación contra literatura (4 calibradores + Fuentes-Muñoz + Goffin/Galád) | 2 | ⬜ | \|z\| < 3 en los 4 calibradores |
