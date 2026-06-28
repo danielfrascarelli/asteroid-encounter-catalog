@@ -279,7 +279,7 @@ def partial_wrt_gm(
         *common,
         _scaled_perturber_mass(asteroid_perturbers, perturber_index, -dmass),
     )
-    return (state_plus - state_minus) / (2.0 * dmass * GM_SUN)
+    return np.asarray((state_plus - state_minus) / (2.0 * dmass * GM_SUN), dtype=float)
 
 
 def richardson_convergence_dgm(
