@@ -41,7 +41,7 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 | T4 | Modelo de observación + covarianza along-scan anisotrópica | 0 | ✅ | `src/orbdet/observation.py`: estado→ICRS→RA/Dec + light-time iterativa + covarianza AL/AC anisotrópica; gate verde (chain N-cuerpos vs oráculo kepleriano <0.1 mas; ruido AL → χ²/obs≈1) |
 | T5 | Corrector diferencial (OD por mínimos cuadrados, arco completo) | 0 | ✅ | `src/orbdet/least_squares.py` (LM genérico) + `orbit_determination.py`; gate verde: recupera órbita sintética sin ruido (χ²<1e-6) y con ruido AL (χ²_red≈1, <5σ) |
 | — | *(alternativa)* evaluar integrar OrbFit de terceros | 0 | ⬜ | spike de decisión (ver abajo) |
-| T6 | Ajuste conjunto órbita+masa de un perturber | 1 | ⬜ | closing-loop: masa inyectada ratio≈1.0 |
+| T6 | Ajuste conjunto órbita+masa de un perturber | 1 | ✅ | `src/orbdet/mass_determination.py`; closing-loop verde: masa sintética inyectada recuperada ratio≈1.0 (sin ruido <2e-3; con ruido AL dentro de 3σ, σ informativa) |
 | T7 | Stacking multi-asteroide (GM compartido, N targets) | 1 | ⬜ | σ(GM) ∝ 1/√N; rompe no-identificabilidad |
 | T8 | Modelo de fuerzas + pesos completo (efemérides, debiasing, outliers) | 1 | ⬜ | χ²_red ≈ 1 en datos reales |
 | T9 | Adaptador FPR → motor (obs + covarianza por tránsito) | 2 | ⬜ | corre Big-4 end-to-end sobre FPR |

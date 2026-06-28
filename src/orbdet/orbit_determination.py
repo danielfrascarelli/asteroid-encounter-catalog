@@ -24,32 +24,18 @@ from __future__ import annotations
 
 import numpy as np
 
-from .constants import OBLIQUITY_J2000_RAD
 from .dynamics import DEFAULT_PERTURBERS, AsteroidPerturber, propagate
-from .frames import ecliptic_to_equatorial, rotation_x
+from .frames import ecliptic_to_equatorial
 from .kepler import KeplerElements
 from .least_squares import LeastSquaresResult, levenberg_marquardt
 from .observation import (
+    along_scan_jacobian,
     along_scan_residual,
     light_time_correct,
     radec_from_positions,
     tangent_residuals_mas,
 )
 from .variational import partials_wrt_elements
-
-_MAS_PER_RAD: float = np.degrees(1.0) * 3_600_000.0  # 1 rad en mas (≈2.0626e8)
-
-
-def _radec_jacobian_wrt_rho(rho: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """``∂RA/∂ρ`` y ``∂Dec/∂ρ`` (rad/AU) para la línea de visión ICRS ``ρ`` ``(N,3)``."""
-    x, y, z = rho[:, 0], rho[:, 1], rho[:, 2]
-    rxy2 = x * x + y * y
-    rxy = np.sqrt(rxy2)
-    r2 = rxy2 + z * z
-    zeros = np.zeros_like(x)
-    dra = np.stack([-y / rxy2, x / rxy2, zeros], axis=1)
-    ddec = np.stack([-x * z / (r2 * rxy), -y * z / (r2 * rxy), rxy / r2], axis=1)
-    return dra, ddec
 
 
 def determine_orbit(
@@ -105,7 +91,6 @@ def determine_orbit(
     pa = np.asarray(pa_scan_deg, dtype=float)
     sigma_al = np.asarray(sigma_al_mas, dtype=float)
     gaia = np.asarray(gaia_bary_icrs, dtype=float)
-    rot_e2i = rotation_x(OBLIQUITY_J2000_RAD)  # eclíptica → ecuatorial ICRS
 
     def residual_and_jac(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         el = KeplerElements(*x)
@@ -140,21 +125,9 @@ def determine_orbit(
         r_al, sig = along_scan_residual(dra, ddec, pa, sigma_al)
         resid = r_al / sig
 
-        # Jacobiano: ∂(RA,Dec)/∂ρ · R_ecl→icrs · ∂r_ecl/∂elementos.
-        rho = ast_icrs - gaia
-        dra_drho, ddec_drho = _radec_jacobian_wrt_rho(rho)
-        dr_ecl_delem = dstate[:, 0:3, :]  # (N, 3, 6) ∂posición eclíptica/∂elementos
-        drho_delem = np.einsum("ij,njk->nik", rot_e2i, dr_ecl_delem)  # (N, 3, 6)
-        dra_delem = np.einsum("ni,nik->nk", dra_drho, drho_delem)  # (N, 6) rad
-        ddec_delem = np.einsum("ni,nik->nk", ddec_drho, drho_delem)
-        cos_dec = np.cos(np.radians(dec_pred))[:, None]
-        # residuo = (obs − pred): ∂/∂elem lleva signo negativo de la predicción.
-        ddra_mas = -_MAS_PER_RAD * cos_dec * dra_delem
-        dddec_mas = -_MAS_PER_RAD * ddec_delem
-        dr_al = (
-            np.sin(np.radians(pa))[:, None] * ddra_mas + np.cos(np.radians(pa))[:, None] * dddec_mas
-        )
-        jac = dr_al / sig[:, None]
+        # Jacobiano del residuo AL blanqueado respecto a los 6 elementos, vía la
+        # cadena ∂(RA,Dec)/∂ρ · R_ecl→icrs · ∂r_ecl/∂elementos.
+        jac = along_scan_jacobian(ast_icrs, gaia, dstate[:, 0:3, :], pa, sigma_al)
         return resid, jac
 
     result = levenberg_marquardt(

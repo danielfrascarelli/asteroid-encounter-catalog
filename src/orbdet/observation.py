@@ -31,10 +31,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from .constants import C_AU_PER_DAY
-from .frames import ecliptic_to_equatorial
+from .constants import C_AU_PER_DAY, OBLIQUITY_J2000_RAD
+from .frames import ecliptic_to_equatorial, rotation_x
 
 _MAS_PER_DEG: float = 3_600_000.0
+_MAS_PER_RAD: float = np.degrees(1.0) * _MAS_PER_DEG  # 1 rad en mas (≈2.0626e8)
 _DEG: float = np.pi / 180.0
 # Piso del determinante de la covarianza 2×2 (mas⁴) antes de caer a diagonal.
 _DET_FLOOR: float = 1e-12
@@ -214,6 +215,77 @@ def whiten_residuals_2d(
     return whitened, chi2
 
 
+# --- Jacobiano de la observación respecto a parámetros del modelo -----------
+
+
+def radec_jacobian_wrt_position(
+    ast_bary_icrs: np.ndarray, gaia_bary_icrs: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """``∂RA/∂ρ`` y ``∂Dec/∂ρ`` (rad/AU) para la línea de visión ICRS ``ρ = r_ast − r_gaia``.
+
+    Devuelve dos arrays ``(N, 3)``: las parciales de RA y Dec (radianes) respecto a
+    la posición ICRS del asteroide.
+    """
+    rho = np.asarray(ast_bary_icrs, dtype=float) - np.asarray(gaia_bary_icrs, dtype=float)
+    x, y, z = rho[:, 0], rho[:, 1], rho[:, 2]
+    rxy2 = x * x + y * y
+    rxy = np.sqrt(rxy2)
+    r2 = rxy2 + z * z
+    zeros = np.zeros_like(x)
+    dra = np.stack([-y / rxy2, x / rxy2, zeros], axis=1)
+    ddec = np.stack([-x * z / (r2 * rxy), -y * z / (r2 * rxy), rxy / r2], axis=1)
+    return dra, ddec
+
+
+def tangent_partials_mas(
+    ast_bary_icrs: np.ndarray,
+    gaia_bary_icrs: np.ndarray,
+    dpos_ecl_dparam: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Parciales del plano tangente **predicho** (mas) respecto a K parámetros.
+
+    Dada ``∂r_ast_ecl/∂param`` ``(N, 3, K)`` (parciales de la posición baricéntrica
+    **eclíptica** del asteroide respecto a los parámetros — p. ej. de las
+    ecuaciones variacionales), aplica la cadena
+    ``∂(RA,Dec)/∂ρ · R_ecl→icrs · ∂r_ecl/∂param`` y escala a mas:
+
+    Returns
+    -------
+    (dra_pred_mas, ddec_pred_mas)
+        ``(N, K)`` cada uno: ``∂(RA·cosδ)/∂param`` y ``∂Dec/∂param`` de la posición
+        **predicha**, en mas. El residuo es ``obs − pred``, así que su Jacobiano es
+        el **negativo** de estos (lo aplica quien arma el ajuste).
+    """
+    rot_e2i = rotation_x(OBLIQUITY_J2000_RAD)
+    dra_drho, ddec_drho = radec_jacobian_wrt_position(ast_bary_icrs, gaia_bary_icrs)
+    dparam = np.asarray(dpos_ecl_dparam, dtype=float)
+    drho_dparam = np.einsum("ij,njk->nik", rot_e2i, dparam)  # (N, 3, K)
+    dra_rad = np.einsum("ni,nik->nk", dra_drho, drho_dparam)  # (N, K)
+    ddec_rad = np.einsum("ni,nik->nk", ddec_drho, drho_dparam)
+    _ra, dec = radec_from_positions(ast_bary_icrs, gaia_bary_icrs)
+    cos_dec = np.cos(np.radians(dec))[:, None]
+    return _MAS_PER_RAD * cos_dec * dra_rad, _MAS_PER_RAD * ddec_rad
+
+
+def along_scan_jacobian(
+    ast_bary_icrs: np.ndarray,
+    gaia_bary_icrs: np.ndarray,
+    dpos_ecl_dparam: np.ndarray,
+    pa_scan_deg: np.ndarray,
+    sigma_al_mas: np.ndarray,
+) -> np.ndarray:
+    """Jacobiano del residuo along-scan **blanqueado** respecto a K parámetros.
+
+    ``∂(r_AL/σ_AL)/∂param = −(sinPA·∂dra_pred + cosPA·∂ddec_pred) / σ_AL`` ``(N, K)``
+    (signo negativo porque el residuo es ``obs − pred``).
+    """
+    dra_pred, ddec_pred = tangent_partials_mas(ast_bary_icrs, gaia_bary_icrs, dpos_ecl_dparam)
+    pa = np.asarray(pa_scan_deg, dtype=float) * _DEG
+    sig = np.asarray(sigma_al_mas, dtype=float)[:, None]
+    dr_al = np.sin(pa)[:, None] * dra_pred + np.cos(pa)[:, None] * ddec_pred
+    return np.asarray(-dr_al / sig, dtype=float)
+
+
 # --- Conveniencia: predicción RA/Dec con dinámica N-cuerpos ------------------
 
 
@@ -267,5 +339,8 @@ __all__ = [
     "anisotropic_covariance",
     "along_scan_residual",
     "whiten_residuals_2d",
+    "radec_jacobian_wrt_position",
+    "tangent_partials_mas",
+    "along_scan_jacobian",
     "predict_radec",
 ]
