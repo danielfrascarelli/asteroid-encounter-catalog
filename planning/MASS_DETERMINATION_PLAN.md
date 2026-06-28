@@ -39,7 +39,7 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 | T2 | Modelo dinámico N-cuerpos (rebound: Sol+planetas+asteroides grandes+perturber) | 0 | ✅* | `src/orbdet/dynamics.py` · validado vs límite dos-cuerpos a 1e-8 AU; *cross-check Horizons marcado, pendiente de entorno con acceso JPL |
 | T3 | Ecuaciones variacionales (∂estado/∂elementos y ∂estado/∂GM) | 0 | ✅ | `src/orbdet/variational.py`: STM analítica (rebound add_variation) + ∂x/∂elementos (Φ·J_elem) coincide con FD a <1e-6; ∂x/∂GM por DF central con meseta de Richardson |
 | T4 | Modelo de observación + covarianza along-scan anisotrópica | 0 | ✅ | `src/orbdet/observation.py`: estado→ICRS→RA/Dec + light-time iterativa + covarianza AL/AC anisotrópica; gate verde (chain N-cuerpos vs oráculo kepleriano <0.1 mas; ruido AL → χ²/obs≈1) |
-| T5 | Corrector diferencial (OD por mínimos cuadrados, arco completo) | 0 | ⬜ | recupera órbita sintética conocida |
+| T5 | Corrector diferencial (OD por mínimos cuadrados, arco completo) | 0 | ✅ | `src/orbdet/least_squares.py` (LM genérico) + `orbit_determination.py`; gate verde: recupera órbita sintética sin ruido (χ²<1e-6) y con ruido AL (χ²_red≈1, <5σ) |
 | — | *(alternativa)* evaluar integrar OrbFit de terceros | 0 | ⬜ | spike de decisión (ver abajo) |
 | T6 | Ajuste conjunto órbita+masa de un perturber | 1 | ⬜ | closing-loop: masa inyectada ratio≈1.0 |
 | T7 | Stacking multi-asteroide (GM compartido, N targets) | 1 | ⬜ | σ(GM) ∝ 1/√N; rompe no-identificabilidad |
