@@ -10,6 +10,7 @@ import pytest
 from src.orbdet.constants import GM_SUN
 from src.orbdet.kepler import (
     KeplerElements,
+    dstate_delements,
     elements_to_state,
     mean_motion,
     period,
@@ -119,3 +120,35 @@ def test_mean_motion_period_consistency() -> None:
 def test_period_of_one_au_is_one_year() -> None:
     # a=1 AU → P ≈ 365.25 días (k define el año gaussiano ≈ 365.2568 d).
     assert period(1.0) == pytest.approx(365.2568983, rel=1e-6)
+
+
+# --- Jacobiano analítico ∂[r,v]/∂elementos ----------------------------------
+
+
+@pytest.mark.parametrize(
+    "el",
+    [
+        _EL,
+        KeplerElements(a=1.3, e=0.4, i=math.radians(25.0), Omega=1.1, omega=2.3, M=0.7),
+        KeplerElements(a=3.2, e=0.05, i=math.radians(3.0), Omega=5.0, omega=0.2, M=3.0),
+    ],
+)
+def test_dstate_delements_matches_finite_difference(el: KeplerElements) -> None:
+    """El Jacobiano analítico coincide con la diferencia finita central del mapa
+    elementos→estado (mapa estático kepleriano, sin dinámica)."""
+    jac = dstate_delements(el)
+    base = np.array(el.as_array(), dtype=float)
+    # Pasos absolutos por elemento: relativo para a, absolutos chicos para el resto.
+    steps = np.array([1e-7 * el.a, 1e-7, 1e-7, 1e-7, 1e-7, 1e-7])
+    jac_fd = np.zeros((6, 6))
+    for j in range(6):
+        plus, minus = base.copy(), base.copy()
+        plus[j] += steps[j]
+        minus[j] -= steps[j]
+        rp, vp = elements_to_state(KeplerElements(*plus))
+        rm, vm = elements_to_state(KeplerElements(*minus))
+        jac_fd[0:3, j] = (rp - rm) / (2.0 * steps[j])
+        jac_fd[3:6, j] = (vp - vm) / (2.0 * steps[j])
+    scale = np.maximum(np.abs(jac), np.abs(jac_fd))
+    rel = np.abs(jac - jac_fd) / np.where(scale > 0.0, scale, 1.0)
+    assert rel.max() < 1e-6, f"max rel error {rel.max():.2e}\n{rel}"

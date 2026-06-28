@@ -23,4 +23,4 @@ Convenciones de unidades (internas, hot-path)
 
 from __future__ import annotations
 
-__all__ = ["constants", "frames", "kepler", "time_scales"]
+__all__ = ["constants", "dynamics", "frames", "kepler", "time_scales", "variational"]

@@ -36,6 +36,18 @@ def rotation_z(theta: float) -> np.ndarray:
     return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
 
 
+def drotation_x(theta: float) -> np.ndarray:
+    """Derivada ``d/dθ`` de :func:`rotation_x` (rad)."""
+    c, s = np.cos(theta), np.sin(theta)
+    return np.array([[0.0, 0.0, 0.0], [0.0, -s, -c], [0.0, c, -s]])
+
+
+def drotation_z(theta: float) -> np.ndarray:
+    """Derivada ``d/dθ`` de :func:`rotation_z` (rad)."""
+    c, s = np.cos(theta), np.sin(theta)
+    return np.array([[-s, -c, 0.0], [c, -s, 0.0], [0.0, 0.0, 0.0]])
+
+
 def _apply(matrix: np.ndarray, vec: np.ndarray) -> np.ndarray:
     """Aplica *matrix* (3×3) a un vector ``(3,)`` o a un lote ``(N, 3)``."""
     v = np.asarray(vec, dtype=float)

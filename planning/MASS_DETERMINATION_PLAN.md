@@ -37,7 +37,7 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 |---|-------|------|--------|-------------------|
 | T1 | Esqueleto `orbdet` + primitivas matemáticas (constants, kepler, frames, time) | 0 | ✅ | `src/orbdet/` · #70 (65 tests) |
 | T2 | Modelo dinámico N-cuerpos (rebound: Sol+planetas+asteroides grandes+perturber) | 0 | ✅* | `src/orbdet/dynamics.py` · validado vs límite dos-cuerpos a 1e-8 AU; *cross-check Horizons marcado, pendiente de entorno con acceso JPL |
-| T3 | Ecuaciones variacionales (∂estado/∂elementos y ∂estado/∂GM) | 0 | ⬜ | parciales ≈ diferencias finitas |
+| T3 | Ecuaciones variacionales (∂estado/∂elementos y ∂estado/∂GM) | 0 | ✅ | `src/orbdet/variational.py`: STM analítica (rebound add_variation) + ∂x/∂elementos (Φ·J_elem) coincide con FD a <1e-6; ∂x/∂GM por DF central con meseta de Richardson |
 | T4 | Modelo de observación + covarianza along-scan anisotrópica | 0 | ⬜ | residuos al nivel del ruido AL |
 | T5 | Corrector diferencial (OD por mínimos cuadrados, arco completo) | 0 | ⬜ | recupera órbita sintética conocida |
 | — | *(alternativa)* evaluar integrar OrbFit de terceros | 0 | ⬜ | spike de decisión (ver abajo) |
