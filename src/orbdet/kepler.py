@@ -19,7 +19,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .constants import GM_SUN
-from .frames import rotation_x, rotation_z
+from .frames import drotation_x, drotation_z, rotation_x, rotation_z
 
 
 @dataclass(frozen=True)
@@ -101,6 +101,87 @@ def elements_to_state(el: KeplerElements, mu: float = GM_SUN) -> tuple[np.ndarra
     # Perifocal → referencia: Rz(Ω) · Rx(i) · Rz(ω)
     rot = rotation_z(el.Omega) @ rotation_x(el.i) @ rotation_z(el.omega)
     return rot @ r_pf, rot @ v_pf
+
+
+def dstate_delements(el: KeplerElements, mu: float = GM_SUN) -> np.ndarray:
+    """Jacobiano analítico ``∂[r, v] / ∂[a, e, i, Ω, ω, M]`` en la época.
+
+    Devuelve la matriz ``(6, 6)`` cuyas filas son ``(rx, ry, rz, vx, vy, vz)`` y
+    cuyas columnas son las parciales respecto a ``(a, e, i, Ω, ω, M)`` (mismo
+    orden que :meth:`KeplerElements.as_array`). Es el mapa estático de
+    reparametrización elementos→estado que, compuesto con la matriz de transición
+    de estado de las ecuaciones variacionales (``variational.py``), da
+    ``∂[r, v](t) / ∂elementos``.
+
+    Derivadas en marco perifocal propagadas al marco de referencia con
+    ``rot = Rz(Ω)·Rx(i)·Rz(ω)``; las parciales respecto a ``i, Ω, ω`` actúan solo
+    sobre ``rot`` (el estado perifocal no depende de los ángulos), y las parciales
+    respecto a ``a, e, M`` solo sobre el estado perifocal. Las dependencias vía la
+    anomalía excéntrica ``E(M, e)`` se incluyen por regla de la cadena
+    (``∂E/∂M = 1/(1-e·cosE)``, ``∂E/∂e = sinE/(1-e·cosE)``).
+    """
+    a, e = el.a, el.e
+    E = solve_kepler(el.M, e)
+    cosE, sinE = math.cos(E), math.sin(E)
+    beta = math.sqrt(1.0 - e * e)  # √(1-e²)
+    s = 1.0 - e * cosE  # r/a
+    g = math.sqrt(mu / a)
+    fac = g / s  # √(μa)/r
+
+    r_pf = np.array([a * (cosE - e), a * beta * sinE, 0.0])
+    v_pf = np.array([-fac * sinE, fac * beta * cosE, 0.0])
+
+    dE_de = sinE / s
+    dE_dM = 1.0 / s
+
+    # --- ∂r_pf / ∂(a, e, M) ---
+    drpf_da = r_pf / a
+    drpf_de = np.array(
+        [
+            a * (-sinE * dE_de - 1.0),
+            a * (-(e / beta) * sinE + beta * cosE * dE_de),
+            0.0,
+        ]
+    )
+    drpf_dM = np.array([a * (-sinE * dE_dM), a * beta * cosE * dE_dM, 0.0])
+
+    # --- ∂v_pf / ∂(a, e, M) ---
+    dvpf_da = -v_pf / (2.0 * a)
+    ds_de = -cosE + e * sinE * dE_de  # ∂(1-e·cosE)/∂e total
+    ds_dM = e * sinE * dE_dM
+    dfac_de = -fac / s * ds_de
+    dfac_dM = -fac / s * ds_dM
+    dbeta_de = -e / beta
+    dvpf_de = np.array(
+        [
+            -(dfac_de * sinE + fac * cosE * dE_de),
+            dfac_de * beta * cosE + fac * dbeta_de * cosE - fac * beta * sinE * dE_de,
+            0.0,
+        ]
+    )
+    dvpf_dM = np.array(
+        [
+            -(dfac_dM * sinE + fac * cosE * dE_dM),
+            dfac_dM * beta * cosE - fac * beta * sinE * dE_dM,
+            0.0,
+        ]
+    )
+
+    # Rotación perifocal → referencia y sus derivadas respecto a los ángulos.
+    rz_O, rx_i, rz_w = rotation_z(el.Omega), rotation_x(el.i), rotation_z(el.omega)
+    rot = rz_O @ rx_i @ rz_w
+    drot_dOmega = drotation_z(el.Omega) @ rx_i @ rz_w
+    drot_di = rz_O @ drotation_x(el.i) @ rz_w
+    drot_domega = rz_O @ rx_i @ drotation_z(el.omega)
+
+    jac = np.zeros((6, 6))
+    jac[0:3, 0], jac[3:6, 0] = rot @ drpf_da, rot @ dvpf_da  # a
+    jac[0:3, 1], jac[3:6, 1] = rot @ drpf_de, rot @ dvpf_de  # e
+    jac[0:3, 2], jac[3:6, 2] = drot_di @ r_pf, drot_di @ v_pf  # i
+    jac[0:3, 3], jac[3:6, 3] = drot_dOmega @ r_pf, drot_dOmega @ v_pf  # Ω
+    jac[0:3, 4], jac[3:6, 4] = drot_domega @ r_pf, drot_domega @ v_pf  # ω
+    jac[0:3, 5], jac[3:6, 5] = rot @ drpf_dM, rot @ dvpf_dM  # M
+    return jac
 
 
 def state_to_elements(r_vec: np.ndarray, v_vec: np.ndarray, mu: float = GM_SUN) -> KeplerElements:
