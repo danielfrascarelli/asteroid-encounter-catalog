@@ -28,7 +28,9 @@ __all__ = [
     "dynamics",
     "frames",
     "kepler",
+    "least_squares",
     "observation",
+    "orbit_determination",
     "time_scales",
     "variational",
 ]
