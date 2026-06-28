@@ -29,6 +29,7 @@ __all__ = [
     "frames",
     "kepler",
     "least_squares",
+    "mass_determination",
     "observation",
     "orbit_determination",
     "time_scales",
