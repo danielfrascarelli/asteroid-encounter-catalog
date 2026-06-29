@@ -26,7 +26,9 @@ from __future__ import annotations
 __all__ = [
     "constants",
     "dynamics",
+    "dynamics_assist",
     "frames",
+    "gaia_adapter",
     "kepler",
     "least_squares",
     "mass_determination",

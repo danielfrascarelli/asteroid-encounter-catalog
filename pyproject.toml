@@ -17,8 +17,11 @@ dependencies = [
     # Datos a escala
     "polars>=0.20",
     "duckdb>=0.10",
-    # Propagación orbital (N-cuerpos)
-    "rebound>=4.0",
+    # Propagación orbital (N-cuerpos). ASSIST (efemérides JPL DE440 + 16
+    # perturbadores asteroidales + relatividad EIH) es el modelo de fuerzas
+    # state-of-the-art para determinación de órbitas/masas; requiere rebound 4.x.
+    "rebound>=4.0,<5",
+    "assist>=1.1",
     # Visualización
     "plotly>=5.0",
     "streamlit>=1.30",

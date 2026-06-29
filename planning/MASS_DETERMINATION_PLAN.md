@@ -1,10 +1,12 @@
 # Plan: Determinación de masas de asteroides estilo Fuentes-Muñoz
 
 > **Estado:** 🟡 ACTIVO — **Fase 0 (T1–T5) + núcleo de Fase 1 (T6, T7) completos
-> y validados sobre datos sintéticos** (PRs #70/#71/#73–#77). Falta la fase de
-> datos reales (T8–T11). Estado y arquitectura del motor:
-> [`docs/orbdet_engine_status.md`](../docs/orbdet_engine_status.md).
-> **Última actualización:** 2026-06-28.
+> y validados sobre datos sintéticos** (PRs #70/#71/#73–#77). **Maquinaria de
+> datos reales (T8 modelo de fuerzas ASSIST + T9 adaptador Gaia) construida y
+> validada** (vs Horizons a sub-mas; tests verdes); falta el run end-to-end sobre
+> FPR real (T9 gate) y la validación contra literatura (T10–T11). Estado y
+> arquitectura del motor: [`docs/orbdet_engine_status.md`](../docs/orbdet_engine_status.md).
+> **Última actualización:** 2026-06-29.
 > Plan para convertir el catálogo de encuentros en **determinaciones de masa
 > publicables**, replicando la metodología de **solución global simultánea**
 > (órbitas + masa por mínimos cuadrados sobre el arco completo, con la
@@ -46,8 +48,8 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 | — | *(alternativa)* evaluar integrar OrbFit de terceros | 0 | ⬜ | spike de decisión (ver abajo) |
 | T6 | Ajuste conjunto órbita+masa de un perturber | 1 | ✅ | `src/orbdet/mass_determination.py`; closing-loop verde: masa sintética inyectada recuperada ratio≈1.0 (sin ruido <2e-3; con ruido AL dentro de 3σ, σ informativa) |
 | T7 | Stacking multi-asteroide (GM compartido, N targets) | 1 | ✅ | `mass_determination.determine_shared_mass` (sistema en flecha 1+6N); gate verde: σ(GM)∝1/√N (s2/s1≈1/√2, s4/s1≈0.5 a <5%) |
-| T8 | Modelo de fuerzas + pesos completo (efemérides, debiasing, outliers) | 1 | ⬜ | χ²_red ≈ 1 en datos reales |
-| T9 | Adaptador FPR → motor (obs + covarianza por tránsito) | 2 | ⬜ | corre Big-4 end-to-end sobre FPR |
+| T8 | Modelo de fuerzas + pesos completo (efemérides, debiasing, outliers) | 1 | 🟡 | `src/orbdet/dynamics_assist.py` (ASSIST: DE440 + GR EIH + 16 perturbadores) + `backend="assist"` en el ajuste conjunto; **validado vs Horizons a 0.17 mas (1404× mejor que planetas libres)** y closing-loop ASSIST ratio≈1. Falta el gate χ²_red≈1 sobre datos reales (rechazo de outliers/debiasing) — se mide en el run end-to-end (T9/T10) |
+| T9 | Adaptador FPR → motor (obs + covarianza por tránsito) | 2 | 🟡 | `src/orbdet/gaia_adapter.py` (σ_AL por proyección de la covarianza RA/Dec, MPCORB→elementos, armonización de épocas N-cuerpos, ensamblado `TargetObservations`); **unit-tested sobre datos sintéticos**. Falta el script IO que corre Big-4 end-to-end sobre FPR real |
 | T10 | Validación contra literatura (4 calibradores + Fuentes-Muñoz + Goffin/Galád) | 2 | ⬜ | \|z\| < 3 en los 4 calibradores |
 | T11 | Corrida de producción + catálogo de masas + writeup | 2 | ⬜ | ≥1 masa nueva defendible |
 

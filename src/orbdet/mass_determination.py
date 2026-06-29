@@ -72,6 +72,70 @@ class _ModelConfig:
     dt_days: float
     n_lighttime_iter: int
     gm_rel_delta: float
+    backend: str = "rebound"
+    gr: bool = True
+    elem_fd_steps: tuple[float, ...] = (1e-7, 1e-7, 1e-7, 1e-7, 1e-7, 1e-7)
+
+
+# Pasos de diferencias finitas para ∂pos/∂elementos en el backend ASSIST
+# (donde la STM analítica de rebound no captura las fuerzas de la efeméride).
+# Para ``a`` el paso es relativo (·a); para e/i/Ω/ω/M es absoluto.
+
+
+def _assist_positions(
+    el: KeplerElements, mass: float, jd: np.ndarray, cfg: _ModelConfig
+) -> np.ndarray:
+    """Posición baricéntrica eclíptica ``(N, 3)`` del objetivo con el backend ASSIST.
+
+    ``mass`` es la masa (M_sun) del perturbador bajo estudio (índice 0); el fondo va
+    en ``cfg.background_perturbers``.
+    """
+    from .dynamics_assist import propagate_assist
+
+    studied = AsteroidPerturber(cfg.perturber_name, mass, cfg.perturber_elements)
+    ast_perts = (studied, *cfg.background_perturbers)
+    return np.atleast_2d(
+        np.asarray(
+            propagate_assist(
+                el, cfg.epoch_jd_tdb, np.atleast_1d(jd), asteroid_perturbers=ast_perts, gr=cfg.gr
+            ),
+            dtype=float,
+        )
+    )
+
+
+def _assist_pos_and_partials(
+    el: KeplerElements, mass: float, jd_ret: np.ndarray, cfg: _ModelConfig
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """``(pos, ∂pos/∂mass, ∂pos/∂elementos)`` por diferencias finitas centrales (ASSIST).
+
+    ``pos`` ``(N,3)``, ``∂pos/∂mass`` ``(N,3)``, ``∂pos/∂elementos`` ``(N,3,6)``. Bajo
+    ASSIST las fuerzas (Sol/planetas/GR) vienen de la efeméride y rebound no propaga
+    las partículas variacionales a través de ellas, por lo que TODAS las parciales se
+    obtienen por FD central sobre :func:`propagate_assist` (exactas a O(δ²); el paso de
+    masa usa ``gm_rel_delta`` igual que el backend rebound).
+    """
+    pos0 = _assist_positions(el, mass, jd_ret, cfg)
+
+    dm = cfg.gm_rel_delta * mass
+    dpos_dmass = (
+        _assist_positions(el, mass + dm, jd_ret, cfg)
+        - _assist_positions(el, mass - dm, jd_ret, cfg)
+    ) / (2.0 * dm)
+
+    x = np.asarray(el.as_array(), dtype=float)
+    steps = np.asarray(cfg.elem_fd_steps, dtype=float).copy()
+    steps[0] = steps[0] * max(abs(x[0]), 1.0)  # paso relativo para a
+    dstate = np.zeros((pos0.shape[0], 3, 6), dtype=float)
+    for k in range(6):
+        xp = x.copy()
+        xp[k] += steps[k]
+        xm = x.copy()
+        xm[k] -= steps[k]
+        pp = _assist_positions(KeplerElements(*xp), mass, jd_ret, cfg)
+        pm = _assist_positions(KeplerElements(*xm), mass, jd_ret, cfg)
+        dstate[:, :, k] = (pp - pm) / (2.0 * steps[k])
+    return pos0, dpos_dmass, dstate
 
 
 def _target_resid_and_blocks(
@@ -95,42 +159,51 @@ def _target_resid_and_blocks(
     studied = AsteroidPerturber(cfg.perturber_name, mass, cfg.perturber_elements)
     ast_perts = (studied, *cfg.background_perturbers)
 
-    def bary_ecl_at(jd: np.ndarray) -> np.ndarray:
-        return np.asarray(
-            propagate(
-                el,
-                cfg.epoch_jd_tdb,
-                np.atleast_1d(jd),
-                perturbers=cfg.perturbers,
-                integrator=cfg.integrator,
-                dt_days=cfg.dt_days,
-                asteroid_perturbers=ast_perts,
-            ),
-            dtype=float,
-        )
+    if cfg.backend == "assist":
 
-    jd_ret, _ = light_time_correct(bary_ecl_at, obs_jd, gaia, n_iter=cfg.n_lighttime_iter)
-    pos, _vel, dstate = partials_wrt_elements(
-        el,
-        cfg.epoch_jd_tdb,
-        jd_ret,
-        perturbers=cfg.perturbers,
-        integrator=cfg.integrator,
-        dt_days=cfg.dt_days,
-        asteroid_perturbers=ast_perts,
-    )
-    dgm = partial_wrt_gm(
-        el,
-        cfg.epoch_jd_tdb,
-        jd_ret,
-        perturber_index=0,
-        perturbers=cfg.perturbers,
-        integrator=cfg.integrator,
-        dt_days=cfg.dt_days,
-        asteroid_perturbers=ast_perts,
-        rel_delta=cfg.gm_rel_delta,
-    )
-    dpos_dmass = dgm[:, 0:3] * GM_SUN  # ∂r_ecl/∂mass = GM_SUN·∂r_ecl/∂GM
+        def bary_ecl_at(jd: np.ndarray) -> np.ndarray:
+            return _assist_positions(el, mass, np.atleast_1d(jd), cfg)
+
+        jd_ret, _ = light_time_correct(bary_ecl_at, obs_jd, gaia, n_iter=cfg.n_lighttime_iter)
+        pos, dpos_dmass, dstate = _assist_pos_and_partials(el, mass, jd_ret, cfg)
+    else:
+
+        def bary_ecl_at(jd: np.ndarray) -> np.ndarray:
+            return np.asarray(
+                propagate(
+                    el,
+                    cfg.epoch_jd_tdb,
+                    np.atleast_1d(jd),
+                    perturbers=cfg.perturbers,
+                    integrator=cfg.integrator,
+                    dt_days=cfg.dt_days,
+                    asteroid_perturbers=ast_perts,
+                ),
+                dtype=float,
+            )
+
+        jd_ret, _ = light_time_correct(bary_ecl_at, obs_jd, gaia, n_iter=cfg.n_lighttime_iter)
+        pos, _vel, dstate = partials_wrt_elements(
+            el,
+            cfg.epoch_jd_tdb,
+            jd_ret,
+            perturbers=cfg.perturbers,
+            integrator=cfg.integrator,
+            dt_days=cfg.dt_days,
+            asteroid_perturbers=ast_perts,
+        )
+        dgm = partial_wrt_gm(
+            el,
+            cfg.epoch_jd_tdb,
+            jd_ret,
+            perturber_index=0,
+            perturbers=cfg.perturbers,
+            integrator=cfg.integrator,
+            dt_days=cfg.dt_days,
+            asteroid_perturbers=ast_perts,
+            rel_delta=cfg.gm_rel_delta,
+        )
+        dpos_dmass = dgm[:, 0:3] * GM_SUN  # ∂r_ecl/∂mass = GM_SUN·∂r_ecl/∂GM
 
     ast_icrs = ecliptic_to_equatorial(pos)
     ra_pred, dec_pred = radec_from_positions(ast_icrs, gaia)
@@ -153,6 +226,8 @@ def _make_config(
     dt_days: float,
     n_lighttime_iter: int,
     gm_rel_delta: float,
+    backend: str = "rebound",
+    gr: bool = True,
 ) -> _ModelConfig:
     return _ModelConfig(
         epoch_jd_tdb=epoch_jd_tdb,
@@ -164,6 +239,8 @@ def _make_config(
         dt_days=dt_days,
         n_lighttime_iter=n_lighttime_iter,
         gm_rel_delta=gm_rel_delta,
+        backend=backend,
+        gr=gr,
     )
 
 
@@ -186,10 +263,16 @@ def determine_mass_and_orbit(
     dt_days: float = 1.0,
     n_lighttime_iter: int = 3,
     gm_rel_delta: float = 1e-3,
+    backend: str = "rebound",
+    gr: bool = True,
     max_iter: int = 80,
     **lm_kwargs,
 ) -> tuple[float, KeplerElements, LeastSquaresResult]:
     """Ajuste conjunto de la masa del perturbador y los 6 elementos de un objetivo.
+
+    ``backend="assist"`` usa el modelo de fuerzas DE440 + GR + perturbadores (T8);
+    en ese caso ``background_perturbers`` debe traer los 15 asteroides grandes
+    restantes (ver :func:`orbdet.dynamics_assist.big_asteroid_perturbers`).
 
     Returns
     -------
@@ -206,6 +289,8 @@ def determine_mass_and_orbit(
         dt_days,
         n_lighttime_iter,
         gm_rel_delta,
+        backend=backend,
+        gr=gr,
     )
     tobs = TargetObservations(
         initial_elements=initial_elements,
@@ -241,6 +326,8 @@ def determine_shared_mass(
     dt_days: float = 1.0,
     n_lighttime_iter: int = 3,
     gm_rel_delta: float = 1e-3,
+    backend: str = "rebound",
+    gr: bool = True,
     max_iter: int = 80,
     **lm_kwargs,
 ) -> tuple[float, list[KeplerElements], LeastSquaresResult]:
@@ -268,6 +355,8 @@ def determine_shared_mass(
         dt_days,
         n_lighttime_iter,
         gm_rel_delta,
+        backend=backend,
+        gr=gr,
     )
     n_t = len(targets)
     n_par = 1 + 6 * n_t
