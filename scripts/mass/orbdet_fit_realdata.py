@@ -55,6 +55,7 @@ import dataclasses
 import json
 import logging
 import math
+import os
 import time
 from pathlib import Path
 
@@ -112,6 +113,42 @@ def _ephem_name_for_perturber(number: int, csv_name: str | None) -> str:
         f"(BIG_ASTEROIDS={BIG_ASTEROIDS}). Este motor requiere la órbita del "
         "perturbador de la efeméride; solo los 16 grandes están soportados."
     )
+
+
+def _read_targets_from_catalog(
+    catalog_path: Path,
+    perturber: int,
+    *,
+    top_n: int,
+    max_target_number: int = 100_000,
+    max_dist_au: float = 0.05,
+) -> list[TargetSpec]:
+    """Selecciona los *top_n* objetivos más cercanos al perturbador desde el catálogo.
+
+    Misma lógica que `run_stage4_validation._select_top_targets` pero devuelve
+    ``TargetSpec`` directamente desde el catálogo de encuentros (no del CSV de
+    validación, que sólo trae 8 por cuerpo y arrastra columnas del método LOO viejo).
+    Usar MUCHOS objetivos por perturbador es lo que aprieta σ(masa) y promedia los
+    sistemáticos por-encuentro. ``date_utc`` se deriva del ``jd_tdb`` del encuentro.
+    """
+    import polars as pl
+    from astropy.time import Time
+
+    cat = pl.read_parquet(catalog_path, columns=["number_1", "number_2", "dist_au", "jd_tdb"])
+    sub = cat.filter((pl.col("number_1") == perturber) | (pl.col("number_2") == perturber))
+    sub = sub.with_columns(
+        pl.when(pl.col("number_1") == perturber)
+        .then(pl.col("number_2"))
+        .otherwise(pl.col("number_1"))
+        .alias("target")
+    )
+    sub = sub.filter((pl.col("target") < max_target_number) & (pl.col("dist_au") < max_dist_au))
+    sub = sub.sort("dist_au").unique(subset=["target"], keep="first").sort("dist_au").head(top_n)
+    out: list[TargetSpec] = []
+    for row in sub.iter_rows(named=True):
+        date_utc = str(Time(row["jd_tdb"], format="jd", scale="tdb").utc.isot)
+        out.append(TargetSpec(target=int(row["target"]), date_utc=date_utc))
+    return out
 
 
 def _read_perturber_meta(csv_path: Path, perturber: int) -> dict:
@@ -267,6 +304,7 @@ def _fit_with_rejection(
     reject_sigma: float,
     reject_passes: int,
     sys_floor_mas: float | None,
+    n_workers: int = 1,
 ):
     """Ajuste conjunto con sigma-clipping iterativo y piso sistemático por FOV.
 
@@ -296,6 +334,7 @@ def _fit_with_rejection(
             gr=True,
             sys_floor_mas=0.0,
             max_iter=max_iter,
+            n_workers=n_workers,
         )
         floor, chi2_at_floor = calibrate_sys_floor(
             cur,
@@ -307,6 +346,7 @@ def _fit_with_rejection(
             background_perturbers=background_perturbers,
             backend="assist",
             gr=True,
+            n_workers=n_workers,
         )
         seed = float(m0)
         passes_log.append(
@@ -342,6 +382,7 @@ def _fit_with_rejection(
             gr=True,
             sys_floor_mas=floor,
             max_iter=max_iter,
+            n_workers=n_workers,
         )
         n_obs = int(result.residuals.size)
         passes_log.append(
@@ -406,10 +447,17 @@ def _run_perturber(
     lit_kg = args.lit_mass_kg if args.lit_mass_kg is not None else meta.get("mass_lit_kg")
     lit_sigma_kg = meta.get("mass_lit_sigma_kg")
 
-    if args.targets_csv is not None:
-        specs: list[TargetSpec] = _read_targets_from_csv(args.targets_csv, perturber)
-    else:
+    if args.from_catalog is not None:
+        specs: list[TargetSpec] = _read_targets_from_catalog(
+            args.from_catalog,
+            perturber,
+            top_n=args.top_per_perturber,
+            max_dist_au=args.max_dist_au,
+        )
+    elif args.targets_json is not None:
         specs = _read_targets_from_json(args.targets_json)
+    else:
+        specs = _read_targets_from_csv(args.targets_csv, perturber)
     if args.max_targets:
         specs = specs[: args.max_targets]
     if not specs:
@@ -468,6 +516,7 @@ def _run_perturber(
         reject_sigma=args.reject_sigma,
         reject_passes=args.reject_passes,
         sys_floor_mas=args.sys_floor,
+        n_workers=args.workers,
     )
 
     mass_kg = float(mass_msun * M_SUN_KG)
@@ -553,6 +602,25 @@ def main() -> int:
         default=Path("data/output/stage4_validation_summary.csv"),
     )
     group.add_argument("--targets-json", type=Path)
+    parser.add_argument(
+        "--from-catalog",
+        type=Path,
+        default=None,
+        help="selecciona los objetivos más cercanos directamente del catálogo de "
+        "encuentros (parquet) en vez del CSV — permite usar muchos más por perturbador",
+    )
+    parser.add_argument(
+        "--top-per-perturber",
+        type=int,
+        default=40,
+        help="nº de objetivos más cercanos a usar con --from-catalog",
+    )
+    parser.add_argument(
+        "--max-dist-au",
+        type=float,
+        default=0.05,
+        help="distancia máxima de encuentro (--from-catalog)",
+    )
     parser.add_argument("--release", default=None, help="'dr3' | 'fpr' (default: el del config)")
     parser.add_argument(
         "--lit-mass-kg", type=float, default=None, help="override de masa de literatura"
@@ -561,6 +629,12 @@ def main() -> int:
     parser.add_argument("--mpcorb", type=Path, default=None, help="snapshot MPCORB explícito")
     parser.add_argument(
         "--max-targets", type=int, default=None, help="limita nº de objetivos (debug)"
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=max(1, (os.cpu_count() or 2) - 2),
+        help="procesos paralelos para evaluar objetivos (default: nº de cores − 2)",
     )
     parser.add_argument("--max-iter", type=int, default=40)
     parser.add_argument("--reject-sigma", type=float, default=4.0, help="umbral sigma-clip (0=off)")

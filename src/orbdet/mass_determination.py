@@ -22,6 +22,7 @@ que incluye al perturbador) y ``∂r/∂mass = GM_SUN · ∂r/∂GM`` (diferenci
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 import numpy as np
@@ -39,6 +40,31 @@ from .observation import (
     tangent_residuals_mas,
 )
 from .variational import partial_wrt_gm, partials_wrt_elements
+
+
+def _pool_worker_init() -> None:
+    """Inicializador de los procesos worker: evita la sobre-suscripción de hilos.
+
+    Cada worker hace integraciones N-cuerpos seriales; si rebound/BLAS abrieran sus
+    propios hilos, ``N_workers × N_hilos`` saturaría la CPU. Fijar a 1 hilo por
+    worker mantiene el paralelismo a nivel de objetivo (uno por core)."""
+    for var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+        os.environ[var] = "1"
+
+
+def _make_pool(n_workers: int, n_tasks: int):
+    """Crea un ``multiprocessing.Pool`` (contexto ``fork``) o ``None`` si serie.
+
+    ``fork`` hace que los workers hereden el proceso padre por copy-on-write, así la
+    efeméride ASSIST (~750 MB, mapeada en memoria) se comparte sin recargarse. Se usan
+    ``min(n_workers, n_tasks)`` procesos (no tiene sentido más workers que objetivos).
+    """
+    if not n_workers or n_workers <= 1 or n_tasks <= 1:
+        return None
+    import multiprocessing as mp
+
+    n = min(int(n_workers), int(n_tasks))
+    return mp.get_context("fork").Pool(processes=n, initializer=_pool_worker_init)
 
 
 @dataclass(frozen=True)
@@ -274,6 +300,15 @@ def _forward_al(
     return r_al, jac_raw, sigma_al
 
 
+def _forward_al_rsig(
+    mass: float, el: KeplerElements, tobs: TargetObservations, cfg: _ModelConfig
+) -> tuple[np.ndarray, np.ndarray]:
+    """``(r_al, sigma_al)`` crudos de un objetivo (worker picklable para el pool de
+    :func:`calibrate_sys_floor`)."""
+    r_al, _jac_raw, sigma_al = _forward_al(mass, el, tobs, cfg)
+    return r_al, sigma_al
+
+
 def _target_resid_and_blocks(
     mass: float, el: KeplerElements, tobs: TargetObservations, cfg: _ModelConfig
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -409,6 +444,7 @@ def determine_shared_mass(
     gr: bool = True,
     sys_floor_mas: float = 0.0,
     max_iter: int = 80,
+    n_workers: int = 1,
     **lm_kwargs,
 ) -> tuple[float, list[KeplerElements], LeastSquaresResult]:
     """Stacking multi-objetivo: una masa de perturbador compartida por ``N`` objetivos.
@@ -417,6 +453,12 @@ def determine_shared_mass(
     Jacobiano es en flecha: la columna de masa es densa y cada bloque de 6
     elementos solo afecta a las observaciones de su objetivo. Al apilar objetivos
     independientes, la información de Fisher de la masa se suma y ``σ(GM) ∝ 1/√N``.
+
+    ``n_workers>1`` evalúa los ``N`` objetivos (cada uno una integración N-cuerpos +
+    su Jacobiano por diferencias finitas, ~15 propagaciones) **en paralelo** sobre un
+    ``multiprocessing.Pool`` persistente (un proceso por core; la efeméride ASSIST se
+    mapea en memoria compartida por COW de ``fork``). Los resultados se ensamblan en
+    orden fijo ⇒ idénticos al modo serie. Es el cuello de botella del ajuste.
 
     Returns
     -------
@@ -442,13 +484,10 @@ def determine_shared_mass(
     n_t = len(targets)
     n_par = 1 + 6 * n_t
 
-    def residual_and_jac(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        mass = float(x[0])
+    def _assemble(results) -> tuple[np.ndarray, np.ndarray]:
         resids: list[np.ndarray] = []
         blocks: list[np.ndarray] = []
-        for k, tobs in enumerate(targets):
-            el_k = KeplerElements(*x[1 + 6 * k : 1 + 6 * k + 6])
-            resid_k, jac_mass_k, jac_elem_k = _target_resid_and_blocks(mass, el_k, tobs, cfg)
+        for k, (resid_k, jac_mass_k, jac_elem_k) in enumerate(results):
             block = np.zeros((resid_k.size, n_par), dtype=float)
             block[:, 0] = jac_mass_k
             block[:, 1 + 6 * k : 1 + 6 * k + 6] = jac_elem_k
@@ -456,10 +495,30 @@ def determine_shared_mass(
             blocks.append(block)
         return np.concatenate(resids), np.vstack(blocks)
 
-    x0 = np.concatenate(
-        [[float(initial_mass_msun)]] + [np.asarray(t.initial_elements.as_array()) for t in targets]
-    )
-    result = levenberg_marquardt(residual_and_jac, x0, max_iter=max_iter, **lm_kwargs)
+    pool = _make_pool(n_workers, n_t)
+    try:
+
+        def residual_and_jac(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+            mass = float(x[0])
+            args = [
+                (mass, KeplerElements(*x[1 + 6 * k : 1 + 6 * k + 6]), targets[k], cfg)
+                for k in range(n_t)
+            ]
+            if pool is not None:
+                results = pool.starmap(_target_resid_and_blocks, args)
+            else:
+                results = [_target_resid_and_blocks(*a) for a in args]
+            return _assemble(results)
+
+        x0 = np.concatenate(
+            [[float(initial_mass_msun)]]
+            + [np.asarray(t.initial_elements.as_array()) for t in targets]
+        )
+        result = levenberg_marquardt(residual_and_jac, x0, max_iter=max_iter, **lm_kwargs)
+    finally:
+        if pool is not None:
+            pool.close()
+            pool.join()
     fitted = [KeplerElements(*result.x[1 + 6 * k : 1 + 6 * k + 6]) for k in range(n_t)]
     return float(result.x[0]), fitted, result
 
@@ -478,6 +537,7 @@ def calibrate_sys_floor(
     n_params: int | None = None,
     max_floor_mas: float = 30.0,
     n_bisect: int = 40,
+    n_workers: int = 1,
 ) -> tuple[float, float]:
     """Calibra el piso sistemático ``s_c`` para que ``χ²_red ≈ 1`` con bloques por FOV.
 
@@ -507,9 +567,19 @@ def calibrate_sys_floor(
         gr=gr,
         sys_floor_mas=0.0,
     )
+    pool = _make_pool(n_workers, len(targets))
+    try:
+        args = [(mass_msun, el, t, cfg0) for t, el in zip(targets, elements_list)]
+        if pool is not None:
+            rsig = pool.starmap(_forward_al_rsig, args)
+        else:
+            rsig = [_forward_al_rsig(*a) for a in args]
+    finally:
+        if pool is not None:
+            pool.close()
+            pool.join()
     comps = [
-        (*(_forward_al(mass_msun, el, t, cfg0)[::2]), np.asarray(t.fov_group))
-        for t, el in zip(targets, elements_list)
+        (r_al, sig, np.asarray(t.fov_group)) for (r_al, sig), t in zip(rsig, targets)
     ]  # lista de (r_al, sigma_al, fov_group)
     n_obs = int(sum(r.size for r, _, _ in comps))
     n_par = n_params if n_params is not None else 1 + 6 * len(targets)

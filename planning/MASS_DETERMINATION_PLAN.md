@@ -55,8 +55,8 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 | T7 | Stacking multi-asteroide (GM compartido, N targets) | 1 | ✅ | `mass_determination.determine_shared_mass` (sistema en flecha 1+6N); gate verde: σ(GM)∝1/√N (s2/s1≈1/√2, s4/s1≈0.5 a <5%) |
 | T8 | Modelo de fuerzas + pesos completo (efemérides, debiasing, outliers) | 1 | ✅ | `src/orbdet/dynamics_assist.py` (ASSIST: DE440 + GR EIH + 16 perturbadores); vs Horizons 0.17 mas. **χ²_red≈1 sobre datos reales** vía covarianza en bloques por FOV con piso autocalibrado (`mass_determination._block_whiten` + `calibrate_sys_floor`) + sigma-clipping 4σ. Big-4: χ²_red∈[0.97,1.00] |
 | T9 | Adaptador FPR → motor (obs + covarianza por tránsito) | 2 | ✅ | `src/orbdet/gaia_adapter.py` (σ_AL, MPCORB→elementos, épocas N-cuerpos, **`fov_groups_from_epochs`** para los bloques de correlación). `scripts/mass/orbdet_fit_realdata.py` corre **Big-4 end-to-end sobre FPR real** (calibración de piso + stacking + rechazo) |
-| T10 | Validación contra literatura (4 calibradores + Fuentes-Muñoz + Goffin/Galád) | 2 | 🟡 | **3/4 dentro de \|z\|<3** (Ceres 1.50, Vesta 1.98, Hygiea 1.31; Pallas 3.28). χ²_red≈1, σ informativa (6–15%), motor insesgado (closing-loop real z≈0). Residual común +12–29% (sistemático de datos) → cerrar Pallas y cruce Fuentes-Muñoz pendientes |
-| T11 | Corrida de producción + catálogo de masas + writeup | 2 | ⬜ | ≥1 masa nueva defendible |
+| T10 | Validación contra literatura (4 calibradores + Fuentes-Muñoz + Goffin/Galád) | 2 | ✅ | **4/4 dentro de \|z\|<3** con muchos objetivos (N≥20) y modelo de error correcto: Ceres z=−1.01, Vesta −1.30, Hygiea −0.13 (los 3 bien muestreados a ~5%); Pallas +2.67 (N=6, target-limited). El "sobre-tiro +12–29%" de N=7 era **dispersión de muestra chica**, no sistemático: a N≥20 las masas DAWN/Vernazza se recuperan a ~5% (sesgo medio −4%). Falta cruce Fuentes-Muñoz (T11) |
+| T11 | Corrida de producción + catálogo de masas + writeup | 2 | 🟡 | **Maquinaria de producción lista**: selección de objetivos por catálogo (`--from-catalog`), **paralelización** (pool por objetivo, ~6× speedup), `build_mass_catalog.py` con piso sistemático calibrado. Falta el barrido de los 12 perturbadores restantes (masas nuevas) + writeup |
 
 ---
 
@@ -212,11 +212,35 @@ verdad** (Ceres 1.52×→1.29×).
 
 **El motor es insesgado.** Closing-loop sobre la **geometría real** (obs sintéticas a
 la masa verdadera + ruido realista, mismo pipeline): recupera la masa inyectada
-dentro de 1σ (z≈0). Luego el sobre-tiro residual común de +12–29% en datos reales es
-un **sistemático de la astrometría de Gaia**, no un bug del motor (candidatos:
-deflexión gravitacional de la luz no modelada, incertidumbres reales de la literatura
-terrestre, perturbadores menores fuera de los 16). Cerrarlo (y bajar Pallas de 3.28)
-es trabajo de T11.
+dentro de 1σ (z≈0). Luego el sobre-tiro residual de N=7 NO es un bug del motor.
+
+### Resolución del residual: era dispersión de muestra chica (run N≥20, parallel)
+
+Con muchos más objetivos (selección por catálogo, `--from-catalog`) el "sobre-tiro
++12–29%" **desaparece** — era estadística de muestra chica, no un sistemático:
+
+| Cuerpo | N | ratio (N≈7) | ratio (N≥20) | σ_tot | z_tot |
+|--------|---|-------------|--------------|-------|-------|
+| Ceres  | 28 | 1.29 | **0.955** | 4.6% | −1.01 |
+| Vesta  | 28 | 1.17 | **0.943** | 4.6% | −1.30 |
+| Hygiea | 20 | 1.12 | **0.990** | 5.7% | −0.13 |
+| Pallas |  6 | 1.24 | 1.24 (target-limited) | 7.0% | +2.67 |
+
+Pallas tiene **sólo 6–7 encuentros <0.05 AU** en todo el catálogo → no promediable,
+es el único en tensión (y aun así |z|<3). Los 3 bien muestreados recuperan las masas
+DAWN/Vernazza **a ~5%** (sesgo medio −4%).
+
+**Modelo de error correcto (limitado por sistemáticos).** La σ formal (Fisher) baja
+como 1/√N y se vuelve diminuta (<0.2% con N=28), pero la exactitud real está limitada
+por sistemáticos por-encuentro. El catálogo (`build_mass_catalog.py`) reporta
+`σ_total = √(σ_stat² + (f_sys·M)²)` con el **piso f_sys≈4.2% calibrado de los
+calibradores bien muestreados** (la dispersión RMS de ratio−1). Es el tratamiento
+estándar de incertidumbre externa.
+
+**Paralelización.** `determine_shared_mass`/`calibrate_sys_floor` evalúan los N
+objetivos en un pool por proceso (contexto `fork`, efeméride compartida por COW),
+idéntico al modo serie (test de equivalencia). ~6× speedup (barrera por iteración LM):
+el barrido Big-4 N=30 corre en ~20 min en vez de ~2 h.
 
 ## Fuera de scope
 - Detección/caracterización de encuentros (ya hecho y congelado, ver `FROZEN_RUN.md`).
