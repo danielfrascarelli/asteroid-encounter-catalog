@@ -25,6 +25,7 @@ from src.orbdet.gaia_adapter import (
 from src.orbdet.kepler import KeplerElements
 from src.orbdet.observation import predict_radec
 from src.orbdet.time_scales import J2010_TCB_JD, tdb_to_tcb
+from tests.orbdet._ephem import requires_ephem
 
 # --- σ_AL desde la covarianza (RA, Dec) -------------------------------------
 
@@ -35,9 +36,7 @@ def test_sigma_al_alignment_limits() -> None:
     s_ra = np.array([2.0, 2.0])
     s_dec = np.array([5.0, 5.0])
     pa = np.array([90.0, 0.0])  # AL a lo largo de RA, luego a lo largo de Dec
-    sigma_al = sigma_al_from_radec_covariance(
-        pa, s_ra, s_dec, zeros, zeros, zeros, zeros
-    )
+    sigma_al = sigma_al_from_radec_covariance(pa, s_ra, s_dec, zeros, zeros, zeros, zeros)
     assert sigma_al[0] == pytest.approx(2.0, rel=1e-12)
     assert sigma_al[1] == pytest.approx(5.0, rel=1e-12)
 
@@ -57,12 +56,16 @@ def test_sigma_al_matches_quadratic_form() -> None:
     for k in range(n):
         u = np.array([math.sin(math.radians(pa[k])), math.cos(math.radians(pa[k]))])
         cov_s = np.array(
-            [[s_ra_s[k] ** 2, rho_s[k] * s_ra_s[k] * s_dec_s[k]],
-             [rho_s[k] * s_ra_s[k] * s_dec_s[k], s_dec_s[k] ** 2]]
+            [
+                [s_ra_s[k] ** 2, rho_s[k] * s_ra_s[k] * s_dec_s[k]],
+                [rho_s[k] * s_ra_s[k] * s_dec_s[k], s_dec_s[k] ** 2],
+            ]
         )
         cov_r = np.array(
-            [[s_ra_r[k] ** 2, rho_r[k] * s_ra_r[k] * s_dec_r[k]],
-             [rho_r[k] * s_ra_r[k] * s_dec_r[k], s_dec_r[k] ** 2]]
+            [
+                [s_ra_r[k] ** 2, rho_r[k] * s_ra_r[k] * s_dec_r[k]],
+                [rho_r[k] * s_ra_r[k] * s_dec_r[k], s_dec_r[k] ** 2],
+            ]
         )
         expect[k] = math.sqrt(u @ (cov_s + cov_r) @ u)
     np.testing.assert_allclose(got, expect, rtol=1e-12)
@@ -91,6 +94,7 @@ def test_propagate_elements_identity() -> None:
     np.testing.assert_allclose(out.as_array(), el.as_array())
 
 
+@requires_ephem
 @pytest.mark.slow
 def test_propagate_elements_roundtrip_assist() -> None:
     """Propagar adelante y volver recupera los elementos (reversibilidad ASSIST/IAS15).
@@ -128,8 +132,12 @@ def test_build_target_observations_consistency() -> None:
     """
     epoch = 2_457_000.5
     el = KeplerElements(
-        a=2.70, e=0.15, i=math.radians(10.0),
-        Omega=math.radians(80.0), omega=math.radians(60.0), M=math.radians(45.0),
+        a=2.70,
+        e=0.15,
+        i=math.radians(10.0),
+        Omega=math.radians(80.0),
+        omega=math.radians(60.0),
+        M=math.radians(45.0),
     )
     n = 12
     obs_jd = epoch + np.linspace(-200.0, 200.0, n)
@@ -144,12 +152,21 @@ def test_build_target_observations_consistency() -> None:
     rho = np.zeros(n)
 
     tobs = build_target_observations(
-        el, epoch,
+        el,
+        epoch,
         epoch_days_tcb=epoch_days,
-        ra_deg=ra, dec_deg=dec, pa_scan_deg=pa,
-        ra_err_sys=s, dec_err_sys=s * 100.0, corr_sys=rho,
-        ra_err_rand=s, dec_err_rand=s * 100.0, corr_rand=rho,
-        x_gaia=gaia_icrs[:, 0], y_gaia=gaia_icrs[:, 1], z_gaia=gaia_icrs[:, 2],
+        ra_deg=ra,
+        dec_deg=dec,
+        pa_scan_deg=pa,
+        ra_err_sys=s,
+        dec_err_sys=s * 100.0,
+        corr_sys=rho,
+        ra_err_rand=s,
+        dec_err_rand=s * 100.0,
+        corr_rand=rho,
+        x_gaia=gaia_icrs[:, 0],
+        y_gaia=gaia_icrs[:, 1],
+        z_gaia=gaia_icrs[:, 2],
     )
 
     # Tiempos reconstruidos coinciden con los originales (round-trip TDB→TCB→TDB).
@@ -161,7 +178,10 @@ def test_build_target_observations_consistency() -> None:
 
     # Re-predecir con los mismos elementos da residuo AL ≈ 0.
     ra_p, dec_p = predict_radec(
-        tobs.initial_elements, epoch, tobs.obs_jd_tdb, tobs.gaia_bary_icrs,
+        tobs.initial_elements,
+        epoch,
+        tobs.obs_jd_tdb,
+        tobs.gaia_bary_icrs,
         perturbers=("sun", "jupiter"),
     )
     np.testing.assert_allclose(ra_p, ra, atol=1e-9)

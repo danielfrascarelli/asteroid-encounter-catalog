@@ -27,7 +27,15 @@ from src.orbdet.dynamics_assist import big_asteroid_perturbers, propagate_assist
 from src.orbdet.kepler import KeplerElements
 
 _FULL_PLANETS = (
-    "sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune",
+    "sun",
+    "mercury",
+    "venus",
+    "earth",
+    "mars",
+    "jupiter",
+    "saturn",
+    "uranus",
+    "neptune",
 )
 _MAS_PER_RAD = math.degrees(1.0) * 3_600_000.0
 
@@ -35,9 +43,9 @@ _MAS_PER_RAD = math.degrees(1.0) * 3_600_000.0
 def _horizons_elements(target: str, epoch_jd_tdb: float) -> KeplerElements:
     from astroquery.jplhorizons import Horizons
 
-    tab = Horizons(
-        id=target, id_type="smallbody", location="@sun", epochs=epoch_jd_tdb
-    ).elements(refplane="ecliptic")
+    tab = Horizons(id=target, id_type="smallbody", location="@sun", epochs=epoch_jd_tdb).elements(
+        refplane="ecliptic"
+    )
     return KeplerElements(
         a=float(tab["a"][0]),
         e=float(tab["e"][0]),
@@ -51,9 +59,9 @@ def _horizons_elements(target: str, epoch_jd_tdb: float) -> KeplerElements:
 def _horizons_vectors(target: str, epochs: np.ndarray) -> np.ndarray:
     from astroquery.jplhorizons import Horizons
 
-    vec = Horizons(
-        id=target, id_type="smallbody", location="@0", epochs=list(epochs)
-    ).vectors(refplane="ecliptic")
+    vec = Horizons(id=target, id_type="smallbody", location="@0", epochs=list(epochs)).vectors(
+        refplane="ecliptic"
+    )
     return np.column_stack([vec["x"], vec["y"], vec["z"]]).astype(float)
 
 
@@ -88,8 +96,10 @@ def main() -> None:
     print(f"  rebound (libres, sin GR): max {res_reb.max():.3e} AU = {mas(res_reb.max()):8.2f} mas")
     print(f"  assist  (DE440+GR+16):    max {res_ass.max():.3e} AU = {mas(res_ass.max()):8.2f} mas")
     print(f"  mejora: {res_reb.max() / max(res_ass.max(), 1e-30):.1f}×")
-    print("  residuos assist por época (mas):", np.array2string(
-        np.array([mas(r) for r in res_ass]), precision=3, suppress_small=True))
+    print(
+        "  residuos assist por época (mas):",
+        np.array2string(np.array([mas(r) for r in res_ass]), precision=3, suppress_small=True),
+    )
 
 
 if __name__ == "__main__":

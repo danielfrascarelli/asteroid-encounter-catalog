@@ -87,16 +87,18 @@ def sigma_al_from_radec_covariance(
         s_ra = np.asarray(s_ra, dtype=float)
         s_dec = np.asarray(s_dec, dtype=float)
         rho = np.clip(np.asarray(rho, dtype=float), -_RHO_CLAMP, _RHO_CLAMP)
-        return (
+        var: np.ndarray = (
             e_ra * e_ra * s_ra * s_ra
             + 2.0 * e_ra * e_dec * rho * s_ra * s_dec
             + e_dec * e_dec * s_dec * s_dec
         )
+        return var
 
     var_al = _var_al(ra_err_sys, dec_err_sys, corr_sys) + _var_al(
         ra_err_rand, dec_err_rand, corr_rand
     )
-    return np.sqrt(np.maximum(var_al, _VAR_AL_FLOOR))
+    sigma_al: np.ndarray = np.sqrt(np.maximum(var_al, _VAR_AL_FLOOR))
+    return sigma_al
 
 
 def elements_from_mpcorb(
@@ -175,9 +177,7 @@ def propagate_elements(
     return state_to_elements(r_helio, v_helio, GM_SUN)
 
 
-def gaia_positions_icrs(
-    x_gaia: np.ndarray, y_gaia: np.ndarray, z_gaia: np.ndarray
-) -> np.ndarray:
+def gaia_positions_icrs(x_gaia: np.ndarray, y_gaia: np.ndarray, z_gaia: np.ndarray) -> np.ndarray:
     """Apila ``(x_gaia, y_gaia, z_gaia)`` (AU, ICRS baricéntrico) en ``(N, 3)``.
 
     Las columnas ``*_gaia`` del archivo Gaia ya están en el BCRS (orientación ICRS,

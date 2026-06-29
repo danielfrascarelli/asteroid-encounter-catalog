@@ -20,11 +20,16 @@ from src.orbdet.frames import ecliptic_to_equatorial
 from src.orbdet.kepler import KeplerElements, elements_to_state, state_to_elements
 from src.orbdet.mass_determination import determine_mass_and_orbit
 from src.orbdet.observation import light_time_correct, radec_from_positions
+from tests.orbdet._ephem import requires_ephem
 
 _EPOCH = 2_457_000.5
 _TARGET = KeplerElements(
-    a=2.70, e=0.15, i=math.radians(10.0),
-    Omega=math.radians(80.0), omega=math.radians(60.0), M=math.radians(45.0),
+    a=2.70,
+    e=0.15,
+    i=math.radians(10.0),
+    Omega=math.radians(80.0),
+    omega=math.radians(60.0),
+    M=math.radians(45.0),
 )
 _MASS_TRUE = 3e-9  # M_sun, ~6× Ceres → deflexión clara
 
@@ -46,6 +51,7 @@ def _predict_assist(el, obs_jd, gaia_icrs, ast_perts):
     return radec_from_positions(ast_icrs, gaia_icrs)
 
 
+@requires_ephem
 @pytest.mark.slow
 def test_closing_loop_assist_noiseless() -> None:
     """GATE: sin ruido, el backend ASSIST recupera la masa inyectada a ratio ≈ 1."""
@@ -61,9 +67,20 @@ def test_closing_loop_assist_noiseless() -> None:
     sigma_al = np.full(n, 1.0)
 
     mass_fit, _el_fit, res = determine_mass_and_orbit(
-        _TARGET, 0.4 * _MASS_TRUE, pert_el, _EPOCH,
-        obs, ra_t, dec_t, pa, sigma_al, gaia_icrs,
-        perturber_name="pert", backend="assist", gr=True, max_iter=40,
+        _TARGET,
+        0.4 * _MASS_TRUE,
+        pert_el,
+        _EPOCH,
+        obs,
+        ra_t,
+        dec_t,
+        pa,
+        sigma_al,
+        gaia_icrs,
+        perturber_name="pert",
+        backend="assist",
+        gr=True,
+        max_iter=40,
     )
     ratio = mass_fit / _MASS_TRUE
     assert res.converged

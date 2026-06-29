@@ -41,9 +41,22 @@ from .kepler import KeplerElements, elements_to_state, state_to_elements
 # por nombre tal como los expone ASSIST. Son los que dominan las perturbaciones
 # mutuas del cinturón principal.
 BIG_ASTEROIDS: tuple[str, ...] = (
-    "Ceres", "Vesta", "Pallas", "Hygiea", "Euphrosyne", "Interamnia", "Davida",
-    "Eunomia", "Juno", "Psyche", "Cybele", "Thisbe", "Europa", "Sylvia",
-    "Camilla", "Iris",
+    "Ceres",
+    "Vesta",
+    "Pallas",
+    "Hygiea",
+    "Euphrosyne",
+    "Interamnia",
+    "Davida",
+    "Eunomia",
+    "Juno",
+    "Psyche",
+    "Cybele",
+    "Thisbe",
+    "Europa",
+    "Sylvia",
+    "Camilla",
+    "Iris",
 )
 
 _DEFAULT_PLANETS_FILE = "linux_p1550p2650.440"
@@ -86,8 +99,7 @@ def _ephem_pos_vel(ephem, name: str, t: float) -> tuple[np.ndarray, np.ndarray]:
         pp = ephem.get_particle(name, t + h)
         pm = ephem.get_particle(name, t - h)
         v = (
-            np.array([pp.x, pp.y, pp.z], dtype=float)
-            - np.array([pm.x, pm.y, pm.z], dtype=float)
+            np.array([pp.x, pp.y, pp.z], dtype=float) - np.array([pm.x, pm.y, pm.z], dtype=float)
         ) / (2.0 * h)
     return r, v
 
