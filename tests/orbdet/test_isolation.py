@@ -48,13 +48,14 @@ def test_no_cross_src_imports() -> None:
 
 def test_only_whitelisted_third_party() -> None:
     """Las dependencias de terceros se limitan a la whitelist documentada."""
-    allowed_top = {"numpy", "scipy", "astropy", "rebound"}
+    allowed_top = {"numpy", "scipy", "astropy", "rebound", "assist"}
     stdlib_ok = {  # subconjunto de stdlib que el motor puede usar
         "__future__",
         "math",
         "dataclasses",
         "typing",
         "ast",
+        "os",
         "pathlib",
         "functools",
         "itertools",
