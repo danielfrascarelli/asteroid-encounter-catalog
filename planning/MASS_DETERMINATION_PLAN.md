@@ -1,7 +1,10 @@
 # Plan: Determinación de masas de asteroides estilo Fuentes-Muñoz
 
-> **Estado:** 🟡 ACTIVO
-> **Última actualización:** 2026-06-01
+> **Estado:** 🟡 ACTIVO — **Fase 0 (T1–T5) + núcleo de Fase 1 (T6, T7) completos
+> y validados sobre datos sintéticos** (PRs #70/#71/#73–#77). Falta la fase de
+> datos reales (T8–T11). Estado y arquitectura del motor:
+> [`docs/orbdet_engine_status.md`](../docs/orbdet_engine_status.md).
+> **Última actualización:** 2026-06-28.
 > Plan para convertir el catálogo de encuentros en **determinaciones de masa
 > publicables**, replicando la metodología de **solución global simultánea**
 > (órbitas + masa por mínimos cuadrados sobre el arco completo, con la
