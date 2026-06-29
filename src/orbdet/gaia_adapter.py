@@ -192,6 +192,29 @@ def gaia_positions_icrs(x_gaia: np.ndarray, y_gaia: np.ndarray, z_gaia: np.ndarr
     )
 
 
+def fov_groups_from_epochs(obs_jd: np.ndarray, gap_days: float = 0.01) -> np.ndarray:
+    """Etiqueta cada observación con el cruce de plano focal (FOV transit) al que pertenece.
+
+    Gaia mide cada objeto con hasta ~9 CCDs por cruce, separados ~segundos
+    (~1e-4 d), mientras que cruces distintos distan ≳0.05 d. Un corte en
+    ``gap_days`` (~14 min por defecto) separa limpiamente los CCDs de un mismo cruce
+    de los de cruces distintos. Devuelve un array de enteros ``(N,)`` en el **orden
+    original** de ``obs_jd`` (no reordena). Las observaciones de un mismo grupo
+    comparten error sistemático → se blanquean con covarianza en bloques.
+    """
+    obs = np.asarray(obs_jd, dtype=float)
+    order = np.argsort(obs, kind="stable")
+    labels = np.empty(obs.size, dtype=int)
+    g = 0
+    prev = None
+    for rank, i in enumerate(order):
+        if prev is not None and (obs[i] - prev) > gap_days:
+            g += 1
+        labels[i] = g
+        prev = obs[i]
+    return labels
+
+
 def build_target_observations(
     initial_elements: KeplerElements,
     epoch_jd_tdb: float,
@@ -210,6 +233,7 @@ def build_target_observations(
     y_gaia: np.ndarray,
     z_gaia: np.ndarray,
     epoch_ref_jd_tcb: float = J2010_TCB_JD,
+    fov_gap_days: float = 0.01,
 ) -> TargetObservations:
     """Ensambla un :class:`TargetObservations` a partir de columnas crudas de Gaia.
 
@@ -227,14 +251,16 @@ def build_target_observations(
         dec_err_rand,
         corr_rand,
     )
+    obs_jd_tdb = np.asarray(obs_jd_tdb, dtype=float)
     return TargetObservations(
         initial_elements=initial_elements,
-        obs_jd_tdb=np.asarray(obs_jd_tdb, dtype=float),
+        obs_jd_tdb=obs_jd_tdb,
         ra_obs_deg=np.asarray(ra_deg, dtype=float),
         dec_obs_deg=np.asarray(dec_deg, dtype=float),
         pa_scan_deg=np.asarray(pa_scan_deg, dtype=float),
         sigma_al_mas=np.asarray(sigma_al, dtype=float),
         gaia_bary_icrs=gaia_positions_icrs(x_gaia, y_gaia, z_gaia),
+        fov_group=fov_groups_from_epochs(obs_jd_tdb, fov_gap_days),
     )
 
 
@@ -243,5 +269,6 @@ __all__ = [
     "elements_from_mpcorb",
     "propagate_elements",
     "gaia_positions_icrs",
+    "fov_groups_from_epochs",
     "build_target_observations",
 ]

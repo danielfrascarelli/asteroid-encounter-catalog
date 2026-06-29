@@ -1,11 +1,16 @@
 # Plan: Determinación de masas de asteroides estilo Fuentes-Muñoz
 
-> **Estado:** 🟡 ACTIVO — **Fase 0 (T1–T5) + núcleo de Fase 1 (T6, T7) completos
-> y validados sobre datos sintéticos** (PRs #70/#71/#73–#77). **Maquinaria de
-> datos reales (T8 modelo de fuerzas ASSIST + T9 adaptador Gaia) construida y
-> validada** (vs Horizons a sub-mas; tests verdes); falta el run end-to-end sobre
-> FPR real (T9 gate) y la validación contra literatura (T10–T11). Estado y
-> arquitectura del motor: [`docs/orbdet_engine_status.md`](../docs/orbdet_engine_status.md).
+> **Estado:** 🟡 ACTIVO — **Fase 0 (T1–T5) + Fase 1 (T6, T7) + maquinaria de datos
+> reales (T8 ASSIST + T9 adaptador Gaia) completas**. **Run Big-4 end-to-end sobre
+> FPR real ejecutado (T9 ✅).** **T10 sustancialmente alcanzado: 3/4 calibradores
+> dentro de |z|<3 con modelo de ruido bien calibrado (χ²_red≈1)** tras corregir el
+> sesgo dominante — la astrometría de Gaia entrega ~7 CCDs correlacionados por
+> cruce FOV y el ajuste los trataba como independientes (σ subestimada ×1.66). Fix:
+> **covarianza diagonal en bloques** (piso sistemático por FOV autocalibrado a
+> χ²_red≈1). El motor se confirmó **insesgado** por closing-loop sobre la geometría
+> real; queda un sobre-tiro residual común de ~12–29% (Pallas en z=3.28) atribuible
+> a sistemáticos de la astrometría real, a investigar en T11. Estado y arquitectura
+> del motor: [`docs/orbdet_engine_status.md`](../docs/orbdet_engine_status.md).
 > **Última actualización:** 2026-06-29.
 > Plan para convertir el catálogo de encuentros en **determinaciones de masa
 > publicables**, replicando la metodología de **solución global simultánea**
@@ -48,9 +53,9 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 | — | *(alternativa)* evaluar integrar OrbFit de terceros | 0 | ⬜ | spike de decisión (ver abajo) |
 | T6 | Ajuste conjunto órbita+masa de un perturber | 1 | ✅ | `src/orbdet/mass_determination.py`; closing-loop verde: masa sintética inyectada recuperada ratio≈1.0 (sin ruido <2e-3; con ruido AL dentro de 3σ, σ informativa) |
 | T7 | Stacking multi-asteroide (GM compartido, N targets) | 1 | ✅ | `mass_determination.determine_shared_mass` (sistema en flecha 1+6N); gate verde: σ(GM)∝1/√N (s2/s1≈1/√2, s4/s1≈0.5 a <5%) |
-| T8 | Modelo de fuerzas + pesos completo (efemérides, debiasing, outliers) | 1 | 🟡 | `src/orbdet/dynamics_assist.py` (ASSIST: DE440 + GR EIH + 16 perturbadores) + `backend="assist"` en el ajuste conjunto; **validado vs Horizons a 0.17 mas (1404× mejor que planetas libres)** y closing-loop ASSIST ratio≈1. Falta el gate χ²_red≈1 sobre datos reales (rechazo de outliers/debiasing) — se mide en el run end-to-end (T9/T10) |
-| T9 | Adaptador FPR → motor (obs + covarianza por tránsito) | 2 | 🟡 | `src/orbdet/gaia_adapter.py` (σ_AL por proyección de la covarianza RA/Dec, MPCORB→elementos, armonización de épocas N-cuerpos, ensamblado `TargetObservations`); **unit-tested sobre datos sintéticos**. Falta el script IO que corre Big-4 end-to-end sobre FPR real |
-| T10 | Validación contra literatura (4 calibradores + Fuentes-Muñoz + Goffin/Galád) | 2 | ⬜ | \|z\| < 3 en los 4 calibradores |
+| T8 | Modelo de fuerzas + pesos completo (efemérides, debiasing, outliers) | 1 | ✅ | `src/orbdet/dynamics_assist.py` (ASSIST: DE440 + GR EIH + 16 perturbadores); vs Horizons 0.17 mas. **χ²_red≈1 sobre datos reales** vía covarianza en bloques por FOV con piso autocalibrado (`mass_determination._block_whiten` + `calibrate_sys_floor`) + sigma-clipping 4σ. Big-4: χ²_red∈[0.97,1.00] |
+| T9 | Adaptador FPR → motor (obs + covarianza por tránsito) | 2 | ✅ | `src/orbdet/gaia_adapter.py` (σ_AL, MPCORB→elementos, épocas N-cuerpos, **`fov_groups_from_epochs`** para los bloques de correlación). `scripts/mass/orbdet_fit_realdata.py` corre **Big-4 end-to-end sobre FPR real** (calibración de piso + stacking + rechazo) |
+| T10 | Validación contra literatura (4 calibradores + Fuentes-Muñoz + Goffin/Galád) | 2 | 🟡 | **3/4 dentro de \|z\|<3** (Ceres 1.50, Vesta 1.98, Hygiea 1.31; Pallas 3.28). χ²_red≈1, σ informativa (6–15%), motor insesgado (closing-loop real z≈0). Residual común +12–29% (sistemático de datos) → cerrar Pallas y cruce Fuentes-Muñoz pendientes |
 | T11 | Corrida de producción + catálogo de masas + writeup | 2 | ⬜ | ≥1 masa nueva defendible |
 
 ---
@@ -175,6 +180,43 @@ con incertidumbres, y writeup publicable.
 literatura donde solapa). **Depende de:** T10.
 
 ---
+
+## Resultados T9/T10 (run Big-4 sobre FPR real, 2026-06-29)
+
+`scripts/mass/orbdet_fit_realdata.py --perturber big4 --release fpr` (stacking
+conjunto órbitas+masa, backend ASSIST, piso sistemático autocalibrado, clip 4σ):
+
+| Cuerpo | masa ajustada (kg) | σ | χ²_red | s_c (mas) | ratio fit/lit | z |
+|--------|--------------------|---|--------|-----------|---------------|---|
+| Ceres  | 1.215×10²¹ | 1.8×10²⁰ | 0.995 | 2.16 | 1.29 | **1.50** ✅ |
+| Pallas | 2.542×10²⁰ | 1.4×10¹⁹ | 0.993 | 0.87 | 1.24 | **3.28** ⚠️ |
+| Vesta  | 3.018×10²⁰ | 2.2×10¹⁹ | 0.965 | 1.75 | 1.17 | **1.98** ✅ |
+| Hygiea | 9.263×10¹⁹ | 6.2×10¹⁸ | 0.994 | 0.95 | 1.12 | **1.31** ✅ |
+
+(lit: Ceres/Vesta DAWN, Pallas Goffin 2014, Hygiea Vernazza 2020.)
+
+**El descubrimiento clave — correlación intra-tránsito.** El primer run (covarianza
+diagonal) daba χ²_red≈1.2–1.4 y z hasta 4.3, con todas las masas sesgadas al alza.
+Diagnóstico (`scripts/dev/orbdet_*.py`):
+- Deriva del perturbador integrado libre vs DE441: **<1 km** sobre ±500 d → descartado.
+- Gaia mide **~7 CCDs por cruce FOV** (separados ~5 s) con residuos **correlacionados**
+  (ICC≈0.32 medido); tratarlos como independientes sobre-cuenta la información →
+  σ(masa) subestimada **×1.66** (N_efectivo ≈ 36% de N).
+
+**Fix (estado del arte):** covarianza **diagonal en bloques** `C_bloque = diag(σ_AL²)
++ s_c²·11ᵀ` por cruce FOV, con el piso correlacionado `s_c` **autocalibrado** para
+χ²_red≈1 (es el piso de error sistemático por tránsito que usan los trabajos de Gaia).
+Blanqueo de Cholesky por bloque ⇒ la covarianza del ajuste es la honesta sin reescalar.
+Resultado: χ²_red≈1, σ informativa, y la estimación puntual se **mueve hacia la
+verdad** (Ceres 1.52×→1.29×).
+
+**El motor es insesgado.** Closing-loop sobre la **geometría real** (obs sintéticas a
+la masa verdadera + ruido realista, mismo pipeline): recupera la masa inyectada
+dentro de 1σ (z≈0). Luego el sobre-tiro residual común de +12–29% en datos reales es
+un **sistemático de la astrometría de Gaia**, no un bug del motor (candidatos:
+deflexión gravitacional de la luz no modelada, incertidumbres reales de la literatura
+terrestre, perturbadores menores fuera de los 16). Cerrarlo (y bajar Pallas de 3.28)
+es trabajo de T11.
 
 ## Fuera de scope
 - Detección/caracterización de encuentros (ya hecho y congelado, ver `FROZEN_RUN.md`).

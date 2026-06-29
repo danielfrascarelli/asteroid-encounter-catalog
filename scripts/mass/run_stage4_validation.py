@@ -47,7 +47,7 @@ class Calibrator:
 
 
 _CALIBRATORS: list[Calibrator] = [
-    Calibrator(1, "Ceres", 4.71e20, 0.04e20, "DAWN (Park+ 2016)"),
+    Calibrator(1, "Ceres", 9.384e20, 0.014e20, "DAWN (Park+ 2016)"),
     Calibrator(4, "Vesta", 2.59e20, 0.01e20, "DAWN (Russell+ 2012)"),
     Calibrator(2, "Pallas", 2.05e20, 0.05e20, "Goffin (2014)"),
     Calibrator(10, "Hygiea", 8.3e19, 0.4e19, "Vernazza+ (2020)"),
