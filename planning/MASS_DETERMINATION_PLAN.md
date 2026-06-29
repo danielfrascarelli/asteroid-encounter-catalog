@@ -1,16 +1,15 @@
 # Plan: Determinación de masas de asteroides estilo Fuentes-Muñoz
 
-> **Estado:** 🟡 ACTIVO — **Fase 0 (T1–T5) + Fase 1 (T6, T7) + maquinaria de datos
-> reales (T8 ASSIST + T9 adaptador Gaia) completas**. **Run Big-4 end-to-end sobre
-> FPR real ejecutado (T9 ✅).** **T10 sustancialmente alcanzado: 3/4 calibradores
-> dentro de |z|<3 con modelo de ruido bien calibrado (χ²_red≈1)** tras corregir el
-> sesgo dominante — la astrometría de Gaia entrega ~7 CCDs correlacionados por
-> cruce FOV y el ajuste los trataba como independientes (σ subestimada ×1.66). Fix:
-> **covarianza diagonal en bloques** (piso sistemático por FOV autocalibrado a
-> χ²_red≈1). El motor se confirmó **insesgado** por closing-loop sobre la geometría
-> real; queda un sobre-tiro residual común de ~12–29% (Pallas en z=3.28) atribuible
-> a sistemáticos de la astrometría real, a investigar en T11. Estado y arquitectura
-> del motor: [`docs/orbdet_engine_status.md`](../docs/orbdet_engine_status.md).
+> **Estado:** 🟢 T1–T11 COMPLETOS. Motor de OD+masa propio (`src/orbdet/`) validado
+> sobre Gaia FPR real: **4/4 calibradores |z|<3** con N≥20 objetivos (masas DAWN/
+> Vernazza a ~5%), refutando el cierre Track A (el problema era el método LOO, no el
+> leverage de Gaia). **Masa nueva defendible: (16) Psyche = 2.43×10¹⁹ kg ±3.3%**
+> (T11). Claves: (1) **covarianza en bloques por FOV** (los ~7 CCDs correlacionados
+> por cruce que el ajuste trataba como independientes) + autocalibración del piso;
+> (2) **muchos objetivos** (el "sobre-tiro" de N=7 era muestra chica); (3)
+> **paralelización** (~6×). Límite hallado: perturbadores con deflexión débil se
+> sesgan bajos (absorción de señal). Resultados: [`docs/mass_determination_results.md`](../docs/mass_determination_results.md).
+> Arquitectura: [`docs/orbdet_engine_status.md`](../docs/orbdet_engine_status.md).
 > **Última actualización:** 2026-06-29.
 > Plan para convertir el catálogo de encuentros en **determinaciones de masa
 > publicables**, replicando la metodología de **solución global simultánea**
@@ -56,7 +55,7 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 | T8 | Modelo de fuerzas + pesos completo (efemérides, debiasing, outliers) | 1 | ✅ | `src/orbdet/dynamics_assist.py` (ASSIST: DE440 + GR EIH + 16 perturbadores); vs Horizons 0.17 mas. **χ²_red≈1 sobre datos reales** vía covarianza en bloques por FOV con piso autocalibrado (`mass_determination._block_whiten` + `calibrate_sys_floor`) + sigma-clipping 4σ. Big-4: χ²_red∈[0.97,1.00] |
 | T9 | Adaptador FPR → motor (obs + covarianza por tránsito) | 2 | ✅ | `src/orbdet/gaia_adapter.py` (σ_AL, MPCORB→elementos, épocas N-cuerpos, **`fov_groups_from_epochs`** para los bloques de correlación). `scripts/mass/orbdet_fit_realdata.py` corre **Big-4 end-to-end sobre FPR real** (calibración de piso + stacking + rechazo) |
 | T10 | Validación contra literatura (4 calibradores + Fuentes-Muñoz + Goffin/Galád) | 2 | ✅ | **4/4 dentro de \|z\|<3** con muchos objetivos (N≥20) y modelo de error correcto: Ceres z=−1.01, Vesta −1.30, Hygiea −0.13 (los 3 bien muestreados a ~5%); Pallas +2.67 (N=6, target-limited). El "sobre-tiro +12–29%" de N=7 era **dispersión de muestra chica**, no sistemático: a N≥20 las masas DAWN/Vernazza se recuperan a ~5% (sesgo medio −4%). Falta cruce Fuentes-Muñoz (T11) |
-| T11 | Corrida de producción + catálogo de masas + writeup | 2 | 🟡 | **Maquinaria de producción lista**: selección de objetivos por catálogo (`--from-catalog`), **paralelización** (pool por objetivo, ~6× speedup), `build_mass_catalog.py` con piso sistemático calibrado. Falta el barrido de los 12 perturbadores restantes (masas nuevas) + writeup |
+| T11 | Corrida de producción + catálogo de masas + writeup | 2 | ✅ | **Barrido de los 16 perturbadores hecho** (`scripts/mass/build_mass_catalog.py`, `docs/mass_determination_results.md`). **Masa nueva defendible: (16) Psyche = 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441, N=36). Hallazgo: perturbadores con deflexión débil se sesgan bajos (absorción de señal masa↔órbita) → σ formal subestima; estimación externa por-perturbador queda como trabajo futuro |
 
 ---
 

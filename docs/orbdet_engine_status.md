@@ -68,7 +68,7 @@ eclíptico J2000 baricéntrico para la dinámica; ICRS para la observación.
 | T8 | Fuerzas + pesos completos | ✅ | ASSIST vs Horizons 0.17 mas; **χ²_red≈1 sobre datos reales** vía covarianza en bloques por FOV (piso `s_c` autocalibrado) + clip 4σ. Big-4 FPR: χ²_red∈[0.97,1.00] |
 | T9 | Adaptador FPR/DR3 → motor | ✅ | adaptador + `fov_groups_from_epochs`; `scripts/mass/orbdet_fit_realdata.py` corre **Big-4 end-to-end sobre FPR real** |
 | T10 | Validación literatura | ✅ | **4/4 |z|<3** con N≥20 objetivos: Ceres −1.01, Vesta −1.30, Hygiea −0.13 (~5%); Pallas +2.67 (N=6, target-limited). El sobre-tiro de N=7 era muestra chica; a N≥20 recupera DAWN/Vernazza a ~5%. Falta Fuentes-Muñoz |
-| T11 | Producción + catálogo | 🟡 | maquinaria lista (`--from-catalog`, paralelización ~6×, `build_mass_catalog.py` con piso sistemático); falta barrido de 12 perturbadores + writeup |
+| T11 | Producción + catálogo | ✅ | barrido de 16 perturbadores (`build_mass_catalog.py`, `docs/mass_determination_results.md`). **Masa nueva: (16) Psyche 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441). Perturbadores débiles sesgados bajos (absorción de señal) → trabajo futuro |
 
 PRs de la sesión 2026-06-28: T3 #73, T4 #74, T5 #75, T6 #76, T7 #77.
 Sesión 2026-06-29: maquinaria T8/T9 (`dynamics_assist`, `gaia_adapter`); run Big-4

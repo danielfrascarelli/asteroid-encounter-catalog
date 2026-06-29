@@ -89,7 +89,27 @@ from src.utils.config import GaiaReleaseConfig, load_config
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# Nombre de la efeméride (DE441) por número MPC, para los 4 calibradores Big-4.
+# Nombre de la efeméride (DE441) por número MPC para los 16 perturbadores grandes
+# (los únicos cuya órbita expone la efeméride sb441-n16; ver BIG_ASTEROIDS).
+_EPHEM_NAME_BY_NUMBER: dict[int, str] = {
+    1: "Ceres",
+    2: "Pallas",
+    3: "Juno",
+    4: "Vesta",
+    7: "Iris",
+    10: "Hygiea",
+    15: "Eunomia",
+    16: "Psyche",
+    31: "Euphrosyne",
+    52: "Europa",
+    65: "Cybele",
+    87: "Sylvia",
+    88: "Thisbe",
+    107: "Camilla",
+    511: "Davida",
+    704: "Interamnia",
+}
+# Calibradores con masa de literatura de alta precisión (subconjunto de validación).
 _BIG4_NAME_BY_NUMBER: dict[int, str] = {1: "Ceres", 2: "Pallas", 4: "Vesta", 10: "Hygiea"}
 
 # Mínimo de tránsitos por objetivo para que aporte al ajuste.
@@ -99,11 +119,11 @@ _MIN_OBS_PER_TARGET: int = 8
 def _ephem_name_for_perturber(number: int, csv_name: str | None) -> str:
     """Nombre tal como lo expone la efeméride DE441 (ASSIST) para *number*.
 
-    Prefiere el mapa explícito de los Big-4; si no, intenta el nombre del CSV
+    Prefiere el mapa explícito de los 16 grandes; si no, intenta el nombre del CSV
     (capitalizado) y verifica que ASSIST lo conozca.
     """
-    if number in _BIG4_NAME_BY_NUMBER:
-        return _BIG4_NAME_BY_NUMBER[number]
+    if number in _EPHEM_NAME_BY_NUMBER:
+        return _EPHEM_NAME_BY_NUMBER[number]
     if csv_name:
         cand = csv_name.strip().capitalize()
         if cand in BIG_ASTEROIDS:
