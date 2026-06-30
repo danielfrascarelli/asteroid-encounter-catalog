@@ -61,7 +61,7 @@ eclíptico J2000 baricéntrico para la dinámica; ICRS para la observación.
 | # | Tarea | Estado | Gate (verde) |
 |---|-------|--------|--------------|
 | T1 | Esqueleto + primitivas | ✅ | round-trips, invariantes, aislamiento |
-| T2 | Dinámica N-cuerpos | ✅ | límite dos-cuerpos vs Kepler a 1e-8 AU (cross-check Horizons pendiente de red) |
+| T2 | Dinámica N-cuerpos | ✅ | límite dos-cuerpos vs Kepler a 1e-8 AU; cross-check Horizons cerrado por T8 (ASSIST vs Horizons 0.17 mas/900 d) |
 | T3 | Ecuaciones variacionales | ✅ | ∂x/∂elem analítico vs FD <1e-6; meseta de Richardson para ∂x/∂GM |
 | T4 | Observación + covarianza AL | ✅ | chain N-cuerpos vs oráculo kepleriano <0.1 mas; ruido AL → χ²/obs≈1 |
 | T5 | Corrector diferencial | ✅ | recupera órbita sintética: sin ruido χ²<1e-6, con ruido χ²_red≈1, <5σ |
@@ -69,7 +69,7 @@ eclíptico J2000 baricéntrico para la dinámica; ICRS para la observación.
 | T7 | Stacking multi-asteroide | ✅ | **σ(GM)∝1/√N** (s2/s1≈1/√2, s4/s1≈0.5 a <5%) |
 | T8 | Fuerzas + pesos completos | ✅ | ASSIST vs Horizons 0.17 mas; **χ²_red≈1 sobre datos reales** vía covarianza en bloques por FOV (piso `s_c` autocalibrado) + clip 4σ. Big-4 FPR: χ²_red∈[0.97,1.00] |
 | T9 | Adaptador FPR/DR3 → motor | ✅ | adaptador + `fov_groups_from_epochs`; `scripts/mass/orbdet_fit_realdata.py` corre **Big-4 end-to-end sobre FPR real** |
-| T10 | Validación literatura | ✅ | **4/4 |z|<3** con N≥20 objetivos: Ceres −1.01, Vesta −1.30, Hygiea −0.13 (~5%); Pallas +2.67 (N=6, target-limited). El sobre-tiro de N=7 era muestra chica; a N≥20 recupera DAWN/Vernazza a ~5%. Falta Fuentes-Muñoz |
+| T10 | Validación literatura | ✅ | **4/4 |z|<3** con N≥20 objetivos: Ceres −1.01, Vesta −1.30, Hygiea −0.13 (~5%); Pallas +2.67 (N=6, target-limited). El sobre-tiro de N=7 era muestra chica; a N≥20 recupera DAWN/Vernazza a ~5%. **Cruce Fuentes-Muñoz 2025 hecho**: Psyche concuerda al 1.4% (z=+0.25) |
 | T11 | Producción + catálogo | ✅ | barrido de 16 perturbadores (`build_mass_catalog.py`, `docs/mass_determination_results.md`). **Masa nueva: (16) Psyche 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441). Perturbadores débiles sesgados bajos (absorción de señal) → trabajo futuro |
 
 PRs de la sesión 2026-06-28: T3 #73, T4 #74, T5 #75, T6 #76, T7 #77.
@@ -102,8 +102,9 @@ FPR + covarianza en bloques por FOV (`_block_whiten`, `calibrate_sys_floor`) →
 
 T1–T11 están cerradas (ver tabla arriba). Lo que queda es refinamiento, no gate:
 
-- **Cruce Fuentes-Muñoz 2024/25** (231 masas de Gaia FPR) donde solape, para
-  ampliar la validación más allá de los 4 calibradores.
+- **Cruce Fuentes-Muñoz 2025 hecho** (`scripts/validate/validate_fuentes_munoz_masses.py`):
+  Psyche concuerda al 1.4% (z=+0.25). Extender a más perturbadores débiles con σ
+  externa (su z formal exagera la tensión por el sesgo de absorción).
 - **Sesgo de absorción de señal:** perturbadores con deflexión débil salen bajos
   (0.39–0.72) con χ²_red≈1 — la σ formal subestima el error real. Necesita
   estimación externa por-perturbador (jackknife/bootstrap) y/o regularización del

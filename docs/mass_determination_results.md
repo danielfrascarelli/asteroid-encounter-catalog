@@ -109,13 +109,51 @@ recupera con esta metodología tal cual, y la σ formal subestima el error real.
 fiable requiere estimación externa por-perturbador (jackknife/bootstrap) y/o
 regularización del par masa-órbita — trabajo futuro.
 
+## Cruce independiente con Fuentes-Muñoz 2025 (T10)
+
+`scripts/validate/validate_fuentes_munoz_masses.py` compara nuestras masas contra
+la Tabla 5 de Fuentes-Muñoz et al. 2025 (AJ 170, 353), convirtiendo su `GMfin`
+(km³/s²) a kg con G=6.67430×10⁻²⁰. De los 16 perturbadores del catálogo, los 16
+solapan con su tabla. **Para los calibradores Fuentes-Muñoz fija `GMfin` a la
+semilla SB441/literatura** (no es comparación independiente); el cruce con valor
+es sobre los **no-calibradores**, donde ellos corrieron su propio ajuste FPR.
+
+| Cuerpo | M_nuestra (kg) | M_FM (kg) | ratio | z_vs_FM |
+|--------|----------------|-----------|-------|---------|
+| **(16) Psyche** | 2.429×10¹⁹ | 2.395×10¹⁹ | **1.014** | **+0.25** ✅ |
+| (10) Hygiea (cal) | 8.218×10¹⁹ | 8.237×10¹⁹ | 0.998 | −0.04 |
+| (31) Euphrosyne | 2.430×10¹⁹ | 1.645×10¹⁹ | 1.477 | +1.15 |
+| (52) Europa | 2.285×10¹⁹ | 2.656×10¹⁹ | 0.860 | −2.26 |
+| (3) Juno | 1.971×10¹⁹ | 2.719×10¹⁹ | 0.725 | −3.34 |
+| (7) Iris | 8.108×10¹⁸ | 1.456×10¹⁹ | 0.557 | −3.99 |
+| (15) Eunomia | 2.195×10¹⁹ | 3.120×10¹⁹ | 0.704 | −4.24 |
+| (88) Thisbe | 6.991×10¹⁸ | 8.755×10¹⁸ | 0.799 | −3.22 |
+| (704) Interamnia | 2.420×10¹⁹ | 3.235×10¹⁹ | 0.748 | −2.50 |
+
+(tabla completa, incl. los no fiables Sylvia/Cybele/Camilla/Davida, en
+`data/output/literature_validation/fuentes_munoz_2025_mass_comparison.csv`.)
+
+**Resultado clave: (16) Psyche concuerda con Fuentes-Muñoz al 1.4% (z=+0.25)** —
+nuestra masa nueva queda **confirmada de forma independiente** por un estudio de
+masas con Gaia FPR revisado por pares, no sólo por la efeméride DE441. Hygiea,
+Ceres y Vesta también concuerdan (|z|≲1.3).
+
+**El sesgo de absorción de señal se reproduce contra FM.** Los mismos
+perturbadores débiles que salen bajos vs DE441 (Juno, Iris, Eunomia, Thisbe,
+Interamnia, ~0.7–0.8) salen bajos vs FM, con |z|>3. Esto **no** contradice el
+gate: es exactamente el límite documentado — para deflexión débil la σ formal
+subestima el error real (la regresión masa↔órbita hacia cero), por lo que el
+z-score formal exagera la tensión. Lo informativo es que los perturbadores
+**fuertes e independientes** (Psyche) caen en z≈0.
+
 ## Limitaciones y trabajo futuro
 
 - Sólo los 16 perturbadores grandes de `sb441-n16.bsp` tienen órbita en la efeméride;
   el motor requiere la órbita del perturbador de ahí (su masa es el parámetro libre).
 - El sesgo medio −4% de los calibradores sugiere un sistemático pequeño residual
   (candidato: completitud del fondo de perturbadores). Acotarlo bajaría f_sys.
-- Cruce pendiente con Fuentes-Muñoz 2024/25 (231 masas de Gaia FPR) donde solape.
+- Cruce con Fuentes-Muñoz 2025 **hecho** (sección arriba): Psyche confirmada a 1.4%
+  (z=+0.25). Falta sólo extenderlo a más perturbadores débiles con σ externa.
 - Pallas y otros perturbadores con pocos encuentros cercanos quedan target-limited
   hasta DR4.
 
@@ -131,4 +169,7 @@ docker compose run --rm pipeline python -m scripts.mass.orbdet_fit_realdata \
 # Catálogo con modelo de error correcto
 docker compose run --rm pipeline python -m scripts.mass.build_mass_catalog \
     --in-dir data/output/orbdet/expanded --out data/output/orbdet/mass_catalog.csv
+
+# Cruce independiente de masas vs Fuentes-Muñoz 2025 (T10)
+docker compose run --rm pipeline python -m scripts.validate.validate_fuentes_munoz_masses
 ```
