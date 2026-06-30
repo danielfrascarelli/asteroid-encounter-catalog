@@ -3,7 +3,7 @@
 Implementación propia ("OrbFit de cero") de un motor de determinación de órbitas
 por mínimos cuadrados, y sobre él la determinación de masas de asteroides
 perturbadores por el método de encuentros cercanos (estrategia tipo
-Fuentes-Muñoz). Implementa el plan completo [`planning/MASS_DETERMINATION_PLAN.md`](../../planning/MASS_DETERMINATION_PLAN.md) (T1–T11).
+Fuentes-Muñoz). Estado y gates en [`docs/orbdet_engine_status.md`](../../docs/orbdet_engine_status.md); resultados en [`docs/mass_determination_results.md`](../../docs/mass_determination_results.md).
 
 ## Por qué existe (y por qué aislado)
 

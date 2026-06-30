@@ -7,12 +7,13 @@
 ## Estado actual (2026-06-30)
 
 > **Nota (junio 2026):** además de las Fases 1–7 (catálogo de encuentros, abajo),
-> el proyecto completó un **motor propio de determinación de órbitas + masa**
-> (`src/orbdet/`, plan [planning/MASS_DETERMINATION_PLAN.md](planning/MASS_DETERMINATION_PLAN.md),
-> T1–T11 ✅, PR #80). Valida los 4 calibradores sobre Gaia FPR a |z|<3 y produce
-> una masa nueva: **(16) Psyche = 2.43×10¹⁹ kg ±3.3%**. Esto **reabre la capa de
-> masas que Track A había cerrado** (el problema era el método LOO, no los datos —
-> ver el bullet de "Capa de masas" más abajo).
+> el proyecto incorporó un motor de determinación de órbitas y masa (`src/orbdet/`,
+> PR #80; estado y gates en
+> [docs/orbdet_engine_status.md](docs/orbdet_engine_status.md)). Recupera las 4
+> masas calibradoras sobre Gaia FPR con |z| < 3 y determina (16) Psyche
+> = 2.43×10¹⁹ kg (σ_stat 3.3 %; ratio 1.014 frente a Fuentes-Muñoz 2025, z = +0.25).
+> Acota la causa del cierre de Track A al método secuencial (LOO), no al leverage de
+> los datos (bullet "Capa de masas" más abajo).
 
 
 **Fases 1–7 originales completas.** Pipeline end-to-end operativo: ingesta MPCORB + Gaia DR3 → propagación → detección KD-tree → caracterización → catálogo Parquet → dashboard Streamlit. Última corrida sobre **98.775 asteroides numerados (a∈[1.5, 4.0] AU)** en la ventana Gaia DR3 (2014-07-25 → 2017-05-28) a umbral **0.05 AU** produce **4.036.495 encuentros** en ~23 min (Kepler, 28 workers).
@@ -33,10 +34,10 @@
 **Bugs / limitaciones conocidos en `main`** (no son "bugs de código" todos — varios son limitaciones científicas explícitas; ver [FROZEN_RUN.md](FROZEN_RUN.md) para el alcance defensible del catálogo congelado):
 
 - **Refinamiento final del catálogo Kepler congelado es 2-cuerpos.** En modo tiered el KD-tree usa rebound, pero el sub-grid fino que produce la distancia mínima reportada en `encounters_catalog_rebound_005au.parquet` corre `kepler_to_cartesian` ([src/detect/pipeline.py](src/detect/pipeline.py)). Para sub-mAU sobre pares de alta `e` / bajo `q`, usar `encounters_catalog_hybrid_stageb.parquet` (refinamiento N-body sobre el 12 % crítico).
-- **Completitud cuantificada (audit blocker #2).** El prefiltro orbital (\|Δa\|≤0.5 AU, \|Δi\|≤30°) es heurístico; su recall en la cola adversa (alta e/i) ahora está **medido**: **76.4 %** (pierde ~143 k encuentros reales, casi todos por el corte \|Δa\|≤0.5 ciego a la excentricidad). Fix verificado: prefiltro de solapamiento radial → 100 % recall. No usar "completo" sobre el catálogo congelado. Detalle: [docs/prefilter_recall.md](docs/prefilter_recall.md).
+- **Completitud cuantificada (audit blocker #2).** El prefiltro orbital (\|Δa\|≤0.5 AU, \|Δi\|≤30°) es heurístico; su recall en la cola adversa (alta e/i) ahora está **medido**: **76.4 %** (pierde ~143 k encuentros reales, en su mayoría por el corte \|Δa\|≤0.5 ciego a la excentricidad). Fix verificado: prefiltro de solapamiento radial → 100 % recall. No usar "completo" sobre el catálogo congelado. Detalle: [docs/prefilter_recall.md](docs/prefilter_recall.md).
 - **Validación de precisión limitada por cadencia.** Los cross-checks contra JPL Horizons toman `argmin` a 30 min – 1 h. El claim de "0 μAU MAE" es a esa cadencia sobre ~8 pares, no una prueba global.
-- **Capa de masas: el enfoque viejo por-encuentro (Track A / LOO) quedó cerrado, pero un motor nuevo lo reabrió y SÍ determina masas.** El veredicto de Track A (mayo 2026, PRs #34–#51) — *ninguna masa determinable con el LOO secuencial sobre DR3, incluido Ceres*, por no-identificabilidad de la degeneración masa↔deltas-orbitales — sigue siendo correcto **para ese método** ([docs/mass_layer_track_a_closure.md](docs/mass_layer_track_a_closure.md)). Lo que estaba mal era el **método** (ajuste secuencial órbita→masa), no el leverage de los datos. El motor `src/orbdet/` (junio 2026, PR #80, T1–T11 ✅) resuelve **órbitas + masa JUNTAS** sobre el arco completo (estrategia Fuentes-Muñoz/OrbFit/JPL) con las ecuaciones variacionales y stacking multi-objetivo, y **sobre Gaia FPR recupera los 4 calibradores dentro de |z|<3** (Ceres/Vesta/Hygiea a ~5% con N≥20; Pallas target-limited) y **produce una masa nueva defendible: (16) Psyche = 2.43×10¹⁹ kg ±3.3%**. Ver [planning/MASS_DETERMINATION_PLAN.md](planning/MASS_DETERMINATION_PLAN.md) y [docs/mass_determination_results.md](docs/mass_determination_results.md).
-  - **Implicación**: las masas previamente reportadas por el LOO ((111) Ate 5.43×10¹⁷ kg, etc.) **no son defendibles** y quedan reemplazadas por las del motor `orbdet`. Limitación residual: perturbadores con deflexión débil se sesgan bajos (absorción de señal masa↔órbita) → su σ formal subestima el error; estimación externa por-perturbador queda como trabajo futuro.
+- **Capa de masas: el enfoque por-encuentro (Track A / LOO) está cerrado; el motor `orbdet` determina masas por ajuste simultáneo.** El veredicto de Track A (mayo 2026, PRs #34–#51) — ninguna masa determinable con el LOO secuencial sobre DR3 por no-identificabilidad de la degeneración masa↔Δ-elementos — es válido para ese método ([docs/mass_layer_track_a_closure.md](docs/mass_layer_track_a_closure.md)). El motor `src/orbdet/` (PR #80) ajusta órbitas y masa de forma simultánea sobre el arco completo, con ecuaciones variacionales y stacking multi-objetivo; sobre Gaia FPR recupera las 4 masas calibradoras con |z| < 3 (Ceres/Vesta/Hygiea con N ≥ 20: ratio en [0.943, 0.990]; Pallas limitado por objetivos) y determina (16) Psyche = 2.43×10¹⁹ kg (σ_stat 3.3 %; ratio 1.014 frente a Fuentes-Muñoz 2025, z = +0.25). La causa del cierre queda acotada al método secuencial, no al leverage. Estado: [docs/orbdet_engine_status.md](docs/orbdet_engine_status.md); resultados: [docs/mass_determination_results.md](docs/mass_determination_results.md).
+  - **Implicación**: las masas reportadas por el LOO ((111) Ate 5.43×10¹⁷ kg, etc.) quedan reemplazadas por las del motor `orbdet`. Limitación medida: 6 perturbadores con deflexión por debajo del ruido por-encuentro dan ratio fit/DE441 en [0.39, 0.72] (degeneración masa↔órbita); su σ formal subestima el error. Ítems abiertos en [planning/MASS_FUTURE_WORK.md](planning/MASS_FUTURE_WORK.md).
 
 *Resueltos en PR #23 (2026-05-18)*:
 - `src/detect/parallel.py`: (a) pairs del prefilter grandes → volcado a tempfile + memmap en workers en lugar de pickle; (b) `positions=memmap` con N=100k+ → compartido vía filename+shape, sin serializar el array de 30 GB.

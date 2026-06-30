@@ -1,8 +1,7 @@
 """Cross-check our orbdet mass catalog against Fuentes-Muñoz et al. (2025) masses.
 
-This is the **mass** cross-check that closes the T10 gate of
-``planning/MASS_DETERMINATION_PLAN.md`` ("acuerdo con un número significativo de
-masas de Fuentes-Muñoz"). The companion script
+This is the **mass** cross-check against an independent Gaia-FPR mass study (see
+``docs/mass_determination_results.md``). The companion script
 ``validate_fuentes_munoz_2025.py`` validates *encounter pairs*; this one validates
 the *determined masses*.
 

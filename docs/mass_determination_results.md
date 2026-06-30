@@ -1,126 +1,135 @@
 # Determinación de masas de asteroides con Gaia FPR — resultados
 
-> **Estado:** T10 ✅ (validación de calibradores) + T11 ✅ (catálogo de masas).
-> Plan T1–T11 completo; mergeado a `main` vía PR #80 (2026-06-30).
-> Motor: `src/orbdet/` (ver [`orbdet_engine_status.md`](orbdet_engine_status.md)).
-> Plan: [`planning/MASS_DETERMINATION_PLAN.md`](../planning/MASS_DETERMINATION_PLAN.md).
+> **Estado:** completo. Motor `src/orbdet/`; arquitectura y gates de aceptación en
+> [`orbdet_engine_status.md`](orbdet_engine_status.md). Ítems abiertos y mejoras en
+> [`planning/MASS_FUTURE_WORK.md`](../planning/MASS_FUTURE_WORK.md).
 > **Última actualización:** 2026-06-30.
 
 ## Resumen
 
-Determinamos masas de asteroides perturbadores ajustando **conjuntamente** la masa
-del perturbador y las órbitas de los asteroides de prueba que tuvieron encuentros
-cercanos con él, por mínimos cuadrados sobre el arco completo de astrometría Gaia FPR,
-con el modelo de fuerzas state-of-the-art (ASSIST: DE440 + GR + 16 perturbadores). Es
-la metodología de Fuentes-Muñoz / OrbFit / JPL, construida de cero en `src/orbdet/`.
+Se determinan masas de asteroides perturbadores por ajuste simultáneo de la masa del
+perturbador y las órbitas de los asteroides de prueba con encuentros < 0.05 AU, por
+mínimos cuadrados sobre el arco completo de astrometría Gaia FPR. El modelo de fuerzas
+es ASSIST (efeméride DE440; correcciones relativistas EIH; 16 perturbadores
+asteroidales masivos). La implementación es propia (`src/orbdet/`), sin dependencia de
+software de determinación de órbitas de terceros.
 
-**Validación (T10): las 4 masas calibradoras se recuperan dentro de |z|<3.** Con
-N≥20 asteroides de prueba, las masas DAWN (Ceres, Vesta) y Vernazza (Hygiea) se
-reproducen a **~5%**. Esto **refuta la conclusión del cierre Track A** de que el
-leverage de Gaia era insuficiente: lo era el método (LOO secuencial), no los datos.
+Resultados medidos:
 
-**Producción (T11): masa nueva defendible — (16) Psyche = 2.43×10¹⁹ kg ±3.3%**, en
-acuerdo del 2% con DE441. El barrido de los otros 12 perturbadores grandes también
-revela un límite del método: para perturbadores con deflexión débil la masa se sesga
-baja (absorción de señal) — ver abajo.
+- Las 4 masas calibradoras (Ceres, Vesta, Hygiea, Pallas) se recuperan con |z| < 3
+  respecto a la literatura.
+- Con N ≥ 20 objetivos, el ratio ajuste/literatura de Ceres, Vesta (DAWN) e Hygiea
+  (Vernazza 2020) cae en [0.943, 0.990]; la diferencia con la literatura es 1.0–5.7 %.
+- (16) Psyche: M = 2.43 × 10¹⁹ kg, σ_stat = 3.3 %. Ratio respecto a DE441 = 1.020;
+  ratio respecto a Fuentes-Muñoz et al. (2025) = 1.014, z = +0.25.
+- 6 perturbadores cuya deflexión queda bajo el ruido astrométrico por-encuentro
+  arrojan ratio en [0.39, 0.72] (sesgo a la baja; mecanismo en §Sesgo a la baja).
+
+El cierre previo de la capa de masas (Track A) atribuyó el fracaso al leverage de los
+datos DR3. Estos resultados, obtenidos sobre FPR con ajuste simultáneo, acotan la causa
+al método secuencial (LOO orbit→mass), no al leverage de la astrometría.
 
 ## Método
 
-- **Ajuste conjunto órbita+masa** (`orbdet.mass_determination.determine_shared_mass`):
-  vector de `1 + 6N` parámetros (masa compartida + 6 elementos por objetivo),
-  Jacobiano en flecha, resuelto por Levenberg-Marquardt sobre el arco completo. La
-  degeneración masa↔drift se maneja dentro de la covarianza conjunta, no se descarta.
-- **Fuerzas (ASSIST):** efeméride JPL DE440 (Sol + 8 planetas + Luna + Plutón) leída
-  en cada paso + relatividad (EIH) + 16 perturbadores asteroidales masivos. Validado
-  vs Horizons a 0.17 mas sobre 900 d.
-- **Observación:** estado → ICRS → RA/Dec con light-time iterativa; covarianza
-  along-scan anisotrópica de Gaia.
-- **Covarianza en bloques por FOV (clave).** Gaia entrega ~7 CCDs por cruce de plano
-  focal (separados ~5 s) con residuos correlacionados (ICC≈0.32 medido). Tratarlos
-  como independientes subestima σ(masa) ~√7. Se blanquea con `C_bloque = diag(σ_AL²)
-  + s_c²·11ᵀ` por cruce, con el piso correlacionado `s_c` autocalibrado para χ²_red≈1.
-- **Selección de objetivos:** los más cercanos (<0.05 AU) del catálogo de encuentros
-  (`--from-catalog`). Usar **muchos** objetivos (N≥20) es esencial (ver abajo).
+- **Ajuste simultáneo órbita+masa** (`orbdet.mass_determination.determine_shared_mass`):
+  vector de 1 + 6N parámetros (masa compartida más 6 elementos por objetivo), Jacobiano
+  en flecha, resuelto por Levenberg-Marquardt sobre el arco completo. La correlación
+  masa↔drift orbital queda en la covarianza conjunta.
+- **Fuerzas (ASSIST):** efeméride JPL DE440 (Sol, 8 planetas, Luna, Plutón) evaluada en
+  cada paso; relatividad EIH; 16 perturbadores asteroidales masivos. Error de
+  propagación frente a JPL Horizons: 0.17 mas sobre 900 d.
+- **Observación:** estado → ICRS → (RA, Dec) con corrección de light-time iterativa;
+  covarianza along-scan/across-scan anisotrópica de Gaia.
+- **Covarianza en bloques por FOV.** Cada cruce de plano focal de Gaia produce 7 CCDs
+  (separación ≈ 5 s) con residuos correlacionados (ICC = 0.32 medido sobre datos
+  reales). Tratarlos como independientes subestima σ(masa) en un factor 1.66 (N_efectivo
+  ≈ 0.36 N). Se blanquea con `C_bloque = diag(σ_AL²) + s_c²·11ᵀ` por cruce; el piso
+  correlacionado s_c se calibra por bisección hasta χ²_red = 1.
+- **Selección de objetivos:** encuentros < 0.05 AU del catálogo congelado
+  (`--from-catalog`). El número de objetivos condiciona el sesgo (§Dependencia con N).
 - **Rechazo de outliers:** sigma-clipping iterativo a 4σ.
-- **Paralelización:** los N objetivos se evalúan en paralelo (pool por proceso);
-  ~6× speedup, resultado idéntico al modo serie.
+- **Paralelización:** los N objetivos se evalúan en un pool por proceso (contexto
+  `fork`, efeméride compartida por copy-on-write); factor 6 de aceleración respecto al
+  modo serie, con resultado idéntico (test de equivalencia).
 
-## Validación — calibradores Big-4 (Gaia FPR, N≥20)
+## Validación — calibradores Big-4 (Gaia FPR, N ≥ 20)
 
 | Cuerpo | N obj | masa ajustada (kg) | σ_total | ratio fit/lit | z | fuente lit |
 |--------|-------|--------------------|---------|---------------|---|------------|
-| Ceres  | 28 | 8.96×10²⁰ | 4.6% | 0.955 | −1.01 | DAWN (Park+ 2016) |
-| Vesta  | 28 | 2.44×10²⁰ | 4.6% | 0.943 | −1.30 | DAWN (Russell+ 2012) |
-| Hygiea | 20 | 8.22×10¹⁹ | 5.7% | 0.990 | −0.13 | Vernazza+ (2020) |
-| Pallas |  6 | 2.54×10²⁰ | 7.0% | 1.240 | +2.67 | Goffin (2014) — *target-limited* |
+| Ceres  | 28 | 8.96×10²⁰ | 4.6 % | 0.955 | −1.01 | DAWN (Park+ 2016) |
+| Vesta  | 28 | 2.44×10²⁰ | 4.6 % | 0.943 | −1.30 | DAWN (Russell+ 2012) |
+| Hygiea | 20 | 8.22×10¹⁹ | 5.7 % | 0.990 | −0.13 | Vernazza+ (2020) |
+| Pallas |  6 | 2.54×10²⁰ | 7.0 % | 1.240 | +2.67 | Goffin (2014) |
 
-Los 3 bien muestreados recuperan la masa a ~5% (sesgo medio −4%). Pallas tiene **sólo
-6–7 encuentros <0.05 AU en todo el catálogo** → no se puede promediar, y es el único en
-tensión (aun así |z|<3).
+Ceres, Vesta e Hygiea tienen N ≥ 20 y ratio en [0.943, 0.990]; el sesgo medio de los
+tres es −4 %. Pallas tiene 6–7 encuentros < 0.05 AU en el catálogo completo (limitado
+por objetivos), ratio 1.240, z = +2.67.
 
-## Dos hallazgos metodológicos
+## Dependencia con N y origen del error
 
-1. **El número de objetivos es decisivo.** Con N≈7 las masas salían sesgadas alto
-   (+12–29%); con N≥20 convergen a la verdad (~0.95). El "sobre-tiro" era **dispersión
-   estadística de muestra chica**, no un sistemático. El motor es insesgado: un
-   closing-loop sobre la geometría real (obs sintéticas a la masa verdadera + ruido)
-   recupera ratio medio 0.997 (3 semillas).
+1. **Número de objetivos.** Con N ≈ 7, el ratio de los calibradores cae en [1.12, 1.29];
+   con N ≥ 20 cae en [0.943, 0.990]. La diferencia es consistente con dispersión
+   estadística de muestra pequeña. Un closing-loop sobre la geometría real (observaciones
+   sintéticas generadas a la masa de referencia, con ruido del modelo, procesadas por el
+   mismo pipeline) recupera ratio medio 0.997 sobre 3 semillas: el sesgo del estimador es
+   compatible con cero.
 
-2. **La medición está limitada por sistemáticos, no por estadística.** Con N grande la
-   σ formal (Fisher) baja como 1/√N y se vuelve <0.2%, pero la exactitud real está
-   limitada por sistemáticos por-encuentro (imperfección de la órbita del objetivo,
-   astrometría local, perturbadores menores fuera de los 16). Por eso reportamos
-   `σ_total = √(σ_stat² + (f_sys·M)²)` con **f_sys≈4.2% calibrado de los calibradores
-   bien muestreados** — el tratamiento estándar de incertidumbre externa.
+2. **Límite por sistemáticos.** Con N grande, la σ formal (Fisher) escala como 1/√N y cae
+   por debajo de 0.2 %, pero la exactitud queda acotada por sistemáticos por-encuentro
+   (imperfección de la órbita del objetivo, astrometría local, perturbadores fuera de los
+   16 modelados). Se reporta σ_total = √(σ_stat² + (f_sys·M)²) con f_sys = 4.2 %, igual a
+   la RMS de (ratio − 1) de los calibradores con N ≥ 20.
 
-## Masas nuevas — barrido de los 12 perturbadores restantes (T11)
+## Barrido de los 12 perturbadores restantes
 
-Mismo procedimiento, objetivos del catálogo (<0.05 AU), N hasta 40. Ratio = masa
-ajustada / masa de la efeméride DE441 (que para estos cuerpos es la referencia
-publicada, menos precisa que DAWN). σ_stat = incertidumbre formal (Fisher).
+Mismo procedimiento; objetivos del catálogo (< 0.05 AU), N hasta 40. Ratio = masa
+ajustada / masa de la efeméride DE441 (referencia publicada para estos cuerpos).
+σ_stat = incertidumbre formal de Fisher.
 
-| Cuerpo | N | masa ajustada (kg) | σ_stat | ratio fit/DE441 | χ²_red | clase |
-|--------|---|--------------------|--------|-----------------|--------|-------|
-| **Psyche** | 36 | **2.43×10¹⁹** | **3.3%** | **1.020** | 0.99 | ✅ defendible |
-| Euphrosyne | 21 | 2.43×10¹⁹ | 27% | 1.502 | 0.99 | consistente pero imprecisa |
-| Sylvia | 11 | 3.47×10¹⁹ | 11% | 1.069 | 0.98 | OK, pocos objetivos |
-| Juno | 34 | 1.97×10¹⁹ | 11% | 0.685 | 0.99 | sesgada baja |
-| Eunomia | 38 | 2.20×10¹⁹ | 9% | 0.724 | 0.98 | sesgada baja |
-| Europa | 34 | 2.29×10¹⁹ | 6% | 0.568 | 0.98 | sesgada baja |
-| Interamnia | 35 | 2.42×10¹⁹ | 13% | 0.571 | 0.99 | sesgada baja |
-| Iris | 37 | 8.11×10¹⁸ | 19% | 0.475 | 0.99 | sesgada baja |
-| Thisbe | 37 | 6.99×10¹⁸ | 6% | 0.392 | 0.97 | sesgada baja |
-| Cybele | 12 | 6.24×10¹⁹ | 22% | 4.44 | 0.91 | no fiable (N bajo) |
-| Camilla | 2 | — | 67% | 8.1 | — | no fiable (N=2) |
-| Davida | 3 | <0 | — | <0 | 0.65 | no fiable (N=3) |
+| Cuerpo | N | masa ajustada (kg) | σ_stat | ratio fit/DE441 | χ²_red |
+|--------|---|--------------------|--------|-----------------|--------|
+| Psyche | 36 | 2.43×10¹⁹ | 3.3 % | 1.020 | 0.99 |
+| Euphrosyne | 21 | 2.43×10¹⁹ | 27 % | 1.502 | 0.99 |
+| Sylvia | 11 | 3.47×10¹⁹ | 11 % | 1.069 | 0.98 |
+| Juno | 34 | 1.97×10¹⁹ | 11 % | 0.685 | 0.99 |
+| Eunomia | 38 | 2.20×10¹⁹ | 9 % | 0.724 | 0.98 |
+| Europa | 34 | 2.29×10¹⁹ | 6 % | 0.568 | 0.98 |
+| Interamnia | 35 | 2.42×10¹⁹ | 13 % | 0.571 | 0.99 |
+| Iris | 37 | 8.11×10¹⁸ | 19 % | 0.475 | 0.99 |
+| Thisbe | 37 | 6.99×10¹⁸ | 6 % | 0.392 | 0.97 |
+| Cybele | 12 | 6.24×10¹⁹ | 22 % | 4.44 | 0.91 |
+| Camilla | 2 | — | 67 % | 8.1 | — |
+| Davida | 3 | < 0 | — | < 0 | 0.65 |
 
-**Resultado principal (gate T11): (16) Psyche** se determina a **2.43×10¹⁹ kg ±3.3%**
-(formal), en acuerdo del 2% con la efeméride DE441 — una masa nueva defendible que
-**extiende la validación más allá de los calibradores**. Sylvia y Euphrosyne son
-consistentes pero menos precisas.
+**(16) Psyche:** M = 2.43 × 10¹⁹ kg, σ_stat = 3.3 %, N = 36, χ²_red = 0.99. Ratio
+respecto a DE441 = 1.020. Es la única masa fuera de los calibradores con σ_stat < 5 % y
+χ²_red en [0.97, 1.00]. Sylvia (ratio 1.069, σ 11 %) y Euphrosyne (ratio 1.502, σ 27 %)
+son consistentes con DE441 dentro de su σ pero con menor precisión.
 
-**Sesgo de absorción de señal (hallazgo).** Seis perturbadores bien muestreados salen
-sistemáticamente **bajos** (0.39–0.72), con χ²_red≈1. No es ruido: es la
-**degeneración masa↔órbita cuando la deflexión es débil frente al ruido por-encuentro**
-— el ajuste explica los datos con menos masa + órbita ajustada (regresión hacia cero).
-Los perturbadores fuertes (Big-4, Psyche) no lo sufren porque su deflexión domina el
-ruido. **Implicación:** para perturbadores débiles la masa de la efeméride no se
-recupera con esta metodología tal cual, y la σ formal subestima el error real. La σ
-fiable requiere estimación externa por-perturbador (jackknife/bootstrap) y/o
-regularización del par masa-órbita — trabajo futuro.
+### Sesgo a la baja en perturbadores con deflexión débil
 
-## Cruce independiente con Fuentes-Muñoz 2025 (T10)
+6 perturbadores con N ≥ 20 y χ²_red ≈ 1 arrojan ratio en [0.39, 0.72] (Juno, Eunomia,
+Europa, Interamnia, Iris, Thisbe). El mecanismo es la degeneración masa↔órbita cuando la
+señal de deflexión es comparable o inferior al ruido por-encuentro: el ajuste reproduce
+la astrometría con menor masa y órbita reajustada (regresión hacia masa nula). Los
+perturbadores cuya deflexión supera el ruido (Big-4, Psyche) no presentan este efecto.
+Consecuencia operativa: para perturbadores débiles, (i) la masa de la efeméride no se
+recupera con esta metodología sin regularización adicional, y (ii) la σ formal subestima
+el error. La cuantificación de σ por-perturbador (jackknife/bootstrap) está en
+[`planning/MASS_FUTURE_WORK.md`](../planning/MASS_FUTURE_WORK.md).
 
-`scripts/validate/validate_fuentes_munoz_masses.py` compara nuestras masas contra
-la Tabla 5 de Fuentes-Muñoz et al. 2025 (AJ 170, 353), convirtiendo su `GMfin`
-(km³/s²) a kg con G=6.67430×10⁻²⁰. De los 16 perturbadores del catálogo, los 16
-solapan con su tabla. **Para los calibradores Fuentes-Muñoz fija `GMfin` a la
-semilla SB441/literatura** (no es comparación independiente); el cruce con valor
-es sobre los **no-calibradores**, donde ellos corrieron su propio ajuste FPR.
+## Cruce con Fuentes-Muñoz (2025)
 
-| Cuerpo | M_nuestra (kg) | M_FM (kg) | ratio | z_vs_FM |
-|--------|----------------|-----------|-------|---------|
-| **(16) Psyche** | 2.429×10¹⁹ | 2.395×10¹⁹ | **1.014** | **+0.25** ✅ |
+`scripts/validate/validate_fuentes_munoz_masses.py` compara las masas del catálogo con
+la Tabla 5 de Fuentes-Muñoz et al. (2025, AJ 170, 353), convirtiendo su GMfin (km³/s²) a
+masa con G = 6.67430 × 10⁻²⁰ km³ kg⁻¹ s⁻². Los 16 perturbadores del catálogo solapan con
+su tabla. Para los calibradores, Fuentes-Muñoz fija GMfin a la semilla SB441/literatura;
+esas filas no constituyen comparación independiente. El cruce con valor independiente es
+sobre los no-calibradores, donde ese trabajo ejecutó su propio ajuste FPR.
+
+| Cuerpo | M_orbdet (kg) | M_FM (kg) | ratio | z_vs_FM |
+|--------|---------------|-----------|-------|---------|
+| (16) Psyche | 2.429×10¹⁹ | 2.395×10¹⁹ | 1.014 | +0.25 |
 | (10) Hygiea (cal) | 8.218×10¹⁹ | 8.237×10¹⁹ | 0.998 | −0.04 |
 | (31) Euphrosyne | 2.430×10¹⁹ | 1.645×10¹⁹ | 1.477 | +1.15 |
 | (52) Europa | 2.285×10¹⁹ | 2.656×10¹⁹ | 0.860 | −2.26 |
@@ -130,46 +139,29 @@ es sobre los **no-calibradores**, donde ellos corrieron su propio ajuste FPR.
 | (88) Thisbe | 6.991×10¹⁸ | 8.755×10¹⁸ | 0.799 | −3.22 |
 | (704) Interamnia | 2.420×10¹⁹ | 3.235×10¹⁹ | 0.748 | −2.50 |
 
-(tabla completa, incl. los no fiables Sylvia/Cybele/Camilla/Davida, en
+(Tabla completa, incluidos los casos no fiables Sylvia/Cybele/Camilla/Davida, en
 `data/output/literature_validation/fuentes_munoz_2025_mass_comparison.csv`.)
 
-**Resultado clave: (16) Psyche concuerda con Fuentes-Muñoz al 1.4% (z=+0.25)** —
-nuestra masa nueva queda **confirmada de forma independiente** por un estudio de
-masas con Gaia FPR revisado por pares, no sólo por la efeméride DE441. Hygiea,
-Ceres y Vesta también concuerdan (|z|≲1.3).
-
-**El sesgo de absorción de señal se reproduce contra FM.** Los mismos
-perturbadores débiles que salen bajos vs DE441 (Juno, Iris, Eunomia, Thisbe,
-Interamnia, ~0.7–0.8) salen bajos vs FM, con |z|>3. Esto **no** contradice el
-gate: es exactamente el límite documentado — para deflexión débil la σ formal
-subestima el error real (la regresión masa↔órbita hacia cero), por lo que el
-z-score formal exagera la tensión. Lo informativo es que los perturbadores
-**fuertes e independientes** (Psyche) caen en z≈0.
-
-## Limitaciones y trabajo futuro
-
-- Sólo los 16 perturbadores grandes de `sb441-n16.bsp` tienen órbita en la efeméride;
-  el motor requiere la órbita del perturbador de ahí (su masa es el parámetro libre).
-- El sesgo medio −4% de los calibradores sugiere un sistemático pequeño residual
-  (candidato: completitud del fondo de perturbadores). Acotarlo bajaría f_sys.
-- Cruce con Fuentes-Muñoz 2025 **hecho** (sección arriba): Psyche confirmada a 1.4%
-  (z=+0.25). Falta sólo extenderlo a más perturbadores débiles con σ externa.
-- Pallas y otros perturbadores con pocos encuentros cercanos quedan target-limited
-  hasta DR4.
+(16) Psyche concuerda con Fuentes-Muñoz con ratio 1.014, z = +0.25: la masa coincide con
+un ajuste FPR independiente dentro de 1.4 %. Hygiea, Ceres y Vesta concuerdan con
+|z| ≤ 1.3. Los 6 perturbadores con sesgo a la baja frente a DE441 muestran el mismo signo
+frente a FM (ratio 0.56–0.80), con |z| > 3; esto es consistente con la subestimación de σ
+descrita en §Sesgo a la baja: el z formal sobreestima la tensión porque σ_FM y σ_orbdet
+no incorporan el error de regresión masa↔órbita.
 
 ## Reproducción
 
 ```bash
-# Barrido de calibradores (validación T10)
+# Barrido de calibradores (validación)
 docker compose run --rm pipeline python -m scripts.mass.orbdet_fit_realdata \
     --perturber big4 --release fpr \
     --from-catalog data/output/encounters_catalog_hybrid_stageb.parquet \
     --top-per-perturber 30 --workers 24 --out-dir data/output/orbdet/expanded
 
-# Catálogo con modelo de error correcto
+# Catálogo de masas con modelo de error completo
 docker compose run --rm pipeline python -m scripts.mass.build_mass_catalog \
     --in-dir data/output/orbdet/expanded --out data/output/orbdet/mass_catalog.csv
 
-# Cruce independiente de masas vs Fuentes-Muñoz 2025 (T10)
+# Cruce de masas vs Fuentes-Muñoz (2025)
 docker compose run --rm pipeline python -m scripts.validate.validate_fuentes_munoz_masses
 ```

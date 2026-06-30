@@ -2,7 +2,7 @@
 
 Librería de astrodinámica para determinación de órbitas por mínimos cuadrados y,
 sobre ella, determinación de masas de asteroides perturbadores (estrategia tipo
-Fuentes-Muñoz). Ver ``planning/MASS_DETERMINATION_PLAN.md``.
+Fuentes-Muñoz). Ver ``docs/orbdet_engine_status.md``.
 
 Contrato de aislamiento
 -----------------------

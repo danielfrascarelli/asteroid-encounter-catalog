@@ -13,7 +13,7 @@
 ### Resultados científicos
 - **Validación (T10): 4/4 calibradores dentro de |z|<3** sobre Gaia FPR con N≥20 objetivos (Ceres/Vesta/Hygiea a ~5%; Pallas +2.67, target-limited a N=6). **Refuta el cierre Track A**: el problema era el método (LOO secuencial), no el leverage de Gaia.
 - **Producción (T11): masa nueva defendible — (16) Psyche = 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441). Hallazgo: perturbadores con deflexión débil se sesgan bajos (absorción de señal masa↔órbita).
-- Detalle: [docs/mass_determination_results.md](docs/mass_determination_results.md), [docs/orbdet_engine_status.md](docs/orbdet_engine_status.md), [planning/MASS_DETERMINATION_PLAN.md](planning/MASS_DETERMINATION_PLAN.md).
+- Detalle: [docs/mass_determination_results.md](docs/mass_determination_results.md), [docs/orbdet_engine_status.md](docs/orbdet_engine_status.md).
 
 ### Dependencias
 - `assist>=1.1` (requiere `rebound` 4.x); efemérides (`linux_p1550p2650.440`, `sb441-n16.bsp`, ~750 MB) en `$ORBDET_EPHEM_DIR` (no versionadas).
