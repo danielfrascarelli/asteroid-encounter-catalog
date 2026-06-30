@@ -83,6 +83,7 @@ from src.orbdet.mass_determination import (
     TargetObservations,
     calibrate_sys_floor,
     determine_shared_mass,
+    jackknife_mass_sigma,
 )
 from src.utils.config import GaiaReleaseConfig, load_config
 
@@ -544,7 +545,47 @@ def _run_perturber(
         float(result.covariance[0, 0]) if np.all(np.isfinite(result.covariance)) else math.nan
     )
     sigma_mass_msun = math.sqrt(var_mass) if var_mass > 0 else math.nan
-    sigma_kg = float(sigma_mass_msun * M_SUN_KG)
+    sigma_formal_kg = float(sigma_mass_msun * M_SUN_KG)
+
+    # F1 — σ externa por jackknife dejar-un-objetivo-fuera. Captura el error de
+    # regresión masa↔órbita que la σ formal (Fisher) no ve en perturbadores débiles.
+    # La σ reportada es max(σ_formal, σ_jack).
+    sigma_jack_kg = math.nan
+    jack_n_failed = None
+    jack_masses_kg = None
+    if args.jackknife:
+        t0 = time.time()
+        jack = jackknife_mass_sigma(
+            targets_final,
+            mass_msun,
+            fitted,
+            perturber_elements,
+            common_epoch,
+            perturber_name=pname,
+            background_perturbers=background,
+            backend="assist",
+            gr=True,
+            sys_floor_mas=sys_floor,
+            max_iter=args.max_iter,
+            n_workers=args.workers,
+        )
+        sigma_jack_kg = float(jack.sigma_jack_msun * M_SUN_KG)
+        jack_n_failed = int(jack.n_failed)
+        jack_masses_kg = [float(m * M_SUN_KG) for m in jack.masses_msun]
+        logger.info(
+            "jackknife (N=%d, %d fallidas): σ_jack=%.3e kg vs σ_formal=%.3e kg → ×%.1f (%.0fs)",
+            len(targets_final),
+            jack_n_failed,
+            sigma_jack_kg,
+            sigma_formal_kg,
+            (sigma_jack_kg / sigma_formal_kg) if sigma_formal_kg > 0 else float("nan"),
+            time.time() - t0,
+        )
+
+    # σ reportada = mayor entre formal y jackknife (cuando esta última está disponible).
+    sigma_candidates = [s for s in (sigma_formal_kg, sigma_jack_kg) if math.isfinite(s) and s > 0]
+    sigma_kg = max(sigma_candidates) if sigma_candidates else math.nan
+
     ratio = (mass_kg / lit_kg) if lit_kg else None
     z = None
     if lit_kg and math.isfinite(sigma_kg):
@@ -563,6 +604,10 @@ def _run_perturber(
         "seed_mass_kg": float(seed_mass_msun * M_SUN_KG),
         "mass_fit_kg": mass_kg,
         "mass_fit_sigma_kg": sigma_kg,
+        "mass_fit_sigma_formal_kg": sigma_formal_kg,
+        "mass_fit_sigma_jack_kg": (sigma_jack_kg if math.isfinite(sigma_jack_kg) else None),
+        "jackknife_n_failed": jack_n_failed,
+        "jackknife_masses_kg": jack_masses_kg,
         "mass_fit_msun": float(mass_msun),
         "chi2": float(result.chi2),
         "dof": int(result.dof),
@@ -592,6 +637,11 @@ def _report(out: dict) -> None:
     print(f"\n=== orbdet joint mass fit — {out['perturber_name']} ({out['release']}) ===")
     print(f"  objetivos:        {out['n_targets']}  ({out['n_obs_final']} tránsitos)")
     print(f"  masa ajustada:    {out['mass_fit_kg']:.4e} ± {out['mass_fit_sigma_kg']:.2e} kg")
+    if out.get("mass_fit_sigma_jack_kg") is not None:
+        print(
+            f"  σ formal/jack:    {out['mass_fit_sigma_formal_kg']:.2e} / "
+            f"{out['mass_fit_sigma_jack_kg']:.2e} kg  (reportada = la mayor)"
+        )
     if out["mass_lit_kg"]:
         print(
             f"  literatura:       {out['mass_lit_kg']:.4e} kg "
@@ -665,6 +715,12 @@ def main() -> int:
         default=None,
         help="piso de error sistemático correlacionado intra-FOV (mas); "
         "omitir → autocalibrar para χ²_red≈1 (recomendado)",
+    )
+    parser.add_argument(
+        "--jackknife",
+        action="store_true",
+        help="estima σ(masa) externa por jackknife dejar-un-objetivo-fuera (F1); "
+        "reporta max(σ_formal, σ_jack). Coste: ~N ajustes tibios extra por perturbador",
     )
     parser.add_argument("--out", type=Path, default=None, help="JSON de salida (perturbador único)")
     parser.add_argument(
