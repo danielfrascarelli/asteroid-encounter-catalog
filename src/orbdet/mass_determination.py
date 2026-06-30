@@ -613,8 +613,9 @@ class JackknifeResult:
     ``sigma_jack_msun`` es la σ externa del estimador; ``masses_msun`` son las ``N``
     masas de las réplicas (una por objetivo excluido); ``mean_msun`` su media;
     ``bias_msun`` la corrección de sesgo jackknife ``(N−1)(m̄ − m_full)`` (informativa,
-    no se aplica). ``n_failed`` cuenta réplicas que no convergieron (excluidas del
-    cómputo).
+    no se aplica). ``n_failed`` cuenta réplicas con masa no finita (excluidas del
+    cómputo); las marcadas ``converged=False`` por LM pero con masa finita SÍ se
+    incluyen, igual que el ajuste de producción.
     """
 
     sigma_jack_msun: float
@@ -712,7 +713,11 @@ def jackknife_mass_sigma(
             n_workers=n_workers,
             **lm_kwargs,
         )
-        if not result_i.converged or not np.isfinite(m_i):
+        # Aceptar réplicas con masa finita aunque LM marque ``converged=False``: el
+        # ajuste de producción reporta sus fits igual (alcanzan χ²_red≈1 al tope de
+        # iteraciones sin cumplir la tolerancia estricta de paso/gradiente de LM).
+        # Exigir convergencia estricta descartaría réplicas válidas y ruidizaría σ_jack.
+        if not np.isfinite(m_i):
             n_failed += 1
             continue
         replicate_masses.append(float(m_i))
