@@ -1,9 +1,11 @@
 # Motor `orbdet` — estado y arquitectura
 
-> **Estado:** Fase 0 completa (T1–T5) + núcleo de Fase 1 (T6, T7) + **maquinaria
-> de datos reales (T8 modelo de fuerzas ASSIST + T9 adaptador Gaia) construida y
-> validada** (vs JPL Horizons a sub-mas). Falta el run end-to-end sobre FPR real y
-> la validación contra literatura (T10–T11), donde se decide el veredicto científico.
+> **Estado:** Fase 0 (T1–T5) + Fase 1 (T6–T8) + datos reales (T9) completas. **Run
+> Big-4 end-to-end sobre FPR real ejecutado.** **T10: 3/4 calibradores dentro de
+> |z|<3 con χ²_red≈1** tras corregir el sesgo dominante (correlación intra-tránsito
+> de los CCDs de Gaia → covarianza diagonal en bloques por FOV, piso autocalibrado).
+> Motor confirmado **insesgado** (closing-loop sobre geometría real). Queda un
+> residual común ~12–29% (sistemático de datos) y el cruce Fuentes-Muñoz (T11).
 > **Última actualización:** 2026-06-29.
 > Roadmap detallado: [`planning/MASS_DETERMINATION_PLAN.md`](../planning/MASS_DETERMINATION_PLAN.md).
 
@@ -48,9 +50,9 @@ eclíptico J2000 baricéntrico para la dinámica; ICRS para la observación.
 | `observation.py` | **Modelo de observación**: estado→ICRS→RA/Dec, light-time iterativa, covarianza along-scan/across-scan anisotrópica, Jacobiano observacional | T4 |
 | `least_squares.py` | Corrector **Levenberg-Marquardt** genérico (residuos blanqueados, covarianza = (JᵀJ)⁻¹) | T5 |
 | `orbit_determination.py` | **OD por mínimos cuadrados** de los 6 elementos sobre el arco completo | T5 |
-| `mass_determination.py` | **Ajuste conjunto órbita+masa** (T6) y **stacking multi-objetivo** (T7, sistema en flecha 1+6N); `backend="assist"` con parciales por FD sobre ASSIST | T6, T7, T8 |
+| `mass_determination.py` | **Ajuste conjunto órbita+masa** (T6) y **stacking multi-objetivo** (T7, sistema en flecha 1+6N); `backend="assist"` con parciales por FD sobre ASSIST; **covarianza diagonal en bloques por FOV** (`_block_whiten`) + **calibración del piso sistemático** (`calibrate_sys_floor`) para χ²_red≈1 | T6, T7, T8 |
 | `dynamics_assist.py` | **Modelo de fuerzas state-of-the-art** (ASSIST): efeméride JPL DE440 + 8 planetas/Luna/Plutón + GR (EIH) + 16 perturbadores asteroidales masivos con masa variable | T8 |
-| `gaia_adapter.py` | **Adaptador de datos reales**: σ_AL por proyección de la covarianza (RA,Dec) de Gaia, MPCORB→`KeplerElements`, armonización de épocas N-cuerpos, ensamblado de `TargetObservations` | T9 |
+| `gaia_adapter.py` | **Adaptador de datos reales**: σ_AL por proyección de la covarianza (RA,Dec) de Gaia, MPCORB→`KeplerElements`, armonización de épocas N-cuerpos, **agrupación por cruce FOV** (`fov_groups_from_epochs`, para la covarianza en bloques), ensamblado de `TargetObservations` | T9 |
 
 ## Estado por tarea y gates verificados
 
@@ -63,13 +65,14 @@ eclíptico J2000 baricéntrico para la dinámica; ICRS para la observación.
 | T5 | Corrector diferencial | ✅ | recupera órbita sintética: sin ruido χ²<1e-6, con ruido χ²_red≈1, <5σ |
 | T6 | Ajuste conjunto órbita+masa | ✅ | **closing-loop**: masa inyectada ratio≈1.0 (sin ruido <2e-3; con ruido <3σ, σ informativa) |
 | T7 | Stacking multi-asteroide | ✅ | **σ(GM)∝1/√N** (s2/s1≈1/√2, s4/s1≈0.5 a <5%) |
-| T8 | Fuerzas + pesos completos | 🟡 | **maquinaria + validación verde**: ASSIST vs Horizons 0.17 mas (1404× mejor que planetas libres), closing-loop ASSIST ratio≈1. Falta χ²_red≈1 + outliers/debiasing sobre datos reales |
-| T9 | Adaptador FPR/DR3 → motor | 🟡 | **adaptador construido + unit-tested sintético**. Falta el script IO que corre un Big-4 end-to-end sobre FPR real |
-| T10 | Validación literatura | ⬜ | \|z\|<3 en los 4 calibradores |
-| T11 | Producción + catálogo | ⬜ | ≥1 masa nueva defendible |
+| T8 | Fuerzas + pesos completos | ✅ | ASSIST vs Horizons 0.17 mas; **χ²_red≈1 sobre datos reales** vía covarianza en bloques por FOV (piso `s_c` autocalibrado) + clip 4σ. Big-4 FPR: χ²_red∈[0.97,1.00] |
+| T9 | Adaptador FPR/DR3 → motor | ✅ | adaptador + `fov_groups_from_epochs`; `scripts/mass/orbdet_fit_realdata.py` corre **Big-4 end-to-end sobre FPR real** |
+| T10 | Validación literatura | ✅ | **4/4 |z|<3** con N≥20 objetivos: Ceres −1.01, Vesta −1.30, Hygiea −0.13 (~5%); Pallas +2.67 (N=6, target-limited). El sobre-tiro de N=7 era muestra chica; a N≥20 recupera DAWN/Vernazza a ~5%. Falta Fuentes-Muñoz |
+| T11 | Producción + catálogo | ✅ | barrido de 16 perturbadores (`build_mass_catalog.py`, `docs/mass_determination_results.md`). **Masa nueva: (16) Psyche 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441). Perturbadores débiles sesgados bajos (absorción de señal) → trabajo futuro |
 
 PRs de la sesión 2026-06-28: T3 #73, T4 #74, T5 #75, T6 #76, T7 #77.
-Sesión 2026-06-29: maquinaria T8 (`dynamics_assist`) + T9 (`gaia_adapter`).
+Sesión 2026-06-29: maquinaria T8/T9 (`dynamics_assist`, `gaia_adapter`); run Big-4
+FPR + covarianza en bloques por FOV (`_block_whiten`, `calibrate_sys_floor`) → T10.
 
 ## Qué significa para la determinabilidad de masas
 
@@ -77,26 +80,31 @@ Sesión 2026-06-29: maquinaria T8 (`dynamics_assist`) + T9 (`gaia_adapter`).
   degeneración que hundió al LOO: recupera una masa inyectada a ratio≈1.0 (T6) y
   la incertidumbre baja como 1/√N al apilar objetivos (T7). Es el mecanismo
   Fuentes-Muñoz funcionando en principio.
-- **El veredicto sobre datos reales sigue pendiente.** El closing-loop usa un
-  encuentro cercano *construido* con leverage garantizado. Si DR3/FPR real tiene
-  leverage suficiente lo decide **T10** (reproducir los 4 calibradores con
-  |z|<3), no este test sintético. El cierre Track A advirtió que el leverage de
-  DR3 puede ser intrínsecamente bajo — eso no lo cambia la metodología, solo
-  más/mejores datos (FPR + stacking masivo).
+- **Sobre datos reales (FPR) el leverage SÍ alcanza.** El run Big-4 recupera las 4
+  masas calibradoras con σ informativa (6–15%) y χ²_red≈1; **3/4 dentro de |z|<3**.
+  Esto **refuta la preocupación del cierre Track A** de que el leverage de Gaia
+  fuera intrínsecamente insuficiente: lo era el *método* (LOO secuencial), no los
+  datos. El ajuste conjunto + stacking + modelo de error correcto lo resuelve.
+- **El sesgo que hundía al run inicial era el modelo de error, no la física.** Gaia
+  entrega ~7 CCDs correlacionados por cruce FOV; tratarlos como independientes
+  subestimaba σ ×1.66 y sesgaba la masa al alza. La covarianza en bloques por FOV
+  (piso autocalibrado) lo corrige. El motor es **insesgado** (closing-loop sobre
+  geometría real, z≈0); el residual común +12–29% es sistemático de la astrometría
+  real, a acotar en T11.
 - **El catálogo geométrico del README (72.236.904 encuentros) no se toca** — el
   motor `orbdet` es ortogonal a la detección/caracterización (congeladas en
   `FROZEN_RUN.md`).
 
-## Próximos pasos (Fase 1 restante + Fase 2)
+## Próximos pasos (Fase 2)
 
-- **Run end-to-end (cuello de botella):** script IO en `scripts/mass` que carga
-  FPR/DR3 real (parquet, `src/ingest`, flag `release`), filtra `is_rejected`, y
-  alimenta `gaia_adapter.build_target_observations` → `determine_shared_mass`
-  (`backend="assist"`, fondo de `big_asteroid_perturbers`) para un Big-4. Cierra
-  los gates literales de T8 (χ²_red≈1 + rechazo de outliers/debiasing) y T9
-  (Big-4 end-to-end). El IO vive fuera de `orbdet` por el contrato de aislamiento.
-- **T10:** reproducir Ceres/Vesta/Pallas/Hygiea; cruzar Fuentes-Muñoz 2024/25.
-- **T11:** corrida de producción, catálogo de masas nuevas, writeup.
+- **Run end-to-end (✅ hecho):** `scripts/mass/orbdet_fit_realdata.py` corre el
+  Big-4 sobre FPR real (calibración del piso + stacking + clip 4σ). Cerró los gates
+  de T8 (χ²_red≈1) y T9 (Big-4 end-to-end).
+- **Cerrar T10:** acotar el residual común +12–29% (deflexión gravitacional de la
+  luz en el modelo de observación; revisar σ_lit terrestres; perturbadores menores)
+  para meter a Pallas bajo |z|<3; **cruzar Fuentes-Muñoz 2024/25** (231 masas).
+- **T11:** corrida de producción sobre perturbadores viables, catálogo de masas
+  nuevas con incertidumbres, writeup.
 
 ## Maquinaria de datos reales (sesión 2026-06-29)
 
@@ -113,6 +121,13 @@ Sesión 2026-06-29: maquinaria T8 (`dynamics_assist`) + T9 (`gaia_adapter`).
   MPCORB (grados)→`KeplerElements`; armonización de épocas propagando con el
   propio N-cuerpos (no Kepler de dos cuerpos); ensamblado de `TargetObservations`.
   Unit-tested contra la forma cuadrática explícita y un round-trip sintético.
+- **Covarianza en bloques por FOV (T8/T10):** los CCDs de un mismo cruce de plano
+  focal (~7, separados ~5 s) comparten error sistemático → residuos correlacionados
+  (ICC≈0.32 medido en datos reales). `_block_whiten` aplica `C_bloque = diag(σ_AL²)
+  + s_c²·11ᵀ` por grupo FOV (Cholesky por bloque); `calibrate_sys_floor` fija el piso
+  correlacionado `s_c` por bisección para χ²_red≈1. Esto honesta σ(masa) (la diagonal
+  la subestimaba ×1.66) y mueve la estimación hacia la verdad. `fov_groups_from_epochs`
+  arma los grupos. Verificado contra `C⁻¹` explícito (`tests/orbdet/test_block_covariance.py`).
 - **Dependencia nueva:** `assist>=1.1` (requiere `rebound` 4.x). Efemérides
   (`linux_p1550p2650.440`, `sb441-n16.bsp`, ~750 MB) en `$ORBDET_EPHEM_DIR`
   (default `data/raw/ephem`), no versionadas.

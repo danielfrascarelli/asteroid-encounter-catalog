@@ -98,3 +98,25 @@ def test_shared_mass_single_target_matches_joint() -> None:
     assert len(els) == 1
     assert mass_fit / _MASS_TRUE == pytest.approx(1.0, abs=2e-3)
     assert res.covariance.shape == (7, 7)
+
+
+@pytest.mark.slow
+def test_shared_mass_parallel_matches_serial() -> None:
+    """GATE: ``n_workers>1`` da resultados idénticos al modo serie.
+
+    El pool evalúa los objetivos en procesos separados pero ensambla en orden fijo,
+    así que la masa, los residuos y la covarianza deben coincidir bit a bit (salvo
+    redondeo) con el cálculo serie.
+    """
+    pert_el = _perturber_elements()
+    targets = [_make_target(pert_el) for _ in range(3)]
+    kw = dict(perturbers=_PERTURBERS)
+    m1, _e1, r1 = determine_shared_mass(
+        targets, 0.6 * _MASS_TRUE, pert_el, _EPOCH, n_workers=1, **kw
+    )
+    m2, _e2, r2 = determine_shared_mass(
+        targets, 0.6 * _MASS_TRUE, pert_el, _EPOCH, n_workers=3, **kw
+    )
+    assert m2 == pytest.approx(m1, rel=1e-11)
+    np.testing.assert_allclose(r2.residuals, r1.residuals, rtol=1e-11, atol=1e-12)
+    np.testing.assert_allclose(r2.covariance, r1.covariance, rtol=1e-9, atol=1e-14)

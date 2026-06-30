@@ -63,6 +63,7 @@ def test_only_whitelisted_third_party() -> None:
         "logging",
         "warnings",
         "enum",
+        "multiprocessing",  # paralelización del ajuste multi-objetivo (stdlib, sin dep externa)
     }
     offenders: list[str] = []
     for path in _orbdet_py_files():
