@@ -1,5 +1,13 @@
 # Track A — cierre: ninguna masa de perturbador es determinable en DR3 (incluido Ceres)
 
+> ⚠️ **Veredicto acotado al MÉTODO de este doc (LOO secuencial), no al problema.**
+> El motor `src/orbdet/` (joint orbit+mass sobre el arco completo, junio 2026)
+> **sí determina masas** sobre Gaia FPR: 4/4 calibradores |z|<3 + (16) Psyche
+> 2.43×10¹⁹ kg ±3.3%. Lo que fallaba era el ajuste secuencial órbita→masa, no el
+> leverage de Gaia. Resultado actual:
+> [`docs/mass_determination_results.md`](mass_determination_results.md). El análisis
+> de abajo sigue siendo válido como diagnóstico de por qué el LOO no es identificable.
+
 > Documento de cierre de **Track A** del follow-up post-deepwork (disuelto; ver [ROADMAP.md](../ROADMAP.md) § "Estado actual").
 > Consolida el veredicto tras A1 → A2 → A2.5 → A2.6 y el **gate-check de A3**
 > (este documento). Estado resultante de Track A: **⚫ CERRADO** — esperar DR4/FPR.

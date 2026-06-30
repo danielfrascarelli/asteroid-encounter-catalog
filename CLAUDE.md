@@ -218,7 +218,15 @@ docker compose run --rm pipeline python -m scripts.pipeline.run_pipeline --confi
 # Solo detección (asume propagación ya hecha)
 docker compose run --rm pipeline python -m scripts.pipeline.detect_deflections
 
-# Fitting de masas
+# Determinación de masas — motor orbdet (joint orbit+mass, método actual)
+docker compose run --rm pipeline python -m scripts.mass.orbdet_fit_realdata \
+    --perturber big4 --release fpr \
+    --from-catalog data/output/encounters_catalog_hybrid_stageb.parquet \
+    --top-per-perturber 30 --workers 24 --out-dir data/output/orbdet/expanded
+docker compose run --rm pipeline python -m scripts.mass.build_mass_catalog \
+    --in-dir data/output/orbdet/expanded --out data/output/orbdet/mass_catalog.csv
+
+# Fitting de masas — LOO secuencial (LEGACY, cerrado/no determinable; ver docs/mass_layer_track_a_closure.md)
 docker compose run --rm pipeline python -m scripts.mass.fit_mass_gaia_loo
 docker compose run --rm pipeline python -m scripts.mass.summarize_loo_fits
 

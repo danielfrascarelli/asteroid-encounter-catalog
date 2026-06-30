@@ -1,9 +1,10 @@
 # Determinación de masas de asteroides con Gaia FPR — resultados
 
-> **Estado:** T10 ✅ (validación de calibradores) + T11 en curso (catálogo de masas).
+> **Estado:** T10 ✅ (validación de calibradores) + T11 ✅ (catálogo de masas).
+> Plan T1–T11 completo; mergeado a `main` vía PR #80 (2026-06-30).
 > Motor: `src/orbdet/` (ver [`orbdet_engine_status.md`](orbdet_engine_status.md)).
 > Plan: [`planning/MASS_DETERMINATION_PLAN.md`](../planning/MASS_DETERMINATION_PLAN.md).
-> **Última actualización:** 2026-06-29.
+> **Última actualización:** 2026-06-30.
 
 ## Resumen
 

@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-06-30 — Determinación de masas con motor propio (`orbdet`, T1–T11 ✅, PR #80)
+
+### Features
+- **Motor `src/orbdet/` — "OrbFit de cero"** (aislado del resto de `src.*`, verificado por test). Determinación de órbitas + masa por mínimos cuadrados sobre el arco completo:
+  - `kepler/frames/time_scales/constants` (T1), `dynamics` N-cuerpos rebound (T2), `variational` (T3, ∂x/∂elem analítico + ∂x/∂GM por FD/Richardson), `observation` (T4, RA/Dec + light-time + covarianza along-scan anisotrópica), `least_squares`/`orbit_determination` (T5, Levenberg-Marquardt).
+  - `mass_determination` (T6/T7/T8): ajuste **conjunto** órbita+masa, stacking multi-objetivo (sistema en flecha 1+6N), **covarianza diagonal en bloques por FOV** (`_block_whiten`) + autocalibración del piso sistemático (`calibrate_sys_floor`) para χ²_red≈1.
+  - `dynamics_assist` (T8): modelo de fuerzas ASSIST (DE440 + GR EIH + 16 perturbadores asteroidales); vs Horizons 0.17 mas sobre 900 d.
+  - `gaia_adapter` (T9): σ_AL por proyección de la covarianza Gaia, MPCORB→elementos, grupos por cruce FOV (`fov_groups_from_epochs`).
+- **Scripts de masas** (`scripts/mass/`): `orbdet_fit_realdata.py` (Big-4 end-to-end sobre FPR real, stacking + clip 4σ + paralelización ~6×), `build_mass_catalog.py` (catálogo con `σ_total=√(σ_stat²+(f_sys·M)²)`).
+
+### Resultados científicos
+- **Validación (T10): 4/4 calibradores dentro de |z|<3** sobre Gaia FPR con N≥20 objetivos (Ceres/Vesta/Hygiea a ~5%; Pallas +2.67, target-limited a N=6). **Refuta el cierre Track A**: el problema era el método (LOO secuencial), no el leverage de Gaia.
+- **Producción (T11): masa nueva defendible — (16) Psyche = 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441). Hallazgo: perturbadores con deflexión débil se sesgan bajos (absorción de señal masa↔órbita).
+- Detalle: [docs/mass_determination_results.md](docs/mass_determination_results.md), [docs/orbdet_engine_status.md](docs/orbdet_engine_status.md), [planning/MASS_DETERMINATION_PLAN.md](planning/MASS_DETERMINATION_PLAN.md).
+
+### Dependencias
+- `assist>=1.1` (requiere `rebound` 4.x); efemérides (`linux_p1550p2650.440`, `sb441-n16.bsp`, ~750 MB) en `$ORBDET_EPHEM_DIR` (no versionadas).
+
+## 2026-05-24 — Corrida congelada + catálogo híbrido + cierre capa de masas (LOO)
+
+### Features
+- **Catálogo congelado** ([FROZEN_RUN.md](FROZEN_RUN.md)): 72.236.904 candidatos geométricos a 0.05 AU sobre 98.775 numerados, con hashes de inputs/outputs.
+- **Caracterización por streaming**: `encounters_characterized_full.parquet` (72M filas, 18.9% Gaia-observables) sin OOM.
+- **Catálogo híbrido N-body** (`encounters_catalog_hybrid_stageb.parquet`): re-refinamiento N-body del subset crítico (`q_min<1.8 ∨ e_max>0.3`, 12%); `refinement_method` por fila.
+- **Recall del prefiltro medido**: 76.4% en cola adversa; fix radial-overlap → 100% ([docs/prefilter_recall.md](docs/prefilter_recall.md)).
+- **Validación consolidada** ([docs/literature_validation.md](docs/literature_validation.md)): gate 4/4, Fienga 3/4, Galád 4/4, Fuentes-Muñoz 2025 11.804/40.004 confirmaciones.
+- **Reorganización de `scripts/`** en `{ingest,pipeline,mass,validate,bench,dev}/`.
+
+### Capa de masas (enfoque viejo LOO)
+- **Track A CERRADO**: el LOO secuencial no determina masas en DR3 (no-identificabilidad masa↔drift); FPR-solo tampoco lo reabre con ese método. Posteriormente **superado** por el motor `orbdet` (ver entrada 2026-06-30).
+
 ## 2026-05-18 — Validación contra literatura + propagación N-body
 
 ### Features

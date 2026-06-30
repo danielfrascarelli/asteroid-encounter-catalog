@@ -1,5 +1,13 @@
 # Handoff — Estado del análisis de encuentros novedosos (2026-05-19)
 
+> ⚠️ **Documento histórico (2026-05-19).** El "próximo paso" que describe — el fit
+> conjunto órbita+masa — **ya se construyó y completó** (motor `src/orbdet/`, plan
+> T1–T11 ✅, PR #80, junio 2026): 4/4 calibradores |z|<3 sobre Gaia FPR + masa nueva
+> **(16) Psyche = 2.43×10¹⁹ kg ±3.3%**. Las técnicas de detección marginal descritas
+> abajo (demos Ate, LOO) quedaron superadas. Estado actual:
+> [`docs/mass_determination_results.md`](docs/mass_determination_results.md) y
+> [`planning/MASS_DETERMINATION_PLAN.md`](planning/MASS_DETERMINATION_PLAN.md).
+
 ## 🎯 Resultado nuevo y principal
 
 Pipeline construido y validado para detección de perturbaciones gravitacionales

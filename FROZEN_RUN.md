@@ -170,6 +170,18 @@ DR4 (denser observations) than from spending more compute on DR3.
 
 ## Mass-fit follow-ups (not in this freeze)
 
+> ⚠️ **UPDATE (2026-06-30) — this section describes the OLD, closed approach.**
+> Everything below documents the *per-encounter LOO* pipeline (`src/mass/`,
+> `docs/mass_layer_*.md`), which was correctly closed as non-determinable in May
+> 2026. A **new joint orbit+mass engine** (`src/orbdet/`, built June 2026, plan
+> T1–T11 ✅) **superseded it and succeeded** on Gaia FPR: it validates all 4
+> calibrators (Ceres/Vesta/Pallas/Hygiea) at |z|<3 and produces a new defensible
+> mass — **(16) Psyche = 2.43×10¹⁹ kg ±3.3%**. The problem was the *method*
+> (sequential fit), not the data leverage. See
+> [`docs/mass_determination_results.md`](docs/mass_determination_results.md) and
+> [`planning/MASS_DETERMINATION_PLAN.md`](planning/MASS_DETERMINATION_PLAN.md). The
+> text below stays as a valid record of why the original approach failed.
+
 The Gaia mass-determination experiments (`scripts/mass/*`,
 `docs/mass_layer_*.md`) live alongside this catalog but **are not part
 of the freeze**. The current state, in short:

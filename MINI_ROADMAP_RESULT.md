@@ -1,5 +1,9 @@
 # Mini-Roadmap Result: Loreley Mass Fit
 
+> ⚠️ **Historical (POC of the OLD LOO/two-phase method).** Superseded by the
+> `src/orbdet/` joint orbit+mass engine (plan T1–T11 ✅, PR #80): see
+> [`docs/mass_determination_results.md`](docs/mass_determination_results.md).
+
 > Proof-of-concept demonstrating that the encounter-mass-determination
 > pipeline runs end-to-end with all components wired together.
 > Run on (165) Loreley + (31067) 1996_tf50 on 2014-12-08.

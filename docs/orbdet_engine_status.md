@@ -1,12 +1,14 @@
 # Motor `orbdet` — estado y arquitectura
 
-> **Estado:** Fase 0 (T1–T5) + Fase 1 (T6–T8) + datos reales (T9) completas. **Run
-> Big-4 end-to-end sobre FPR real ejecutado.** **T10: 3/4 calibradores dentro de
-> |z|<3 con χ²_red≈1** tras corregir el sesgo dominante (correlación intra-tránsito
-> de los CCDs de Gaia → covarianza diagonal en bloques por FOV, piso autocalibrado).
-> Motor confirmado **insesgado** (closing-loop sobre geometría real). Queda un
-> residual común ~12–29% (sistemático de datos) y el cruce Fuentes-Muñoz (T11).
-> **Última actualización:** 2026-06-29.
+> **Estado:** **T1–T11 ✅ completas** (Fase 0 + Fase 1 + Fase 2; PR #80 mergeado a
+> `main`). Run Big-4 end-to-end sobre FPR real ejecutado; **T10: 4/4 calibradores
+> dentro de |z|<3** con N≥20 objetivos y χ²_red≈1 tras corregir el sesgo dominante
+> (correlación intra-tránsito de los CCDs de Gaia → covarianza diagonal en bloques
+> por FOV, piso autocalibrado). El "sobre-tiro +12–29%" de N=7 era **dispersión de
+> muestra chica**: a N≥20 las masas DAWN/Vernazza se recuperan a ~5%. Motor
+> confirmado **insesgado** (closing-loop sobre geometría real). **T11: masa nueva
+> defendible — (16) Psyche = 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441).
+> **Última actualización:** 2026-06-30.
 > Roadmap detallado: [`planning/MASS_DETERMINATION_PLAN.md`](../planning/MASS_DETERMINATION_PLAN.md).
 
 ## Por qué existe
@@ -80,8 +82,9 @@ FPR + covarianza en bloques por FOV (`_block_whiten`, `calibrate_sys_floor`) →
   degeneración que hundió al LOO: recupera una masa inyectada a ratio≈1.0 (T6) y
   la incertidumbre baja como 1/√N al apilar objetivos (T7). Es el mecanismo
   Fuentes-Muñoz funcionando en principio.
-- **Sobre datos reales (FPR) el leverage SÍ alcanza.** El run Big-4 recupera las 4
-  masas calibradoras con σ informativa (6–15%) y χ²_red≈1; **3/4 dentro de |z|<3**.
+- **Sobre datos reales (FPR) el leverage SÍ alcanza.** El run Big-4 con N≥20
+  objetivos recupera las 4 masas calibradoras con σ informativa y χ²_red≈1; **4/4
+  dentro de |z|<3** (Ceres/Vesta/Hygiea a ~5%; Pallas +2.67, target-limited a N=6).
   Esto **refuta la preocupación del cierre Track A** de que el leverage de Gaia
   fuera intrínsecamente insuficiente: lo era el *método* (LOO secuencial), no los
   datos. El ajuste conjunto + stacking + modelo de error correcto lo resuelve.
@@ -89,22 +92,26 @@ FPR + covarianza en bloques por FOV (`_block_whiten`, `calibrate_sys_floor`) →
   entrega ~7 CCDs correlacionados por cruce FOV; tratarlos como independientes
   subestimaba σ ×1.66 y sesgaba la masa al alza. La covarianza en bloques por FOV
   (piso autocalibrado) lo corrige. El motor es **insesgado** (closing-loop sobre
-  geometría real, z≈0); el residual común +12–29% es sistemático de la astrometría
-  real, a acotar en T11.
+  geometría real, z≈0); el "sobre-tiro" +12–29% que veía el run de N=7 era
+  **dispersión de muestra chica**, no un sistemático — desaparece a N≥20 (T10/T11).
 - **El catálogo geométrico del README (72.236.904 encuentros) no se toca** — el
   motor `orbdet` es ortogonal a la detección/caracterización (congeladas en
   `FROZEN_RUN.md`).
 
-## Próximos pasos (Fase 2)
+## Trabajo futuro (post-T11)
 
-- **Run end-to-end (✅ hecho):** `scripts/mass/orbdet_fit_realdata.py` corre el
-  Big-4 sobre FPR real (calibración del piso + stacking + clip 4σ). Cerró los gates
-  de T8 (χ²_red≈1) y T9 (Big-4 end-to-end).
-- **Cerrar T10:** acotar el residual común +12–29% (deflexión gravitacional de la
-  luz en el modelo de observación; revisar σ_lit terrestres; perturbadores menores)
-  para meter a Pallas bajo |z|<3; **cruzar Fuentes-Muñoz 2024/25** (231 masas).
-- **T11:** corrida de producción sobre perturbadores viables, catálogo de masas
-  nuevas con incertidumbres, writeup.
+T1–T11 están cerradas (ver tabla arriba). Lo que queda es refinamiento, no gate:
+
+- **Cruce Fuentes-Muñoz 2024/25** (231 masas de Gaia FPR) donde solape, para
+  ampliar la validación más allá de los 4 calibradores.
+- **Sesgo de absorción de señal:** perturbadores con deflexión débil salen bajos
+  (0.39–0.72) con χ²_red≈1 — la σ formal subestima el error real. Necesita
+  estimación externa por-perturbador (jackknife/bootstrap) y/o regularización del
+  par masa-órbita.
+- **Acotar el sesgo medio −4%** de los calibradores (candidato: completitud del
+  fondo de perturbadores menores fuera de los 16) para bajar `f_sys`.
+- **DR4:** el motor lo soportará vía el flag `release`; arcos más largos
+  desbloquean perturbadores hoy target-limited (Pallas).
 
 ## Maquinaria de datos reales (sesión 2026-06-29)
 
