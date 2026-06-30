@@ -179,8 +179,8 @@ DR4 (denser observations) than from spending more compute on DR3.
 > mass — **(16) Psyche = 2.43×10¹⁹ kg ±3.3%**. The problem was the *method*
 > (sequential fit), not the data leverage. See
 > [`docs/mass_determination_results.md`](docs/mass_determination_results.md) and
-> [`planning/MASS_DETERMINATION_PLAN.md`](planning/MASS_DETERMINATION_PLAN.md). The
-> text below stays as a valid record of why the original approach failed.
+> [`docs/orbdet_engine_status.md`](docs/orbdet_engine_status.md). The text below
+> stays as a valid record of why the original approach failed.
 
 The Gaia mass-determination experiments (`scripts/mass/*`,
 `docs/mass_layer_*.md`) live alongside this catalog but **are not part

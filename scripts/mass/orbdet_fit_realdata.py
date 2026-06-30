@@ -1,8 +1,8 @@
 """Ajuste conjunto órbita+masa sobre datos Gaia **reales** vía el motor ``orbdet``.
 
-Este es el script IO que cierra los gates literales de T8 (χ²_red≈1 + rechazo de
-outliers sobre datos reales) y T9 (un Big-4 end-to-end) del
-``planning/MASS_DETERMINATION_PLAN.md``: carga la astrometría por-tránsito de Gaia
+Este es el script IO del ajuste de masas sobre datos reales (ver
+``docs/orbdet_engine_status.md`` para arquitectura y gates): carga la astrometría
+por-tránsito de Gaia
 (DR3 o FPR) de cada test-asteroid de un perturbador, la pasa por
 :func:`orbdet.gaia_adapter.build_target_observations` y resuelve la masa del
 perturbador **conjuntamente** con las órbitas de todos los objetivos vía

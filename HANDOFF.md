@@ -6,7 +6,7 @@
 > **(16) Psyche = 2.43×10¹⁹ kg ±3.3%**. Las técnicas de detección marginal descritas
 > abajo (demos Ate, LOO) quedaron superadas. Estado actual:
 > [`docs/mass_determination_results.md`](docs/mass_determination_results.md) y
-> [`planning/MASS_DETERMINATION_PLAN.md`](planning/MASS_DETERMINATION_PLAN.md).
+> [`docs/orbdet_engine_status.md`](docs/orbdet_engine_status.md).
 
 ## 🎯 Resultado nuevo y principal
 

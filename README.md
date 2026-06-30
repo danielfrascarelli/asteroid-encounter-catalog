@@ -210,22 +210,21 @@ resonancias con Júpiter.
   1 h de JPL).
 - **Completitud del prefiltro (audit #2): cuantificada.** El prefiltro orbital
   (|Δa|≤0.5 AU ∧ |Δi|≤30°) tiene **76,4 % de recall en la cola adversa**
-  (alta-e/alta-i): pierde ~143 k encuentros reales, casi todos por el corte
+  (alta-e/alta-i): pierde ~143 k encuentros reales, en su mayoría por el corte
   |Δa|≤0.5 (ciego a la excentricidad). Fix recomendado y verificado: prefiltro
   de solapamiento radial → 100 % recall. Detalle en
   [`docs/prefilter_recall.md`](docs/prefilter_recall.md). No usar la palabra
   "completo" sobre el catálogo congelado.
-- **Capa de masas**: el enfoque viejo *por-encuentro* (LOO secuencial en
-  `src/mass`, `mass_followup_candidates.csv`) **no es publicable** — test de
-  specificidad 0/41, χ²_red del batch con mediana 425 — porque ajusta órbita y
-  masa en pasos separados y la degeneración masa↔drift lo vuelve no
-  identificable. **Eso quedó resuelto por un motor nuevo.** `src/orbdet/`
-  implementa un ajuste **conjunto** órbita+masa sobre el arco completo (estrategia
-  Fuentes-Muñoz/OrbFit/JPL) que **sí determina masas sobre Gaia FPR**: los 4
-  calibradores (Ceres/Vesta/Pallas/Hygiea) se recuperan dentro de |z|<3 y se
-  produce una **masa nueva defendible: (16) Psyche = 2.43×10¹⁹ kg ±3.3%**. Ver
-  [`docs/mass_determination_results.md`](docs/mass_determination_results.md) y
-  [`planning/MASS_DETERMINATION_PLAN.md`](planning/MASS_DETERMINATION_PLAN.md).
+- **Capa de masas**: el enfoque por-encuentro (LOO secuencial, `src/mass`) no
+  determina masas — test de especificidad 0/41, χ²_red del batch con mediana 425 —
+  porque ajusta órbita y masa en pasos separados y la degeneración masa↔drift lo
+  vuelve no identificable. El motor `src/orbdet/` resuelve órbita y masa de forma
+  simultánea sobre el arco completo de Gaia FPR (ecuaciones variacionales, stacking
+  multi-objetivo). Resultados medidos: las 4 masas calibradoras
+  (Ceres/Vesta/Pallas/Hygiea) se recuperan con |z| < 3; (16) Psyche = 2.43×10¹⁹ kg,
+  σ_stat 3.3 %, ratio 1.014 frente a Fuentes-Muñoz et al. (2025) (z = +0.25). Detalle
+  y limitaciones en
+  [`docs/mass_determination_results.md`](docs/mass_determination_results.md).
 - **Catálogos caracterizados**: `encounters_characterized_full.parquet`
   (72.236.904 filas, con observabilidad Gaia + magnitudes/diámetros, generado
   vía streaming) cubre el catálogo congelado completo. El antiguo

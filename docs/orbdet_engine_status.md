@@ -1,20 +1,19 @@
 # Motor `orbdet` — estado y arquitectura
 
-> **Estado:** **T1–T11 ✅ completas** (Fase 0 + Fase 1 + Fase 2; PR #80 mergeado a
-> `main`). Run Big-4 end-to-end sobre FPR real ejecutado; **T10: 4/4 calibradores
-> dentro de |z|<3** con N≥20 objetivos y χ²_red≈1 tras corregir el sesgo dominante
-> (correlación intra-tránsito de los CCDs de Gaia → covarianza diagonal en bloques
-> por FOV, piso autocalibrado). El "sobre-tiro +12–29%" de N=7 era **dispersión de
-> muestra chica**: a N≥20 las masas DAWN/Vernazza se recuperan a ~5%. Motor
-> confirmado **insesgado** (closing-loop sobre geometría real). **T11: masa nueva
-> defendible — (16) Psyche = 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441).
+> **Estado:** T1–T11 completas (PR #80 en `main`). T10: las 4 masas calibradoras se
+> recuperan con |z| < 3 sobre Gaia FPR (N ≥ 20), χ²_red ≈ 1, tras modelar la
+> correlación intra-tránsito de los CCDs de Gaia (covarianza en bloques por FOV, piso
+> autocalibrado). Con N = 7 el ratio fit/lit de los calibradores cae en [1.12, 1.29];
+> con N ≥ 20 en [0.943, 0.990]. T11: (16) Psyche = 2.43×10¹⁹ kg, σ_stat 3.3 %
+> (ratio 1.020 frente a DE441; 1.014 frente a Fuentes-Muñoz 2025).
 > **Última actualización:** 2026-06-30.
-> Roadmap detallado: [`planning/MASS_DETERMINATION_PLAN.md`](../planning/MASS_DETERMINATION_PLAN.md).
+> Resultados: [`mass_determination_results.md`](mass_determination_results.md).
+> Trabajo futuro: [`planning/MASS_FUTURE_WORK.md`](../planning/MASS_FUTURE_WORK.md).
 
 ## Por qué existe
 
-La capa de masas vieja (`src/mass`, LOO secuencial) quedó **cerrada**: no determina
-ninguna masa defendible en DR3 ni en FPR
+La capa de masas vieja (`src/mass`, LOO secuencial) quedó **cerrada**: no produce
+masas identificables (χ²(masa) multimodal, |z| > 6 en calibradores) en DR3 ni en FPR
 ([`docs/mass_layer_track_a_closure.md`](mass_layer_track_a_closure.md),
 [`docs/mass_layer_fpr_revalidation.md`](mass_layer_fpr_revalidation.md)). La raíz
 es la **degeneración masa↔drift orbital**: el LOO ajusta órbita y masa en pasos
@@ -53,7 +52,7 @@ eclíptico J2000 baricéntrico para la dinámica; ICRS para la observación.
 | `least_squares.py` | Corrector **Levenberg-Marquardt** genérico (residuos blanqueados, covarianza = (JᵀJ)⁻¹) | T5 |
 | `orbit_determination.py` | **OD por mínimos cuadrados** de los 6 elementos sobre el arco completo | T5 |
 | `mass_determination.py` | **Ajuste conjunto órbita+masa** (T6) y **stacking multi-objetivo** (T7, sistema en flecha 1+6N); `backend="assist"` con parciales por FD sobre ASSIST; **covarianza diagonal en bloques por FOV** (`_block_whiten`) + **calibración del piso sistemático** (`calibrate_sys_floor`) para χ²_red≈1 | T6, T7, T8 |
-| `dynamics_assist.py` | **Modelo de fuerzas state-of-the-art** (ASSIST): efeméride JPL DE440 + 8 planetas/Luna/Plutón + GR (EIH) + 16 perturbadores asteroidales masivos con masa variable | T8 |
+| `dynamics_assist.py` | **Modelo de fuerzas ASSIST**: efeméride JPL DE440 + 8 planetas/Luna/Plutón + GR (EIH) + 16 perturbadores asteroidales masivos con masa variable | T8 |
 | `gaia_adapter.py` | **Adaptador de datos reales**: σ_AL por proyección de la covarianza (RA,Dec) de Gaia, MPCORB→`KeplerElements`, armonización de épocas N-cuerpos, **agrupación por cruce FOV** (`fov_groups_from_epochs`, para la covarianza en bloques), ensamblado de `TargetObservations` | T9 |
 
 ## Estado por tarea y gates verificados
@@ -69,50 +68,36 @@ eclíptico J2000 baricéntrico para la dinámica; ICRS para la observación.
 | T7 | Stacking multi-asteroide | ✅ | **σ(GM)∝1/√N** (s2/s1≈1/√2, s4/s1≈0.5 a <5%) |
 | T8 | Fuerzas + pesos completos | ✅ | ASSIST vs Horizons 0.17 mas; **χ²_red≈1 sobre datos reales** vía covarianza en bloques por FOV (piso `s_c` autocalibrado) + clip 4σ. Big-4 FPR: χ²_red∈[0.97,1.00] |
 | T9 | Adaptador FPR/DR3 → motor | ✅ | adaptador + `fov_groups_from_epochs`; `scripts/mass/orbdet_fit_realdata.py` corre **Big-4 end-to-end sobre FPR real** |
-| T10 | Validación literatura | ✅ | **4/4 |z|<3** con N≥20 objetivos: Ceres −1.01, Vesta −1.30, Hygiea −0.13 (~5%); Pallas +2.67 (N=6, target-limited). El sobre-tiro de N=7 era muestra chica; a N≥20 recupera DAWN/Vernazza a ~5%. **Cruce Fuentes-Muñoz 2025 hecho**: Psyche concuerda al 1.4% (z=+0.25) |
-| T11 | Producción + catálogo | ✅ | barrido de 16 perturbadores (`build_mass_catalog.py`, `docs/mass_determination_results.md`). **Masa nueva: (16) Psyche 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441). Perturbadores débiles sesgados bajos (absorción de señal) → trabajo futuro |
+| T10 | Validación literatura | ✅ | 4/4 con |z| < 3 (N ≥ 20): Ceres z = −1.01, Vesta −1.30, Hygiea −0.13, Pallas +2.67 (N = 6). Ratio fit/lit en [0.943, 0.990] para los 3 con N ≥ 20. Cruce Fuentes-Muñoz 2025: Psyche ratio 1.014 (z = +0.25) |
+| T11 | Producción + catálogo | ✅ | barrido de 16 perturbadores (`build_mass_catalog.py`, `mass_determination_results.md`). (16) Psyche = 2.43×10¹⁹ kg, σ_stat 3.3 % (ratio 1.020 frente a DE441). 6 perturbadores con deflexión débil: ratio en [0.39, 0.72] (ver trabajo futuro) |
 
 PRs de la sesión 2026-06-28: T3 #73, T4 #74, T5 #75, T6 #76, T7 #77.
 Sesión 2026-06-29: maquinaria T8/T9 (`dynamics_assist`, `gaia_adapter`); run Big-4
 FPR + covarianza en bloques por FOV (`_block_whiten`, `calibrate_sys_floor`) → T10.
 
-## Qué significa para la determinabilidad de masas
+## Determinabilidad de masas: qué muestran los resultados
 
-- **Sintéticamente está demostrado** que el ajuste **conjunto** rompe la
-  degeneración que hundió al LOO: recupera una masa inyectada a ratio≈1.0 (T6) y
-  la incertidumbre baja como 1/√N al apilar objetivos (T7). Es el mecanismo
-  Fuentes-Muñoz funcionando en principio.
-- **Sobre datos reales (FPR) el leverage SÍ alcanza.** El run Big-4 con N≥20
-  objetivos recupera las 4 masas calibradoras con σ informativa y χ²_red≈1; **4/4
-  dentro de |z|<3** (Ceres/Vesta/Hygiea a ~5%; Pallas +2.67, target-limited a N=6).
-  Esto **refuta la preocupación del cierre Track A** de que el leverage de Gaia
-  fuera intrínsecamente insuficiente: lo era el *método* (LOO secuencial), no los
-  datos. El ajuste conjunto + stacking + modelo de error correcto lo resuelve.
-- **El sesgo que hundía al run inicial era el modelo de error, no la física.** Gaia
-  entrega ~7 CCDs correlacionados por cruce FOV; tratarlos como independientes
-  subestimaba σ ×1.66 y sesgaba la masa al alza. La covarianza en bloques por FOV
-  (piso autocalibrado) lo corrige. El motor es **insesgado** (closing-loop sobre
-  geometría real, z≈0); el "sobre-tiro" +12–29% que veía el run de N=7 era
-  **dispersión de muestra chica**, no un sistemático — desaparece a N≥20 (T10/T11).
-- **El catálogo geométrico del README (72.236.904 encuentros) no se toca** — el
-  motor `orbdet` es ortogonal a la detección/caracterización (congeladas en
-  `FROZEN_RUN.md`).
+- **Closing-loop sintético (T6/T7).** El ajuste simultáneo recupera una masa inyectada
+  con ratio 1.0 ± 2×10⁻³ (sin ruido) y dentro de 3σ con ruido AL; la incertidumbre
+  escala como 1/√N al apilar objetivos (s2/s1 ≈ 1/√2, s4/s1 ≈ 0.5, error < 5 %).
+- **Datos reales (FPR).** El run Big-4 con N ≥ 20 recupera las 4 masas calibradoras
+  con |z| < 3 y χ²_red ≈ 1. La causa del cierre de Track A queda acotada al método
+  secuencial (LOO), no al leverage de la astrometría.
+- **Modelo de error.** Con covarianza diagonal, σ(masa) se subestima en un factor 1.66
+  (los 7 CCDs correlacionados por cruce FOV, ICC = 0.32, se tratan como
+  independientes). La covarianza en bloques por FOV lo corrige. El sesgo del estimador
+  sobre la geometría real es compatible con cero (closing-loop, ratio medio 0.997 sobre
+  3 semillas).
+- **Independencia del catálogo de encuentros.** El motor `orbdet` es ortogonal a la
+  detección/caracterización (72.236.904 encuentros, congelados en `FROZEN_RUN.md`).
 
-## Trabajo futuro (post-T11)
+## Trabajo futuro
 
-T1–T11 están cerradas (ver tabla arriba). Lo que queda es refinamiento, no gate:
-
-- **Cruce Fuentes-Muñoz 2025 hecho** (`scripts/validate/validate_fuentes_munoz_masses.py`):
-  Psyche concuerda al 1.4% (z=+0.25). Extender a más perturbadores débiles con σ
-  externa (su z formal exagera la tensión por el sesgo de absorción).
-- **Sesgo de absorción de señal:** perturbadores con deflexión débil salen bajos
-  (0.39–0.72) con χ²_red≈1 — la σ formal subestima el error real. Necesita
-  estimación externa por-perturbador (jackknife/bootstrap) y/o regularización del
-  par masa-órbita.
-- **Acotar el sesgo medio −4%** de los calibradores (candidato: completitud del
-  fondo de perturbadores menores fuera de los 16) para bajar `f_sys`.
-- **DR4:** el motor lo soportará vía el flag `release`; arcos más largos
-  desbloquean perturbadores hoy target-limited (Pallas).
+T1–T11 están cerradas (tabla arriba). Los ítems abiertos (σ externa por-perturbador,
+regularización masa↔órbita, acotar el sesgo de −4 %, perturbadores fuera de los 16,
+DR4) están en [`planning/MASS_FUTURE_WORK.md`](../planning/MASS_FUTURE_WORK.md). El
+cruce con Fuentes-Muñoz 2025 está hecho (resultados en
+[`mass_determination_results.md`](mass_determination_results.md)).
 
 ## Maquinaria de datos reales (sesión 2026-06-29)
 
@@ -133,9 +118,9 @@ T1–T11 están cerradas (ver tabla arriba). Lo que queda es refinamiento, no ga
   focal (~7, separados ~5 s) comparten error sistemático → residuos correlacionados
   (ICC≈0.32 medido en datos reales). `_block_whiten` aplica `C_bloque = diag(σ_AL²)
   + s_c²·11ᵀ` por grupo FOV (Cholesky por bloque); `calibrate_sys_floor` fija el piso
-  correlacionado `s_c` por bisección para χ²_red≈1. Esto honesta σ(masa) (la diagonal
-  la subestimaba ×1.66) y mueve la estimación hacia la verdad. `fov_groups_from_epochs`
-  arma los grupos. Verificado contra `C⁻¹` explícito (`tests/orbdet/test_block_covariance.py`).
+  correlacionado `s_c` por bisección para χ²_red ≈ 1. Corrige la subestimación de
+  σ(masa) (factor 1.66 con covarianza diagonal). `fov_groups_from_epochs` arma los
+  grupos. Verificado contra `C⁻¹` explícito (`tests/orbdet/test_block_covariance.py`).
 - **Dependencia nueva:** `assist>=1.1` (requiere `rebound` 4.x). Efemérides
   (`linux_p1550p2650.440`, `sb441-n16.bsp`, ~750 MB) en `$ORBDET_EPHEM_DIR`
   (default `data/raw/ephem`), no versionadas.
