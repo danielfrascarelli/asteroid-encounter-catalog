@@ -215,13 +215,17 @@ resonancias con Júpiter.
   de solapamiento radial → 100 % recall. Detalle en
   [`docs/prefilter_recall.md`](docs/prefilter_recall.md). No usar la palabra
   "completo" sobre el catálogo congelado.
-- **Capa de masas**: NO publicable. El archivo
-  `mass_followup_candidates.csv` (41 filas) son *targets de seguimiento*,
-  no medidas. El test de specificidad da 0/41
-  ([`encounter_analysis/DETECTIONS.md`](encounter_analysis/DETECTIONS.md))
-  y los chi²_red del LOO batch dan mediana 425 / max 7.2 × 10⁵ — el
-  modelo está mal especificado para esto. La capa requiere joint orbit +
-  mass con covarianza AL real (audit #6, semanas de trabajo).
+- **Capa de masas**: el enfoque viejo *por-encuentro* (LOO secuencial en
+  `src/mass`, `mass_followup_candidates.csv`) **no es publicable** — test de
+  specificidad 0/41, χ²_red del batch con mediana 425 — porque ajusta órbita y
+  masa en pasos separados y la degeneración masa↔drift lo vuelve no
+  identificable. **Eso quedó resuelto por un motor nuevo.** `src/orbdet/`
+  implementa un ajuste **conjunto** órbita+masa sobre el arco completo (estrategia
+  Fuentes-Muñoz/OrbFit/JPL) que **sí determina masas sobre Gaia FPR**: los 4
+  calibradores (Ceres/Vesta/Pallas/Hygiea) se recuperan dentro de |z|<3 y se
+  produce una **masa nueva defendible: (16) Psyche = 2.43×10¹⁹ kg ±3.3%**. Ver
+  [`docs/mass_determination_results.md`](docs/mass_determination_results.md) y
+  [`planning/MASS_DETERMINATION_PLAN.md`](planning/MASS_DETERMINATION_PLAN.md).
 - **Catálogos caracterizados**: `encounters_characterized_full.parquet`
   (72.236.904 filas, con observabilidad Gaia + magnitudes/diámetros, generado
   vía streaming) cubre el catálogo congelado completo. El antiguo

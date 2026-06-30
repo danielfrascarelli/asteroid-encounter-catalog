@@ -1,5 +1,11 @@
 # Re-validación de la capa de masas con Gaia FPR (FPR_INGEST_PLAN Stage 4)
 
+> ⚠️ **El resultado negativo de abajo es del MÉTODO LOO, no de FPR.** Este doc
+> muestra que FPR + `fit_mass_gaia_loo` (ajuste secuencial) no reabre la
+> determinación. El motor `src/orbdet/` (joint orbit+mass, junio 2026) **sí lo
+> reabre con los mismos datos FPR**: 4/4 calibradores |z|<3 + (16) Psyche. Ver
+> [`docs/mass_determination_results.md`](mass_determination_results.md).
+
 > El gate científico del plan. Pregunta: ¿el baseline extendido de FPR (~66 vs
 > ~34 meses) reabre la determinación de masas que se cerró con DR3
 > ([docs/mass_layer_track_a_closure.md](mass_layer_track_a_closure.md),

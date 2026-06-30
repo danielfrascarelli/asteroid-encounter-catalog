@@ -10,7 +10,10 @@
 > **paralelización** (~6×). Límite hallado: perturbadores con deflexión débil se
 > sesgan bajos (absorción de señal). Resultados: [`docs/mass_determination_results.md`](../docs/mass_determination_results.md).
 > Arquitectura: [`docs/orbdet_engine_status.md`](../docs/orbdet_engine_status.md).
-> **Última actualización:** 2026-06-29.
+> **Cruce independiente Fuentes-Muñoz 2025 cerrado:** (16) Psyche concuerda al
+> **1.4% (z=+0.25)** con su ajuste de masas FPR revisado por pares
+> (`scripts/validate/validate_fuentes_munoz_masses.py`). **Plan 100% cerrado.**
+> **Última actualización:** 2026-06-30.
 > Plan para convertir el catálogo de encuentros en **determinaciones de masa
 > publicables**, replicando la metodología de **solución global simultánea**
 > (órbitas + masa por mínimos cuadrados sobre el arco completo, con la
@@ -45,7 +48,7 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 | # | tarea | fase | estado | entregable / gate |
 |---|-------|------|--------|-------------------|
 | T1 | Esqueleto `orbdet` + primitivas matemáticas (constants, kepler, frames, time) | 0 | ✅ | `src/orbdet/` · #70 (65 tests) |
-| T2 | Modelo dinámico N-cuerpos (rebound: Sol+planetas+asteroides grandes+perturber) | 0 | ✅* | `src/orbdet/dynamics.py` · validado vs límite dos-cuerpos a 1e-8 AU; *cross-check Horizons marcado, pendiente de entorno con acceso JPL |
+| T2 | Modelo dinámico N-cuerpos (rebound: Sol+planetas+asteroides grandes+perturber) | 0 | ✅ | `src/orbdet/dynamics.py` · validado vs límite dos-cuerpos a 1e-8 AU. **Cross-check Horizons cerrado por T8**: el modelo de fuerzas completo (ASSIST/DE440) coincide con Horizons a **0.17 mas sobre 900 d** — el asterisco "pendiente de red" de T2 queda resuelto |
 | T3 | Ecuaciones variacionales (∂estado/∂elementos y ∂estado/∂GM) | 0 | ✅ | `src/orbdet/variational.py`: STM analítica (rebound add_variation) + ∂x/∂elementos (Φ·J_elem) coincide con FD a <1e-6; ∂x/∂GM por DF central con meseta de Richardson |
 | T4 | Modelo de observación + covarianza along-scan anisotrópica | 0 | ✅ | `src/orbdet/observation.py`: estado→ICRS→RA/Dec + light-time iterativa + covarianza AL/AC anisotrópica; gate verde (chain N-cuerpos vs oráculo kepleriano <0.1 mas; ruido AL → χ²/obs≈1) |
 | T5 | Corrector diferencial (OD por mínimos cuadrados, arco completo) | 0 | ✅ | `src/orbdet/least_squares.py` (LM genérico) + `orbit_determination.py`; gate verde: recupera órbita sintética sin ruido (χ²<1e-6) y con ruido AL (χ²_red≈1, <5σ) |
@@ -54,7 +57,7 @@ covarianza, no se descarta. Eso es lo que hay que construir.
 | T7 | Stacking multi-asteroide (GM compartido, N targets) | 1 | ✅ | `mass_determination.determine_shared_mass` (sistema en flecha 1+6N); gate verde: σ(GM)∝1/√N (s2/s1≈1/√2, s4/s1≈0.5 a <5%) |
 | T8 | Modelo de fuerzas + pesos completo (efemérides, debiasing, outliers) | 1 | ✅ | `src/orbdet/dynamics_assist.py` (ASSIST: DE440 + GR EIH + 16 perturbadores); vs Horizons 0.17 mas. **χ²_red≈1 sobre datos reales** vía covarianza en bloques por FOV con piso autocalibrado (`mass_determination._block_whiten` + `calibrate_sys_floor`) + sigma-clipping 4σ. Big-4: χ²_red∈[0.97,1.00] |
 | T9 | Adaptador FPR → motor (obs + covarianza por tránsito) | 2 | ✅ | `src/orbdet/gaia_adapter.py` (σ_AL, MPCORB→elementos, épocas N-cuerpos, **`fov_groups_from_epochs`** para los bloques de correlación). `scripts/mass/orbdet_fit_realdata.py` corre **Big-4 end-to-end sobre FPR real** (calibración de piso + stacking + rechazo) |
-| T10 | Validación contra literatura (4 calibradores + Fuentes-Muñoz + Goffin/Galád) | 2 | ✅ | **4/4 dentro de \|z\|<3** con muchos objetivos (N≥20) y modelo de error correcto: Ceres z=−1.01, Vesta −1.30, Hygiea −0.13 (los 3 bien muestreados a ~5%); Pallas +2.67 (N=6, target-limited). El "sobre-tiro +12–29%" de N=7 era **dispersión de muestra chica**, no sistemático: a N≥20 las masas DAWN/Vernazza se recuperan a ~5% (sesgo medio −4%). Falta cruce Fuentes-Muñoz (T11) |
+| T10 | Validación contra literatura (4 calibradores + Fuentes-Muñoz + Goffin/Galád) | 2 | ✅ | **4/4 dentro de \|z\|<3** con muchos objetivos (N≥20) y modelo de error correcto: Ceres z=−1.01, Vesta −1.30, Hygiea −0.13 (los 3 bien muestreados a ~5%); Pallas +2.67 (N=6, target-limited). El "sobre-tiro +12–29%" de N=7 era **dispersión de muestra chica**, no sistemático: a N≥20 las masas DAWN/Vernazza se recuperan a ~5% (sesgo medio −4%). **Cruce Fuentes-Muñoz 2025 hecho** (`scripts/validate/validate_fuentes_munoz_masses.py`): (16) Psyche concuerda al **1.4% (z=+0.25)** con su ajuste FPR independiente; el sesgo de absorción de señal en perturbadores débiles se reproduce contra FM (consistente con la limitación documentada) |
 | T11 | Corrida de producción + catálogo de masas + writeup | 2 | ✅ | **Barrido de los 16 perturbadores hecho** (`scripts/mass/build_mass_catalog.py`, `docs/mass_determination_results.md`). **Masa nueva defendible: (16) Psyche = 2.43×10¹⁹ kg ±3.3%** (acuerdo 2% con DE441, N=36). Hallazgo: perturbadores con deflexión débil se sesgan bajos (absorción de señal masa↔órbita) → σ formal subestima; estimación externa por-perturbador queda como trabajo futuro |
 
 ---
