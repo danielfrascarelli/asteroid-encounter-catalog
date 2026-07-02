@@ -474,6 +474,7 @@ def _run_perturber(
             perturber,
             top_n=args.top_per_perturber,
             max_dist_au=args.max_dist_au,
+            max_target_number=args.max_target_number,
         )
     elif args.targets_json is not None:
         specs = _read_targets_from_json(args.targets_json)
@@ -698,6 +699,16 @@ def main() -> int:
         type=float,
         default=0.05,
         help="distancia máxima de encuentro (--from-catalog)",
+    )
+    parser.add_argument(
+        "--max-target-number",
+        type=int,
+        default=100_000,
+        help=(
+            "nº MPC máximo de objetivo a considerar (--from-catalog). Los de número "
+            "alto son tenues/peor determinados, pero el joint fit re-ajusta la órbita "
+            "desde Gaia, así que subirlo suma encuentros cercanos con tránsitos suficientes"
+        ),
     )
     parser.add_argument("--release", default=None, help="'dr3' | 'fpr' (default: el del config)")
     parser.add_argument(
