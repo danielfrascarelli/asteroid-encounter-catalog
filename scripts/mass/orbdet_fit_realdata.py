@@ -513,7 +513,15 @@ def _run_perturber(
         if spec.target not in elements_map:
             logger.warning("target %d no está en el snapshot MPCORB — saltado", spec.target)
             continue
-        raw = _fetch_target(archive_url, spec.target, release_cfg)
+        try:
+            raw = _fetch_target(archive_url, spec.target, release_cfg)
+        except Exception as exc:  # noqa: BLE001 — un target caído no debe tumbar el perturber
+            logger.error(
+                "target %d: fetch Gaia falló tras reintentos (%s) — saltado",
+                spec.target,
+                str(exc).splitlines()[0],
+            )
+            continue
         if raw is None:
             continue
         tobs = _build_target_obs(
