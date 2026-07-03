@@ -188,8 +188,7 @@ def big_big_encounters(lf: pl.LazyFrame, threshold_km: float, top_n: int) -> pl.
     """
     return _collect(
         lf.filter(
-            (pl.col("diameter_1_km") >= threshold_km)
-            & (pl.col("diameter_2_km") >= threshold_km)
+            (pl.col("diameter_1_km") >= threshold_km) & (pl.col("diameter_2_km") >= threshold_km)
         )
         .sort("dist_km")
         .head(top_n)
@@ -224,8 +223,7 @@ def slowest_encounters(lf: pl.LazyFrame, top_n: int, min_diam_km: float = 5.0) -
     """
     return _collect(
         lf.filter(
-            (pl.col("diameter_1_km") >= min_diam_km)
-            | (pl.col("diameter_2_km") >= min_diam_km)
+            (pl.col("diameter_1_km") >= min_diam_km) | (pl.col("diameter_2_km") >= min_diam_km)
         )
         .sort("rel_vel_km_s")
         .head(top_n)
@@ -264,10 +262,7 @@ def big_slow_close(
     """
     return _collect(
         lf.filter(
-            (
-                (pl.col("diameter_1_km") >= min_diam_km)
-                | (pl.col("diameter_2_km") >= min_diam_km)
-            )
+            ((pl.col("diameter_1_km") >= min_diam_km) | (pl.col("diameter_2_km") >= min_diam_km))
             & (pl.col("rel_vel_km_s") <= max_vrel_km_s)
             & (pl.col("dist_km") <= max_dist_km)
         )
@@ -324,8 +319,16 @@ def same_dynamical_region(
 
     joined = (
         lf.filter(pl.col("dist_km") <= max_dist_km)
-        .join(elem.rename({"num": "number_1", "a_au": "a1", "e": "e1", "i_deg": "i1"}), on="number_1", how="inner")
-        .join(elem.rename({"num": "number_2", "a_au": "a2", "e": "e2", "i_deg": "i2"}), on="number_2", how="inner")
+        .join(
+            elem.rename({"num": "number_1", "a_au": "a1", "e": "e1", "i_deg": "i1"}),
+            on="number_1",
+            how="inner",
+        )
+        .join(
+            elem.rename({"num": "number_2", "a_au": "a2", "e": "e2", "i_deg": "i2"}),
+            on="number_2",
+            how="inner",
+        )
     )
 
     da = (pl.col("a1") - pl.col("a2")).abs() / ((pl.col("a1") + pl.col("a2")) / 2.0)
@@ -393,39 +396,27 @@ def new_big_perturber_candidates(
         útiles, la mejor (mínima) distancia y velocidad, ordenado por conteo.
     """
     known = list(KNOWN_PERTURBERS)
-    useful = (
-        (pl.col("rel_vel_km_s") <= max_vrel_km_s) & (pl.col("dist_km") <= max_dist_km)
-    )
+    useful = (pl.col("rel_vel_km_s") <= max_vrel_km_s) & (pl.col("dist_km") <= max_dist_km)
     # Normaliza cada evento a la perspectiva del cuerpo grande no catalogado.
-    big1 = (
-        lf.filter(
-            (pl.col("diameter_1_km") >= min_diam_km)
-            & ~pl.col("number_1").is_in(known)
-            & useful
-        )
-        .select(
-            pl.col("number_1").alias("big_number"),
-            pl.col("designation_1").alias("big_name"),
-            pl.col("diameter_1_km").alias("big_diam_km"),
-            pl.col("class_1").alias("big_class"),
-            pl.col("dist_km"),
-            pl.col("rel_vel_km_s"),
-        )
+    big1 = lf.filter(
+        (pl.col("diameter_1_km") >= min_diam_km) & ~pl.col("number_1").is_in(known) & useful
+    ).select(
+        pl.col("number_1").alias("big_number"),
+        pl.col("designation_1").alias("big_name"),
+        pl.col("diameter_1_km").alias("big_diam_km"),
+        pl.col("class_1").alias("big_class"),
+        pl.col("dist_km"),
+        pl.col("rel_vel_km_s"),
     )
-    big2 = (
-        lf.filter(
-            (pl.col("diameter_2_km") >= min_diam_km)
-            & ~pl.col("number_2").is_in(known)
-            & useful
-        )
-        .select(
-            pl.col("number_2").alias("big_number"),
-            pl.col("designation_2").alias("big_name"),
-            pl.col("diameter_2_km").alias("big_diam_km"),
-            pl.col("class_2").alias("big_class"),
-            pl.col("dist_km"),
-            pl.col("rel_vel_km_s"),
-        )
+    big2 = lf.filter(
+        (pl.col("diameter_2_km") >= min_diam_km) & ~pl.col("number_2").is_in(known) & useful
+    ).select(
+        pl.col("number_2").alias("big_number"),
+        pl.col("designation_2").alias("big_name"),
+        pl.col("diameter_2_km").alias("big_diam_km"),
+        pl.col("class_2").alias("big_class"),
+        pl.col("dist_km"),
+        pl.col("rel_vel_km_s"),
     )
     return _collect(
         pl.concat([big1, big2])
@@ -555,42 +546,58 @@ def build_report(results: MiningResults, catalog_path: str) -> str:
     parts.append("")
     parts.append("> **Estado:** 🟡 EN CURSO (frente P1 de `planning/PUBLISH_PUSH_PLAN.md`)")
     parts.append(f"> **Fecha:** {today}")
-    parts.append(f"> **Fuente:** `{catalog_path}` — {results.total_rows:,} encuentros 3D "
-                 "reales (una fila por par, ya deduplicado por máxima aproximación).")
+    parts.append(
+        f"> **Fuente:** `{catalog_path}` — {results.total_rows:,} encuentros 3D "
+        "reales (una fila por par, ya deduplicado por máxima aproximación)."
+    )
     parts.append(">")
-    parts.append("> Este catálogo registra la **mínima distancia física en 3D** entre pares "
-                 "de asteroides durante la ventana Gaia DR3 (jul 2014 – may 2017), no "
-                 "co-localizaciones aparentes en el plano del cielo.")
+    parts.append(
+        "> Este catálogo registra la **mínima distancia física en 3D** entre pares "
+        "de asteroides durante la ventana Gaia DR3 (jul 2014 – may 2017), no "
+        "co-localizaciones aparentes en el plano del cielo."
+    )
     parts.append("")
 
     parts.append("## Metodología y limitaciones")
     parts.append("")
-    parts.append("- Los diámetros derivan de `H` con albedo por clase cuando no hay medida "
-                 "directa; deben leerse como estimaciones de orden de magnitud, no como "
-                 "diámetros medidos. Los cortes por tamaño son por tanto aproximados.")
-    parts.append("- La propagación de base del catálogo es Kepler de dos cuerpos; el "
-                 "refinamiento N-cuerpos se aplica sólo al subset de determinación de masas. "
-                 "Las distancias mínimas de esta minería pueden tener sesgo cerca de "
-                 "resonancias o encuentros planetarios. Cualquier evento seleccionado como "
-                 "candidato requiere revalidación N-cuerpos antes de publicar.")
-    parts.append("- El presupuesto de completitud del catálogo (censura ~0.70 %, recall "
-                 "prefiltro ~76 % en el tail adverso) implica que faltan algunos encuentros "
-                 "genuinos; las tablas de abajo son un piso, no un censo exhaustivo.")
-    parts.append("- El proxy de familia (§4) es proximidad en elementos osculantes "
-                 "`(a, e, i)`, **no** clasificación en elementos propios. Señala candidatos, "
-                 "no confirma pertenencia a familia.")
+    parts.append(
+        "- Los diámetros derivan de `H` con albedo por clase cuando no hay medida "
+        "directa; deben leerse como estimaciones de orden de magnitud, no como "
+        "diámetros medidos. Los cortes por tamaño son por tanto aproximados."
+    )
+    parts.append(
+        "- La propagación de base del catálogo es Kepler de dos cuerpos; el "
+        "refinamiento N-cuerpos se aplica sólo al subset de determinación de masas. "
+        "Las distancias mínimas de esta minería pueden tener sesgo cerca de "
+        "resonancias o encuentros planetarios. Cualquier evento seleccionado como "
+        "candidato requiere revalidación N-cuerpos antes de publicar."
+    )
+    parts.append(
+        "- El presupuesto de completitud del catálogo (censura ~0.70 %, recall "
+        "prefiltro ~76 % en el tail adverso) implica que faltan algunos encuentros "
+        "genuinos; las tablas de abajo son un piso, no un censo exhaustivo."
+    )
+    parts.append(
+        "- El proxy de familia (§4) es proximidad en elementos osculantes "
+        "`(a, e, i)`, **no** clasificación en elementos propios. Señala candidatos, "
+        "no confirma pertenencia a familia."
+    )
     parts.append("")
 
     # 1. Grande-grande
     parts.append("## 1. Encuentros grande-grande")
     parts.append("")
-    parts.append("Ambos cuerpos por encima del umbral de diámetro. Son los más raros: dos "
-                 "cuerpos masivos que se aproximan en 3D. Ordenados por distancia mínima.")
+    parts.append(
+        "Ambos cuerpos por encima del umbral de diámetro. Son los más raros: dos "
+        "cuerpos masivos que se aproximan en 3D. Ordenados por distancia mínima."
+    )
     for thr in BIG_THRESHOLDS_KM:
         df = results.big_big[thr]
         parts.append("")
-        parts.append(f"### 1.{int(thr == 100.0) + 1} Ambos D ≳ {thr:g} km "
-                     f"({df.height} en el top {TOP_N})")
+        parts.append(
+            f"### 1.{int(thr == 100.0) + 1} Ambos D ≳ {thr:g} km "
+            f"({df.height} en el top {TOP_N})"
+        )
         parts.append("")
         parts.append(df_to_markdown(df))
     parts.append("")
@@ -604,15 +611,19 @@ def build_report(results: MiningResults, catalog_path: str) -> str:
     parts.append("")
     parts.append("### 2b. Encuentros más lentos (candidatos naturales a masa)")
     parts.append("")
-    parts.append("Velocidad relativa mínima (con al menos un cuerpo D ≳ 5 km). Una v_rel baja "
-                 "prolonga la interacción gravitatoria ⇒ deflexión mayor y más medible.")
+    parts.append(
+        "Velocidad relativa mínima (con al menos un cuerpo D ≳ 5 km). Una v_rel baja "
+        "prolonga la interacción gravitatoria ⇒ deflexión mayor y más medible."
+    )
     parts.append("")
     parts.append(df_to_markdown(results.slowest))
     parts.append("")
     parts.append("### 2c. Grande + lento + cercano (máximo interés físico)")
     parts.append("")
-    parts.append(f"Al menos un cuerpo D ≳ 50 km, v_rel ≤ {SLOW_VREL_KM_S:g} km/s, "
-                 f"dist ≤ {CLOSE_DIST_KM:.0e} km.")
+    parts.append(
+        f"Al menos un cuerpo D ≳ 50 km, v_rel ≤ {SLOW_VREL_KM_S:g} km/s, "
+        f"dist ≤ {CLOSE_DIST_KM:.0e} km."
+    )
     parts.append("")
     parts.append(df_to_markdown(results.big_slow_close))
     parts.append("")
@@ -621,12 +632,16 @@ def build_report(results: MiningResults, catalog_path: str) -> str:
     parts.append("## 3. Pares en la misma región dinámica (proxy de familia)")
     parts.append("")
     if results.family_proxy is None:
-        parts.append("_Omitido en esta corrida (queda para P1b): no se pudo unir con una "
-                     "fuente de elementos orbitales._")
+        parts.append(
+            "_Omitido en esta corrida (queda para P1b): no se pudo unir con una "
+            "fuente de elementos orbitales._"
+        )
     else:
-        parts.append("Pares cuyos elementos osculantes `(a, e, i)` son mutuamente cercanos "
-                     "(Δa/a ≤ 1 %, Δe ≤ 0.02, Δi ≤ 1°) y que además tuvieron un encuentro "
-                     "físico cercano. Se añaden las columnas de elementos de ambos cuerpos.")
+        parts.append(
+            "Pares cuyos elementos osculantes `(a, e, i)` son mutuamente cercanos "
+            "(Δa/a ≤ 1 %, Δe ≤ 0.02, Δi ≤ 1°) y que además tuvieron un encuentro "
+            "físico cercano. Se añaden las columnas de elementos de ambos cuerpos."
+        )
         parts.append("")
         fam_cols = DISPLAY_COLS + ("a1", "a2", "e1", "e2", "i1", "i2")
         parts.append(df_to_markdown(results.family_proxy, fam_cols))
@@ -637,17 +652,21 @@ def build_report(results: MiningResults, catalog_path: str) -> str:
     parts.append("")
     parts.append("### 4a. Encuentros que tocan uno de los 16 perturbadores estudiados")
     parts.append("")
-    parts.append("Lista de referencia (ya cubierta): "
-                 f"{', '.join(str(n) for n in sorted(KNOWN_PERTURBERS))}. "
-                 "Sirve para **separar lo ya trabajado** del descubrimiento.")
+    parts.append(
+        "Lista de referencia (ya cubierta): "
+        f"{', '.join(str(n) for n in sorted(KNOWN_PERTURBERS))}. "
+        "Sirve para **separar lo ya trabajado** del descubrimiento."
+    )
     parts.append("")
     parts.append(df_to_markdown(results.known_perturbers))
     parts.append("")
     parts.append("### 4b. Cuerpos grandes FUERA de los 16 (candidatos a masa nueva → F4)")
     parts.append("")
-    parts.append("Cuerpos con D ≳ 100 km, no incluidos en los 16, rankeados por número de "
-                 "encuentros *útiles* (v_rel ≤ 3 km/s y dist ≤ 3×10⁶ km). Más eventos buenos "
-                 "⇒ mejor candidato a determinación de masa.")
+    parts.append(
+        "Cuerpos con D ≳ 100 km, no incluidos en los 16, rankeados por número de "
+        "encuentros *útiles* (v_rel ≤ 3 km/s y dist ≤ 3×10⁶ km). Más eventos buenos "
+        "⇒ mejor candidato a determinación de masa."
+    )
     parts.append("")
     ncols = (
         "big_number",
@@ -670,39 +689,51 @@ def build_report(results: MiningResults, catalog_path: str) -> str:
     bb50_new = results.big_big[50.0].filter(~_in_known(results.big_big[50.0]))
     parts.append("### 5a. Eventos genuinamente notables / potencialmente no catalogados")
     parts.append("")
-    parts.append(f"- **{bb100.height} encuentros grande-grande D ≳ 100 km** en el catálogo "
-                 "(sección 1.2). Cualquier par de este grupo que **no** toque a los 16 "
-                 "perturbadores conocidos es un evento de alto perfil sin cobertura previa "
-                 "obvia; ver la marca de perturbador en §4a.")
+    parts.append(
+        f"- **{bb100.height} encuentros grande-grande D ≳ 100 km** en el catálogo "
+        "(sección 1.2). Cualquier par de este grupo que **no** toque a los 16 "
+        "perturbadores conocidos es un evento de alto perfil sin cobertura previa "
+        "obvia; ver la marca de perturbador en §4a."
+    )
     if bb50_new.height:
         top = bb50_new.row(0, named=True)
-        parts.append(f"- El encuentro grande-grande (D ≳ 50 km) más cercano **fuera de los "
-                     f"16** es {top['designation_1']} × {top['designation_2']} el "
-                     f"{top['date_utc']} a {_fmt(top['dist_km'])} km — candidato a revisión "
-                     f"N-cuerpos.")
-    parts.append("- Los encuentros más cercanos en términos absolutos (§2a) merecen "
-                 "revalidación N-cuerpos: a esas distancias la aproximación Kepler es más "
-                 "frágil, pero si sobreviven son los eventos geométricamente más notables "
-                 "del dataset.")
+        parts.append(
+            f"- El encuentro grande-grande (D ≳ 50 km) más cercano **fuera de los "
+            f"16** es {top['designation_1']} × {top['designation_2']} el "
+            f"{top['date_utc']} a {_fmt(top['dist_km'])} km — candidato a revisión "
+            f"N-cuerpos."
+        )
+    parts.append(
+        "- Los encuentros más cercanos en términos absolutos (§2a) merecen "
+        "revalidación N-cuerpos: a esas distancias la aproximación Kepler es más "
+        "frágil, pero si sobreviven son los eventos geométricamente más notables "
+        "del dataset."
+    )
     parts.append("")
 
     # (b) mejores candidatos a masa
     parts.append("### 5b. Cuerpos grandes fuera de los 16 con más encuentros útiles (→ F4)")
     parts.append("")
-    parts.append("Ranking del §4b (top 10). Estos son los perturbadores no estudiados con más "
-                 "eventos de baja v_rel y corta distancia, es decir, con el mayor potencial "
-                 "de deflexión medible para una masa nueva:")
+    parts.append(
+        "Ranking del §4b (top 10). Estos son los perturbadores no estudiados con más "
+        "eventos de baja v_rel y corta distancia, es decir, con el mayor potencial "
+        "de deflexión medible para una masa nueva:"
+    )
     parts.append("")
     top10 = results.new_big_candidates.head(10)
     for row in top10.iter_rows(named=True):
-        parts.append(f"- **{row['big_name']}** "
-                     f"(D≈{_fmt(row['big_diam_km'])} km, clase {_fmt(row['big_class'])}): "
-                     f"{row['n_useful_events']} eventos útiles; mejor par a "
-                     f"{_fmt(row['best_dist_km'])} km, v_rel mín {_fmt(row['min_vrel_km_s'])} km/s.")
+        parts.append(
+            f"- **{row['big_name']}** "
+            f"(D≈{_fmt(row['big_diam_km'])} km, clase {_fmt(row['big_class'])}): "
+            f"{row['n_useful_events']} eventos útiles; mejor par a "
+            f"{_fmt(row['best_dist_km'])} km, v_rel mín {_fmt(row['min_vrel_km_s'])} km/s."
+        )
     parts.append("")
-    parts.append("> Contrastar contra los candidatos F4 propuestos en "
-                 "`docs/mass_layer_f4_design.md` (24 Themis, 532 Herculina, 29 Amphitrite, "
-                 "354 Eleonora) y priorizar los que además aparezcan alto en este ranking.")
+    parts.append(
+        "> Contrastar contra los candidatos F4 propuestos en "
+        "`docs/mass_layer_f4_design.md` (24 Themis, 532 Herculina, 29 Amphitrite, "
+        "354 Eleonora) y priorizar los que además aparezcan alto en este ranking."
+    )
     parts.append("")
 
     parts.append("---")
