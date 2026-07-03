@@ -89,12 +89,8 @@ def rank_candidates(
 
     # Dos vistas: cada cuerpo del par puede ser el perturbador; el otro es el objetivo.
     # (mismo criterio que _read_targets_from_catalog, aplicado a todos los números)
-    a = lf.select(
-        pl.col("number_1").alias("perturber"), pl.col("number_2").alias("target")
-    )
-    b = lf.select(
-        pl.col("number_2").alias("perturber"), pl.col("number_1").alias("target")
-    )
+    a = lf.select(pl.col("number_1").alias("perturber"), pl.col("number_2").alias("target"))
+    b = lf.select(pl.col("number_2").alias("perturber"), pl.col("number_1").alias("target"))
     pairs = pl.concat([a, b])
 
     ephem = list(_EPHEM_NUMBERS)
@@ -140,9 +136,7 @@ def main() -> int:
     parser.add_argument("--top", type=int, default=30)
     args = parser.parse_args()
 
-    logger.info(
-        "Excluyendo los 16 de la efeméride (%s)", ", ".join(sorted(BIG_ASTEROIDS))
-    )
+    logger.info("Excluyendo los 16 de la efeméride (%s)", ", ".join(sorted(BIG_ASTEROIDS)))
     df = rank_candidates(
         args.catalog,
         max_dist_au=args.max_dist_au,

@@ -61,8 +61,10 @@ def main() -> int:
             "n_background": d.get("n_background"),
         }
 
-    print(f"{'#':>4} {'name':<10} {'N':>4}  {'ratio16':>8} {'chi16':>6}  "
-          f"{'ratioEXT':>8} {'chiEXT':>6}  {'nbg':>4}")
+    print(
+        f"{'#':>4} {'name':<10} {'N':>4}  {'ratio16':>8} {'chi16':>6}  "
+        f"{'ratioEXT':>8} {'chiEXT':>6}  {'nbg':>4}"
+    )
     base_ratios: list[float] = []
     ext_ratios: list[float] = []
     for num in sorted(_CALIBRATORS_N20):
@@ -84,7 +86,7 @@ def main() -> int:
     print(f"f_sys (fondo 16, N calib={len(base_ratios)}):  {_rms(base_ratios)*100:.3f} %")
     if ext_ratios:
         print(f"f_sys (fondo EXT, N calib={len(ext_ratios)}): {_rms(ext_ratios)*100:.3f} %")
-    print(f"gate: f_sys < 4.2 %")
+    print("gate: f_sys < 4.2 %")
     return 0
 
 

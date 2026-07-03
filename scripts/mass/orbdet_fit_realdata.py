@@ -389,9 +389,7 @@ def _extended_background(
             )
             orbit_source = "mpcorb"
         else:
-            logger.warning(
-                "Fondo extendido: %d sin fila MPCORB y source=mpcorb — saltado", number
-            )
+            logger.warning("Fondo extendido: %d sin fila MPCORB y source=mpcorb — saltado", number)
             continue
 
         extra.append(AsteroidPerturber(name=name, mass_msun=p["mass_msun"], elements=el))
