@@ -52,10 +52,12 @@ import argparse
 import json
 import logging
 import math
+import time
 from pathlib import Path
 
 import numpy as np
 import polars as pl
+import requests
 from astropy.time import Time
 from astroquery.utils.tap.core import TapPlus
 from scipy.optimize import least_squares
@@ -75,6 +77,10 @@ _J2010_TCB_JD = 2455197.5
 _GAIA_START_JD_TCB = 2456863.5  # 2014-07-25
 _GAIA_END_JD_TCB = 2457910.5  # 2017-05-28
 _DR3_TABLE = "gaiadr3.sso_observation"
+
+# Reintentos ante fallos transitorios (HTTP 500) del TAP async de Gaia.
+_TAP_MAX_RETRIES = 4
+_TAP_RETRY_BACKOFF_S = 5.0
 
 _MPCORB_ARCHIVE_DIR = Path("data/raw/mpcorb_archive")
 
@@ -147,10 +153,32 @@ def fetch_gaia_full(
         "ORDER BY epoch"
     )
     tap = TapPlus(url=archive_url)
-    job = tap.launch_job_async(adql)
-    df = pl.from_pandas(job.get_results().to_pandas())
-    df = df.rename({c: c.lower() for c in df.columns if c != c.lower()})
-    return df
+    # El TAP async de Gaia falla intermitentemente con HTTP 500
+    # ("Cannot find result 'result' for job ...") cuando el archivo de
+    # resultados no queda disponible server-side. Reenviar el job suele
+    # resolverlo, así que reintentamos con backoff antes de propagar.
+    last_exc: Exception | None = None
+    for attempt in range(_TAP_MAX_RETRIES):
+        try:
+            job = tap.launch_job_async(adql)
+            df = pl.from_pandas(job.get_results().to_pandas())
+            df = df.rename({c: c.lower() for c in df.columns if c != c.lower()})
+            return df
+        except requests.exceptions.HTTPError as exc:
+            last_exc = exc
+            if attempt < _TAP_MAX_RETRIES - 1:
+                wait = _TAP_RETRY_BACKOFF_S * (2**attempt)
+                logger.warning(
+                    "target %d: TAP falló (intento %d/%d): %s — reintento en %.0fs",
+                    target,
+                    attempt + 1,
+                    _TAP_MAX_RETRIES,
+                    str(exc).splitlines()[0],
+                    wait,
+                )
+                time.sleep(wait)
+    assert last_exc is not None
+    raise last_exc
 
 
 def al_residuals_and_weights(

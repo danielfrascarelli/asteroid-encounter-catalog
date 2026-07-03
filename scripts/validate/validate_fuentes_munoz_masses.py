@@ -157,6 +157,9 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_csv = out_dir / "fuentes_munoz_2025_mass_comparison.csv"
+    # Carry the F2 identifiability flags through when present (jackknife catalogs); a
+    # not-identifiable mass explains an apparent |z|>3 tension as σ underestimation.
+    extra_cols = [c for c in ("snr_jack", "mass_status") if c in joined.columns]
     joined.select(
         "perturber",
         "name",
@@ -165,6 +168,7 @@ def main() -> int:
         "n_targets",
         "mass_fit_kg",
         "sigma_total_kg",
+        *extra_cols,
         "fm_mass_kg",
         "fm_sigma_kg",
         "ratio_ours_over_fm",
@@ -209,20 +213,24 @@ def main() -> int:
     print("\n" + "=" * 88)
     print("FUENTES-MUÑOZ et al. 2025 (AJ 170, 353) — MASS cross-check vs orbdet catalog")
     print("=" * 88)
+    has_status = "mass_status" in joined.columns
+    status_hdr = f" {'status':>16}" if has_status else ""
     print(
-        f"{'#':>5} {'name':<12} {'cal':>3} {'rel':>3} {'M_ours':>10} {'M_FM':>10} {'ratio':>7} {'z':>7}"
+        f"{'#':>5} {'name':<12} {'cal':>3} {'rel':>3} {'M_ours':>10} {'M_FM':>10} "
+        f"{'ratio':>7} {'z':>7}{status_hdr}"
     )
-    print("-" * 88)
+    print("-" * (88 + (17 if has_status else 0)))
     for r in joined.iter_rows(named=True):
         z = r["z_vs_fm"]
         z_str = f"{z:+.2f}" if z is not None and not math.isnan(z) else "  n/a"
+        status_str = f" {r['mass_status']:>16}" if has_status else ""
         print(
             f"{r['perturber']:>5} {r['name'][:12]:<12} "
             f"{'Y' if r['is_calibrator'] else '.':>3} {'Y' if r['reliable'] else '.':>3} "
             f"{r['mass_fit_kg']:>10.3e} {r['fm_mass_kg']:>10.3e} "
-            f"{r['ratio_ours_over_fm']:>7.3f} {z_str:>7}"
+            f"{r['ratio_ours_over_fm']:>7.3f} {z_str:>7}{status_str}"
         )
-    print("-" * 88)
+    print("-" * (88 + (17 if has_status else 0)))
     si = summary["independent_noncalibrators"]
     sr = summary["independent_reliable"]
     if si["n"]:

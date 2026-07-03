@@ -22,6 +22,7 @@ que incluye al perturbador) y ``∂r/∂mass = GM_SUN · ∂r/∂GM`` (diferenci
 
 from __future__ import annotations
 
+import dataclasses
 import os
 from dataclasses import dataclass
 
@@ -605,9 +606,149 @@ def calibrate_sys_floor(
     return s_c, chi2_red(s_c)
 
 
+@dataclass(frozen=True)
+class JackknifeResult:
+    """Resultado del jackknife dejar-un-objetivo-fuera sobre σ(masa).
+
+    ``sigma_jack_msun`` es la σ externa del estimador; ``masses_msun`` son las ``N``
+    masas de las réplicas (una por objetivo excluido); ``mean_msun`` su media;
+    ``bias_msun`` la corrección de sesgo jackknife ``(N−1)(m̄ − m_full)`` (informativa,
+    no se aplica). ``n_failed`` cuenta réplicas con masa no finita (excluidas del
+    cómputo); las marcadas ``converged=False`` por LM pero con masa finita SÍ se
+    incluyen, igual que el ajuste de producción.
+    """
+
+    sigma_jack_msun: float
+    masses_msun: np.ndarray
+    mean_msun: float
+    bias_msun: float
+    n_failed: int
+
+
+def jackknife_mass_sigma(
+    targets: list[TargetObservations],
+    mass_msun: float,
+    fitted_elements: list[KeplerElements],
+    perturber_elements: KeplerElements,
+    epoch_jd_tdb: float,
+    *,
+    perturber_name: str = "perturber",
+    background_perturbers: tuple[AsteroidPerturber, ...] = (),
+    perturbers: tuple[str, ...] = DEFAULT_PERTURBERS,
+    integrator: str = "ias15",
+    dt_days: float = 1.0,
+    n_lighttime_iter: int = 3,
+    gm_rel_delta: float = 1e-3,
+    backend: str = "assist",
+    gr: bool = True,
+    sys_floor_mas: float = 0.0,
+    max_iter: int = 40,
+    n_workers: int = 1,
+    **lm_kwargs,
+) -> JackknifeResult:
+    """σ(masa) externa por jackknife dejar-un-objetivo-fuera (leave-one-target-out).
+
+    Re-ajusta la masa compartida ``N`` veces, cada una excluyendo un objetivo distinto,
+    partiendo (**warm-start**) de la solución convergida del ajuste completo: la masa
+    ``mass_msun`` como semilla y, para cada objetivo retenido, sus elementos ya
+    ajustados ``fitted_elements``. Como cada réplica arranca en (o muy cerca de) su
+    óptimo, converge en pocas iteraciones LM, así que el coste es ``~N`` ajustes tibios,
+    no ``N`` fríos.
+
+    La σ jackknife
+    ``σ_jack = sqrt((N−1)/N · Σ_i (m_(i) − m̄)²)``, con ``m̄ = (1/N) Σ_i m_(i)``,
+    mide cuánto se mueve la masa al quitar objetivos individuales. Captura el error de
+    **regresión masa↔órbita** que la σ formal (Fisher de ``(JᵀC⁻¹J)⁻¹``) no ve: en
+    perturbadores cuya deflexión queda bajo el ruido por-encuentro la masa es sensible a
+    qué objetivos entran, y σ_jack ≫ σ_formal. Se reporta ``max(σ_formal, σ_jack)``.
+
+    Parameters
+    ----------
+    targets, fitted_elements
+        Los ``N`` objetivos del ajuste completo y sus elementos ajustados (mismo orden
+        y longitud). ``targets[k].initial_elements`` se reemplaza por
+        ``fitted_elements[k]`` antes de cada réplica.
+    mass_msun
+        Masa compartida convergida del ajuste completo (semilla de cada réplica).
+
+    Returns
+    -------
+    JackknifeResult
+        Requiere ``N ≥ 3``; con menos, ``sigma_jack_msun`` es ``nan`` (jackknife no
+        informativo).
+    """
+    n = len(targets)
+    if n != len(fitted_elements):
+        raise ValueError("targets y fitted_elements deben tener la misma longitud")
+    warm = [dataclasses.replace(t, initial_elements=el) for t, el in zip(targets, fitted_elements)]
+    if n < 3:
+        return JackknifeResult(
+            sigma_jack_msun=float("nan"),
+            masses_msun=np.array([], dtype=float),
+            mean_msun=float("nan"),
+            bias_msun=float("nan"),
+            n_failed=0,
+        )
+
+    replicate_masses: list[float] = []
+    n_failed = 0
+    for i in range(n):
+        subset = warm[:i] + warm[i + 1 :]
+        m_i, _fitted_i, result_i = determine_shared_mass(
+            subset,
+            float(mass_msun),
+            perturber_elements,
+            epoch_jd_tdb,
+            perturber_name=perturber_name,
+            background_perturbers=background_perturbers,
+            perturbers=perturbers,
+            integrator=integrator,
+            dt_days=dt_days,
+            n_lighttime_iter=n_lighttime_iter,
+            gm_rel_delta=gm_rel_delta,
+            backend=backend,
+            gr=gr,
+            sys_floor_mas=sys_floor_mas,
+            max_iter=max_iter,
+            n_workers=n_workers,
+            **lm_kwargs,
+        )
+        # Aceptar réplicas con masa finita aunque LM marque ``converged=False``: el
+        # ajuste de producción reporta sus fits igual (alcanzan χ²_red≈1 al tope de
+        # iteraciones sin cumplir la tolerancia estricta de paso/gradiente de LM).
+        # Exigir convergencia estricta descartaría réplicas válidas y ruidizaría σ_jack.
+        if not np.isfinite(m_i):
+            n_failed += 1
+            continue
+        replicate_masses.append(float(m_i))
+
+    masses = np.asarray(replicate_masses, dtype=float)
+    if masses.size < 3:
+        return JackknifeResult(
+            sigma_jack_msun=float("nan"),
+            masses_msun=masses,
+            mean_msun=float(masses.mean()) if masses.size else float("nan"),
+            bias_msun=float("nan"),
+            n_failed=n_failed,
+        )
+    n_eff = masses.size
+    mean = float(masses.mean())
+    sigma_jack = float(np.sqrt((n_eff - 1) / n_eff * np.sum((masses - mean) ** 2)))
+    bias = float((n_eff - 1) * (mean - float(mass_msun)))
+    return JackknifeResult(
+        sigma_jack_msun=sigma_jack,
+        masses_msun=masses,
+        mean_msun=mean,
+        bias_msun=bias,
+        n_failed=n_failed,
+    )
+
+
 __all__ = [
     "TargetObservations",
+    "JackknifeResult",
     "determine_mass_and_orbit",
     "determine_shared_mass",
     "calibrate_sys_floor",
+    "jackknife_mass_sigma",
 ]
