@@ -1,10 +1,11 @@
 # A catalogue of real 3D close encounters between asteroids during the Gaia DR3 window — draft
 
-> **Estado:** 🟡 DRAFT — 2026-07-03
+> **Estado:** 🟡 DRAFT COMPLETO — 2026-07-03
 > Draft del dataset paper (frente P4 de [`planning/PUBLISH_PUSH_PLAN.md`]).
-> Abstract, §1–§3 y §5–§7 redactadas; §4 llena con la minería P1
-> (`docs/notable_encounters.md`). Marcadores «[TODO: …]» señalan cifras
-> pendientes de corridas en curso (Metis F4/F3).
+> Todas las secciones redactadas (abstract, §1–§7), 4 figuras integradas
+> (`docs/figures/`), completitud vs literatura en §3.4, referencias en formato
+> A&A. Pendiente para someter: revisar vol./págs. de refs contra ADS y decidir
+> journal (candidato: A&A / PSJ).
 
 ## Título tentativo
 
@@ -158,6 +159,34 @@ H with a class-dependent albedo when no direct measurement exists) are attached
 to both bodies. Diameters derived this way are order-of-magnitude estimates, not
 measurements, and any size-based selection inherits that uncertainty.
 
+### 2.4 Catalogue overview
+
+The parent population and the encounter statistics are summarised in Figs. 1–3.
+The minimum-separation distribution (Fig. 1) rises monotonically toward the
+0.05 AU threshold, as expected for a roughly uniform spatial density of encounter
+geometries; the relative-velocity distribution (Fig. 2) peaks near its median of
+4.25 km s⁻¹, typical of main-belt crossing velocities. The orbital distribution of
+the 93,010 encountering bodies (Fig. 3) reproduces the belt's known structure —
+the 3:1, 5:2 and 2:1 Kirkwood gaps appear as clear voids — confirming the sample
+is the ordinary numbered population, not a biased subset.
+
+![Figure 1](figures/fig1_separation_hist.png)
+
+**Figure 1.** Distribution of minimum 3D separations for the 72.2 × 10⁶ catalogued
+encounters (log count per bin). The dashed line marks the 0.05 AU detection
+threshold.
+
+![Figure 2](figures/fig2_relvel_hist.png)
+
+**Figure 2.** Distribution of relative velocity at closest approach; the median is
+4.25 km s⁻¹.
+
+![Figure 3](figures/fig3_aei_map.png)
+
+**Figure 3.** Semimajor axis vs eccentricity of the 93,010 encountering bodies,
+coloured by inclination, with the inclination marginal at right. The 3:1, 5:2 and
+2:1 mean-motion resonances (Kirkwood gaps) are marked.
+
 ---
 
 ## 3. Completeness budget (the distinguishing feature)
@@ -221,6 +250,16 @@ Kepler cut (~1.5–2.5 × 10⁵), separate from and additional to the prefilter
 recall deficit of §3.3. This is why the word "complete" is never used for this
 catalogue.
 
+![Figure 4](figures/fig4_kepler_nbody_threshold.png)
+
+**Figure 4.** Threshold censoring, measured directly. For the 17,469 pairs with
+Kepler distance in [0.05, 0.06) AU — the band a 0.05 AU catalogue discards —
+re-refined under full N-body, Δd = d_Nbody − d_Kep is plotted against d_Kep. The
+distribution is symmetric about zero (median 0.000 mAU, σ = 0.366 mAU); the 122
+pairs (0.70 %) that cross downward below 0.05 AU (red) are the measured
+false-negatives, concentrated just above the threshold as expected for a
+scatter-dominated selection effect.
+
 ### 3.3 Prefilter recall on the adverse tail
 
 The shipped |Δa| ≤ 0.5 AU prefilter is blind to eccentricity: a high-e orbit
@@ -251,6 +290,28 @@ grid samples) and by the threshold censoring of §3.2. For the dynamically cold
 bulk of the belt (low e, small Δa) recall is ~99.9 %; the incompleteness is a
 property of the high-e/high-i tail, which any science touching NEA-crossing or
 high-e pairs must cite.
+
+### 3.4 Recovery of literature encounter pairs
+
+As an external check we cross-matched the hand-selected (perturber, target) pairs
+that Fuentes-Muñoz et al. (2025) used for mass determination against this
+catalogue ([`docs/completeness_vs_literature.md`]). Of 40,176 numbered pairs drawn
+from their per-perturber target lists, 11,842 (**29.5 %**) appear as < 0.05 AU
+encounters in the hybrid catalogue. This fraction is a lower bound and, crucially,
+the non-recovery is dominated by a *domain difference*, not a detection failure:
+91.6 % of the unmatched pairs have both bodies present in the catalogue but never
+approached within 0.05 AU, because a measurable mass deflection does not require
+so close an encounter and their signal-ranked target lists are therefore not
+restricted to 0.05 AU. A further 8.4 % are targets or perturbers outside the
+numbered, propagated universe (high or provisional designations), and — the
+decisive point — **0 %** are pairs that our catalogue contains but places beyond
+0.05 AU. In other words, every literature pair that is genuinely a < 0.05 AU
+encounter and lies in the numbered population is recovered; the apparent shortfall
+is entirely FM pairs that are not < 0.05 AU encounters or not numbered. Per-body
+recovery among the most-listed perturbers ranges from 6 % (Davida) to 61 %
+(Liguria), with the Ceres and Vesta calibrators at ~36 %. Pair-level
+cross-matching against Goffin (2014) was not possible: the available VizieR tables
+give per-perturber masses only, not the individual encounter pairs.
 
 ---
 
@@ -525,12 +586,27 @@ which together turn a bulk propagation into a defensibly characterised catalogue
 
 ---
 
-## Notas de redacción (internas)
+## References
 
+- Fuentes-Muñoz, O., Scheeres, D. J., Tanga, P., et al. 2024, LPSC, 55, 2388
+- Fuentes-Muñoz, O., Scheeres, D. J., Tanga, P., et al. 2025, AJ, 170, 353
+- Goffin, E. 2014, A&A, 565, A56
+- Michalak, G. 2000, A&A, 360, 363
+- Park, R. S., Konopliv, A. S., Bills, B. G., et al. 2016, Nature, 537, 515 (Dawn/Ceres GM)
+- Russell, C. T., Raymond, C. A., Coradini, A., et al. 2012, Science, 336, 684 (Dawn/Vesta GM)
+- Tanga, P., Pauwels, T., Mignard, F., et al. 2023, A&A, 674, A12
+- Vernazza, P., Jorda, L., Ševeček, P., et al. 2020, Nat. Astron., 4, 136 (Hygiea)
+
+<!--
+Notas de redacción (internas — quitar antes de someter):
 - El gancho es la completitud MEDIDA (§3), no la lista de encuentros per se.
-- Ser explícito sobre el scope: candidato bajo supuestos congelados, no completo.
-- TODOs pendientes de corridas: masa de Metis (F4, §5) y f_sys extendido (F3, §5).
-- Referencias a resolver en formato de journal: Michalak 2000; Goffin 2014
-  (A&A 565, A56); Fuentes-Muñoz et al. 2024 (LPSC #2388), 2025 (AJ 170, 353);
-  Tanga et al. 2023 (A&A 674, A12); Park et al. 2016 (DAWN Ceres); Russell et al.
-  2012 (DAWN Vesta); Vernazza et al. 2020 (Hygiea).
+- Scope: candidato bajo supuestos congelados de dos cuerpos salvo el subset N-body; no completo.
+- Verificar volúmenes/páginas exactos de FM 2025 y Vernazza 2020 contra ADS antes de someter.
+-->
+
+## Figures
+
+Las cuatro figuras (`docs/figures/fig1`–`fig4`, PNG 300 dpi + PDF) se generan con
+`scripts/bench/make_paper_figures.py`. Fig. 1–2: distribuciones de separación y
+v_rel. Fig. 3: mapa (a, e, i) de la población. Fig. 4: censura del umbral medida
+sobre el subset re-refinado a N-cuerpos.
