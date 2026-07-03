@@ -1,7 +1,7 @@
 # Determinación de masas — ítems abiertos y mejoras
 
-> **Estado:** ⬜ PENDIENTE (ninguno bloquea los resultados ya medidos).
-> **Última actualización:** 2026-06-30.
+> **Estado:** 🟡 CASI CERRADO — F1–F5 y F7 hechos (2026-07-03); solo quedan F6 (baja) y F8 (espera DR4).
+> **Última actualización:** 2026-07-03.
 > Trabajo futuro sobre el motor de masas `src/orbdet/`. El plan original
 > (T1–T11) está completo; sus resultados están en
 > [`docs/mass_determination_results.md`](../docs/mass_determination_results.md) y la
@@ -12,13 +12,13 @@
 
 | # | ítem | prioridad | estado | gate de aceptación |
 |---|------|-----------|--------|--------------------|
-| F1 | σ externa por-perturbador (jackknife/bootstrap) | alta | ⬜ | σ_jackknife reportada para los 16; reemplaza la σ formal donde la excede |
-| F2 | Regularización del par masa↔órbita en perturbadores débiles | alta | ⬜ | los 6 perturbadores con ratio < 0.8 dejan de regresar a la baja, o se declaran cota inferior |
-| F3 | Acotar el sesgo medio −4 % de los calibradores | media | ⬜ | f_sys medido < 4.2 % al extender el fondo de perturbadores |
-| F4 | Catálogo de perturbadores más allá de los 16 de `sb441-n16.bsp` | media | ⬜ | ≥ 1 perturbador fuera de los 16 ajustado con χ²_red ∈ [0.95, 1.05] |
-| F5 | Extender el cruce Fuentes-Muñoz a perturbadores débiles | media | ⬜ | reportar z con σ de F1 para los 12 no-calibradores |
+| F1 | σ externa por-perturbador (jackknife/bootstrap) | alta | ✅ | σ_jackknife reportada para los 16 (PR #83); reemplaza la σ formal donde la excede |
+| F2 | Regularización del par masa↔órbita en perturbadores débiles | alta | ✅ | criterio de identificabilidad (measured/not_identifiable/cota) por curvatura de χ² (PR #83) |
+| F3 | Acotar el sesgo medio −4 % de los calibradores | media | ✅ (hipótesis refutada) | fondo 16→35 mueve masas <0.25%, f_sys 4.16%→4.26%: el −4% NO es incompletitud del fondo. Ver [`docs/mass_f3_background_extension.md`](../docs/mass_f3_background_extension.md) (PR #89) |
+| F4 | Catálogo de perturbadores más allá de los 16 de `sb441-n16.bsp` | media | ✅ | rama custom (flag `--perturber-orbit-source`); (19) Fortuna χ²_red=0.977, (9) Metis 0.981. Ver [`docs/mass_layer_f4_design.md`](../docs/mass_layer_f4_design.md) (PR #89) |
+| F5 | Extender el cruce Fuentes-Muñoz a perturbadores débiles | media | ✅ | 10/10 medidas en \|z\|<3 con σ jackknife (vs 5/10 formal). Ver [`docs/mass_crosscheck_jack.md`](../docs/mass_crosscheck_jack.md) (PR #90) |
 | F6 | ∂x/∂GM analítico (partícula variacional sobre ASSIST) | baja | ⬜ | parcial analítica coincide con FD a < 1e-6 relativo; reduce nº de propagaciones |
-| F7 | Cruce con masas terrestres (Goffin 2014, Galád 2002) donde solape | baja | ⬜ | ratio y z reportados para los perturbadores en común |
+| F7 | Cruce con masas terrestres (Goffin 2014, Galád 2002) donde solape | baja | ✅ | ratio y z reportados para los perturbadores en común (PR #84) |
 | F8 | Perturbadores target-limited (Pallas) con Gaia DR4 | baja | ⬜ (espera datos) | N(Pallas) ≥ 20 con baseline DR4 |
 
 ## Detalle
