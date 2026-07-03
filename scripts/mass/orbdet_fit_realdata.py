@@ -72,13 +72,17 @@ from scripts.mass.fit_mass_gaia_multitarget import (
     _read_targets_from_csv,
     _read_targets_from_json,
 )
+from scripts.validate.validate_assist_horizons import _horizons_elements
+from scripts.validate.validate_fuentes_munoz_masses import parse_table5_masses
 from src.orbdet.constants import M_SUN_KG
+from src.orbdet.dynamics import AsteroidPerturber
 from src.orbdet.dynamics_assist import BIG_ASTEROIDS, big_asteroid_perturbers
 from src.orbdet.gaia_adapter import (
     build_target_observations,
     elements_from_mpcorb,
     propagate_elements,
 )
+from src.orbdet.kepler import KeplerElements
 from src.orbdet.mass_determination import (
     TargetObservations,
     calibrate_sys_floor,
@@ -116,6 +120,17 @@ _BIG4_NAME_BY_NUMBER: dict[int, str] = {1: "Ceres", 2: "Pallas", 4: "Vesta", 10:
 # Mínimo de tránsitos por objetivo para que aporte al ajuste.
 _MIN_OBS_PER_TARGET: int = 8
 
+# Números MPC de los 16 perturbadores de la efeméride sb441-n16 (los que
+# constituyen el fondo por defecto). El fondo extendido (F3) agrega cuerpos
+# masivos que NO están aquí.
+_SIXTEEN_NUMBERS: frozenset[int] = frozenset(
+    {1, 2, 3, 4, 7, 10, 15, 16, 31, 52, 65, 87, 88, 107, 511, 704}
+)
+
+# Tabla 5 de Fuentes-Muñoz et al. (2025): GMfin por perturbador → masa del fondo
+# extendido para los cuerpos fuera de los 16 (misma fuente que el cruce de masas).
+_FM2025_MRT_PATH = Path("data/raw/fuentes_munoz_2025/ajae0cc9t5_mrt.txt")
+
 
 def _ephem_name_for_perturber(number: int, csv_name: str | None) -> str:
     """Nombre tal como lo expone la efeméride DE441 (ASSIST) para *number*.
@@ -134,6 +149,269 @@ def _ephem_name_for_perturber(number: int, csv_name: str | None) -> str:
         f"(BIG_ASTEROIDS={BIG_ASTEROIDS}). Este motor requiere la órbita del "
         "perturbador de la efeméride; solo los 16 grandes están soportados."
     )
+
+
+def _seed_mass_msun_from_h(h: float | None, albedo: float, density_kg_m3: float) -> float:
+    """Masa-semilla (M_sun) desde la magnitud absoluta *H* con albedo y densidad dados.
+
+    Reproduce la relación H→diámetro estándar (``D = 1329/√p_V · 10^(-H/5)`` km) y
+    una esfera de densidad uniforme, pero con *albedo* y *density_kg_m3* configurables
+    (a diferencia de :func:`fit_mass_gaia_loo._mass_from_h`, que los fija en 0.14 y
+    1500). Si ``h`` es ``None`` devuelve una semilla genérica de 1e18 kg.
+
+    Parameters
+    ----------
+    h:
+        Magnitud absoluta MPCORB, o ``None`` si no está disponible.
+    albedo:
+        Albedo geométrico visual asumido.
+    density_kg_m3:
+        Densidad volumétrica asumida (kg/m³).
+
+    Returns
+    -------
+    float
+        Masa-semilla en masas solares.
+    """
+    if h is None:
+        return 1.0e18 / M_SUN_KG
+    d_km = (1329.0 / math.sqrt(albedo)) * 10.0 ** (-h / 5.0)
+    r_m = 0.5 * d_km * 1000.0
+    mass_kg = density_kg_m3 * (4.0 / 3.0) * math.pi * r_m**3
+    return mass_kg / M_SUN_KG
+
+
+def _custom_perturber(
+    number: int,
+    common_epoch: float,
+    snapshot: Path,
+    args: argparse.Namespace,
+    *,
+    background: tuple,
+) -> tuple[KeplerElements, float, str]:
+    """Resuelve órbita fija y masa-semilla de un perturbador fuera de los 16.
+
+    La órbita entra **fija** al ajuste (sólo la masa es libre), obtenida según
+    ``args.perturber_orbit_source``:
+
+    - ``"horizons"`` (recomendado): estado osculador heliocéntrico eclíptico en la
+      época común vía :func:`_horizons_elements` (una query JPL por corrida).
+    - ``"mpcorb"`` (fallback offline): fila del snapshot MPCORB propagada a la época
+      común con el N-cuerpos completo (``background`` como perturbadores).
+
+    La masa-semilla sale de ``args.seed_mass_kg`` si está, o se estima desde la
+    magnitud absoluta ``H`` de MPCORB con ``args.perturber_albedo`` y
+    ``args.perturber_density``.
+
+    Parameters
+    ----------
+    number:
+        Número MPC del perturbador (fuera de los 16 de la efeméride).
+    common_epoch:
+        Época común del ajuste (JD TDB).
+    snapshot:
+        Ruta al snapshot MPCORB usado para la órbita (fallback) y ``H`` (semilla).
+    args:
+        Namespace de argparse con ``perturber_orbit_source``, ``seed_mass_kg``,
+        ``perturber_albedo`` y ``perturber_density``.
+    background:
+        Los 16 perturbadores de fondo, usados como ``asteroid_perturbers`` al
+        propagar la órbita MPCORB a la época común.
+
+    Returns
+    -------
+    tuple[KeplerElements, float, str]
+        ``(perturber_elements, seed_mass_msun, name)`` donde ``name`` es la
+        designación MPCORB si está disponible, si no ``"(<number>)"``.
+    """
+    row = load_element_rows(snapshot, [number])[number]
+    name = str(row.get("designation") or "").strip() or f"({number})"
+
+    if args.perturber_orbit_source == "horizons":
+        logger.info(
+            "Perturbador custom %d (%s): órbita de JPL Horizons en época común", number, name
+        )
+        perturber_elements = _horizons_elements(str(number), common_epoch)
+    else:
+        logger.info(
+            "Perturbador custom %d (%s): órbita de MPCORB %s propagada a época común",
+            number,
+            name,
+            snapshot.name if isinstance(snapshot, Path) else Path(snapshot).name,
+        )
+        el_mpc = elements_from_mpcorb(
+            row["a_au"],
+            row["e"],
+            row["i_deg"],
+            row["Omega_deg"],
+            row["omega_deg"],
+            row["M_deg"],
+        )
+        perturber_elements = propagate_elements(
+            el_mpc,
+            float(row["epoch_jd"]),
+            common_epoch,
+            backend="assist",
+            asteroid_perturbers=background,
+        )
+
+    if args.seed_mass_kg is not None:
+        seed_mass_msun = args.seed_mass_kg / M_SUN_KG
+        logger.info("Masa-semilla: %.4e kg (--seed-mass-kg)", args.seed_mass_kg)
+    else:
+        seed_mass_msun = _seed_mass_msun_from_h(
+            row.get("H"), args.perturber_albedo, args.perturber_density
+        )
+        logger.info(
+            "Masa-semilla desde H=%.2f (albedo=%.2f, ρ=%.0f kg/m³): %.4e kg",
+            row.get("H") if row.get("H") is not None else float("nan"),
+            args.perturber_albedo,
+            args.perturber_density,
+            seed_mass_msun * M_SUN_KG,
+        )
+    return perturber_elements, seed_mass_msun, name
+
+
+def _fm_extra_perturbers(n_extra: int, exclude_numbers: frozenset[int]) -> list[dict]:
+    """Los *n_extra* asteroides más masivos de FM 2025 fuera de ``exclude_numbers``.
+
+    Lee la Tabla 5 de Fuentes-Muñoz et al. (2025), descarta los cuerpos ya en el
+    fondo (``exclude_numbers``, típicamente los 16 de la efeméride más el propio
+    perturbador bajo estudio) y devuelve los ``n_extra`` de mayor masa con GMfin
+    finito, en orden decreciente de masa.
+
+    Returns
+    -------
+    list[dict]
+        Cada entrada: ``{"number": int, "mass_kg": float, "mass_msun": float,
+        "fm_gm_fin": float}``.
+    """
+    import polars as pl
+
+    fm = parse_table5_masses(_FM2025_MRT_PATH)
+    fm = fm.filter(pl.col("fm_mass_kg").is_finite() & (pl.col("fm_mass_kg") > 0))
+    fm = fm.filter(~pl.col("perturber").is_in(list(exclude_numbers)))
+    fm = fm.sort("fm_mass_kg", descending=True).head(n_extra)
+    return [
+        {
+            "number": int(r["perturber"]),
+            "mass_kg": float(r["fm_mass_kg"]),
+            "mass_msun": float(r["fm_mass_kg"]) / M_SUN_KG,
+            "fm_gm_fin": float(r["fm_gm_fin"]),
+        }
+        for r in fm.iter_rows(named=True)
+    ]
+
+
+def _extended_background(
+    common_epoch: float,
+    n_extra: int,
+    snapshot: Path,
+    args: argparse.Namespace,
+    *,
+    base: tuple[AsteroidPerturber, ...],
+    studied_number: int,
+) -> tuple[tuple[AsteroidPerturber, ...], list[dict]]:
+    """Extiende el fondo de 16 con los *n_extra* cuerpos masivos de FM 2025 (ítem F3).
+
+    Cada cuerpo extra entra como una partícula masiva más del fondo — igual
+    tratamiento que los 16 — con:
+
+    - **masa** de la Tabla 5 de Fuentes-Muñoz et al. (2025) (GMfin → M = GM/G), y
+    - **órbita** (elementos osculadores heliocéntricos eclípticos en la época común)
+      desde JPL Horizons si ``args.perturber_orbit_source == "horizons"``, o de
+      MPCORB propagado con el N-cuerpos si ``"mpcorb"``.
+
+    No hay doble conteo: la fuerza ``ASTEROIDS`` de la efeméride está excluida en el
+    motor, así que un cuerpo fuera de sb441-n16 no aparece en ninguna otra fuerza.
+    Se excluyen los 16 de la efeméride y el propio perturbador bajo estudio para no
+    duplicarlo en el fondo.
+
+    Parameters
+    ----------
+    common_epoch:
+        Época común del ajuste (JD TDB).
+    n_extra:
+        Número de cuerpos extra a agregar (los más masivos de FM fuera del fondo).
+    snapshot:
+        Snapshot MPCORB (para la órbita fallback y ``H`` si hiciera falta).
+    args:
+        Namespace con ``perturber_orbit_source``.
+    base:
+        Los 16 perturbadores de la efeméride (fondo por defecto).
+    studied_number:
+        Número MPC del perturbador bajo estudio (se excluye del fondo extra).
+
+    Returns
+    -------
+    tuple[tuple[AsteroidPerturber, ...], list[dict]]
+        ``(background_extendido, meta_extra)`` donde ``meta_extra`` documenta cada
+        cuerpo agregado (número, masa FM, fuente de la órbita).
+    """
+    exclude = _SIXTEEN_NUMBERS | {int(studied_number)}
+    picks = _fm_extra_perturbers(n_extra, frozenset(exclude))
+    if not picks:
+        logger.warning("Fondo extendido: FM 2025 no aportó cuerpos extra — fondo sin cambios")
+        return base, []
+
+    # Una sola pasada sobre MPCORB para todos los cuerpos extra (nombre y, si la
+    # órbita es MPCORB, los elementos). La masa siempre viene de FM.
+    try:
+        rows = load_element_rows(snapshot, [p["number"] for p in picks])
+    except Exception:  # noqa: BLE001 — snapshot inaccesible no debe romper el fondo
+        rows = {}
+
+    extra: list[AsteroidPerturber] = []
+    meta: list[dict] = []
+    for p in picks:
+        number = p["number"]
+        row = rows.get(number)
+        name = (str(row.get("designation")).strip() if row else "") or f"({number})"
+
+        if args.perturber_orbit_source == "horizons":
+            el = _horizons_elements(str(number), common_epoch)
+            orbit_source = "horizons"
+        elif row is not None:
+            el_mpc = elements_from_mpcorb(
+                row["a_au"],
+                row["e"],
+                row["i_deg"],
+                row["Omega_deg"],
+                row["omega_deg"],
+                row["M_deg"],
+            )
+            el = propagate_elements(
+                el_mpc,
+                float(row["epoch_jd"]),
+                common_epoch,
+                backend="assist",
+                asteroid_perturbers=base,
+            )
+            orbit_source = "mpcorb"
+        else:
+            logger.warning("Fondo extendido: %d sin fila MPCORB y source=mpcorb — saltado", number)
+            continue
+
+        extra.append(AsteroidPerturber(name=name, mass_msun=p["mass_msun"], elements=el))
+        meta.append(
+            {
+                "number": number,
+                "name": name,
+                "mass_kg": p["mass_kg"],
+                "fm_gm_fin": p["fm_gm_fin"],
+                "orbit_source": orbit_source,
+            }
+        )
+        logger.info(
+            "  fondo +%d (%s): M_FM=%.3e kg, órbita=%s", number, name, p["mass_kg"], orbit_source
+        )
+
+    logger.info(
+        "Fondo extendido: 16 → %d perturbadores (%d cuerpos FM 2025 agregados)",
+        len(base) + len(extra),
+        len(extra),
+    )
+    return (*base, *tuple(extra)), meta
 
 
 def _read_targets_from_catalog(
@@ -464,7 +742,14 @@ def _run_perturber(
 ) -> dict:
     """Corre el ajuste conjunto para un perturbador y devuelve el dict de resultado."""
     meta = _read_perturber_meta(args.targets_csv, perturber) if args.targets_csv else {}
-    pname = _ephem_name_for_perturber(perturber, meta.get("name"))
+    # Los 16 de la efeméride: nombre desde el mapa/BIG_ASTEROIDS. Cualquier otro
+    # número lanza → rama custom (17º perturbador, órbita fija desde Horizons/MPCORB).
+    is_ephem = True
+    try:
+        pname = _ephem_name_for_perturber(perturber, meta.get("name"))
+    except ValueError:
+        is_ephem = False
+        pname = str(perturber)  # etiqueta provisional; se refina con el nombre MPCORB
     lit_kg = args.lit_mass_kg if args.lit_mass_kg is not None else meta.get("mass_lit_kg")
     lit_sigma_kg = meta.get("mass_lit_sigma_kg")
 
@@ -495,13 +780,35 @@ def _run_perturber(
     common_epoch = float(next(iter(elements_map.values()))["epoch_jd"])
     logger.info("Época común del ajuste (JD TDB): %.5f", common_epoch)
 
-    # Perturbador (órbita + masa-semilla) y fondo, desde la efeméride DE441.
-    studied = big_asteroid_perturbers(common_epoch, names=(pname,))[0]
-    perturber_elements = studied.elements
-    seed_mass_msun = (
-        (args.seed_mass_kg / M_SUN_KG) if args.seed_mass_kg is not None else studied.mass_msun
-    )
-    background = big_asteroid_perturbers(common_epoch, exclude=(pname,))
+    if is_ephem:
+        # Perturbador (órbita + masa-semilla) y fondo, desde la efeméride DE441.
+        studied = big_asteroid_perturbers(common_epoch, names=(pname,))[0]
+        perturber_elements = studied.elements
+        seed_mass_msun = (
+            (args.seed_mass_kg / M_SUN_KG) if args.seed_mass_kg is not None else studied.mass_msun
+        )
+        background = big_asteroid_perturbers(common_epoch, exclude=(pname,))
+    else:
+        # 17º perturbador: fondo = los 16 completos (el estudiado no está entre
+        # ellos, no se excluye nada); órbita fija + semilla desde Horizons/MPCORB.
+        background = big_asteroid_perturbers(common_epoch)
+        perturber_elements, seed_mass_msun, pname = _custom_perturber(
+            perturber, common_epoch, Path(snapshot), args, background=background
+        )
+
+    # F3 — fondo extendido: agrega los cuerpos masivos de FM 2025 fuera de los 16
+    # (masa FM + órbita Horizons/MPCORB) para acotar el sesgo por completitud del
+    # fondo. El propio perturbador se excluye del fondo extra.
+    extra_background_meta: list[dict] = []
+    if args.extra_background and args.extra_background > 0:
+        background, extra_background_meta = _extended_background(
+            common_epoch,
+            args.extra_background,
+            Path(snapshot),
+            args,
+            base=background,
+            studied_number=perturber,
+        )
     logger.info(
         "Fondo: %d perturbadores asteroidales; masa-semilla %.4e kg",
         len(background),
@@ -630,6 +937,8 @@ def _run_perturber(
         "ratio_fit_over_lit": ratio,
         "z_score": z,
         "reject_sigma": args.reject_sigma,
+        "n_background": len(background),
+        "extra_background": extra_background_meta,
         "passes": passes_log,
     }
     return out
@@ -715,6 +1024,33 @@ def main() -> int:
         "--lit-mass-kg", type=float, default=None, help="override de masa de literatura"
     )
     parser.add_argument("--seed-mass-kg", type=float, default=None, help="override de masa-semilla")
+    parser.add_argument(
+        "--perturber-orbit-source",
+        choices=("horizons", "mpcorb"),
+        default="horizons",
+        help="fuente de la órbita fija para un perturbador fuera de los 16 de la "
+        "efeméride: 'horizons' (JPL, recomendado) o 'mpcorb' (fallback offline)",
+    )
+    parser.add_argument(
+        "--perturber-albedo",
+        type=float,
+        default=0.14,
+        help="albedo geométrico asumido para la masa-semilla por H (perturbador custom)",
+    )
+    parser.add_argument(
+        "--perturber-density",
+        type=float,
+        default=1500.0,
+        help="densidad (kg/m³) asumida para la masa-semilla por H (perturbador custom)",
+    )
+    parser.add_argument(
+        "--extra-background",
+        type=int,
+        default=0,
+        help="F3: extiende el fondo de 16 con los N asteroides más masivos de "
+        "Fuentes-Muñoz 2025 fuera de los 16 (masa FM + órbita según "
+        "--perturber-orbit-source). 0 = fondo estándar de 16",
+    )
     parser.add_argument("--mpcorb", type=Path, default=None, help="snapshot MPCORB explícito")
     parser.add_argument(
         "--max-targets", type=int, default=None, help="limita nº de objetivos (debug)"
@@ -781,7 +1117,10 @@ def main() -> int:
 
         if args.out_dir is not None:
             args.out_dir.mkdir(parents=True, exist_ok=True)
-            dest = args.out_dir / f"{out['perturber_name'].lower()}_{gaia.release}.json"
+            label = "".join(
+                c if (c.isalnum() or c in "-_") else "_" for c in out["perturber_name"].lower()
+            ).strip("_")
+            dest = args.out_dir / f"{label or out['perturber']}_{gaia.release}.json"
             dest.write_text(json.dumps(out, indent=2))
             logger.info("Escrito %s", dest)
         elif args.out is not None and len(perturbers) == 1:
