@@ -220,9 +220,7 @@ def main() -> int:
         return f"{z:+.2f}" if z is not None and math.isfinite(z) else "  n/a"
 
     for r in joined.iter_rows(named=True):
-        st = {"measured": "M", "not_identifiable": "bnd", "unknown": "?"}.get(
-            r["mass_status"], "?"
-        )
+        st = {"measured": "M", "not_identifiable": "bnd", "unknown": "?"}.get(r["mass_status"], "?")
         print(
             f"{r['perturber']:>5} {r['name'][:12]:<12} "
             f"{'Y' if r['is_calibrator'] else '.':>3} {st:>4} "
