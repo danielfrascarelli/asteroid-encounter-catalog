@@ -22,6 +22,11 @@ import polars as pl
 _FULL_CATALOG = Path("data/output/encounters_characterized_full.parquet")
 _SMALL_CATALOG = Path("data/output/encounters_characterized.parquet")
 
+# Mass catalog from the joint orbit+mass engine (src/orbdet/). Prefer the run
+# carrying the external jackknife σ (F1); fall back to the non-jack catalog.
+_MASS_CATALOG_JACK = Path("data/output/orbdet/mass_catalog_jack.csv")
+_MASS_CATALOG = Path("data/output/orbdet/mass_catalog.csv")
+
 # Above this row count, interactive views load only the closest-N subset.
 DISPLAY_CAP = 300_000
 
@@ -33,6 +38,30 @@ def resolve_catalog_path() -> Path | None:
     if _SMALL_CATALOG.exists():
         return _SMALL_CATALOG
     return None
+
+
+def resolve_mass_catalog_path() -> Path | None:
+    """Return the best available orbdet mass catalog, or None if absent.
+
+    Prefers ``mass_catalog_jack.csv`` (carries the jackknife σ and the
+    identifiability status) over the plain ``mass_catalog.csv``.
+    """
+    if _MASS_CATALOG_JACK.exists():
+        return _MASS_CATALOG_JACK
+    if _MASS_CATALOG.exists():
+        return _MASS_CATALOG
+    return None
+
+
+def load_mass_catalog() -> tuple[pl.DataFrame, str] | None:
+    """Load the orbdet mass catalog (small CSV, ~16 rows).
+
+    Returns ``(df, catalog_name)`` or ``None`` if no mass catalog is present.
+    """
+    path = resolve_mass_catalog_path()
+    if path is None:
+        return None
+    return pl.read_csv(path), path.name
 
 
 def catalog_stats(path: Path) -> dict:
