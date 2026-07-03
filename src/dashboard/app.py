@@ -6,8 +6,9 @@ Four tabs:
      :mod:`src.dashboard.data`)
   2. Novel Encounters   — science-grade candidate subset
   3. Gaia Coverage      — per-encounter transit coverage audit
-  4. Mass Candidates    — exploratory follow-up targets (NB: no publishable mass
-     comes from this pipeline in DR3 — see FROZEN_RUN.md)
+  4. Asteroid Masses    — measured masses from the joint orbit+mass engine
+     (``src/orbdet/``), with the external jackknife σ; plus the legacy
+     per-encounter LOO fits, kept for context only
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import streamlit as st
 from src.dashboard.data import (
     catalog_stats,
     load_catalog_display,
+    load_mass_catalog,
     resolve_catalog_path,
 )
 
@@ -93,8 +95,8 @@ st.caption(
     "Systematic catalog of asteroid-pair 3-D separations < 0.05 AU during the Gaia DR3 "
     "observation window (July 2014 – May 2017). "
     "REBOUND coarse scan · KD-tree detection · Kepler/N-body hybrid refinement. "
-    "Geometric candidate catalog — not a mass catalog (the mass layer is not "
-    "determinable in DR3; see FROZEN_RUN.md)."
+    "Geometric candidate catalog (see FROZEN_RUN.md), plus measured perturber masses "
+    "from the joint orbit+mass engine on Gaia FPR (see the Asteroid Masses tab)."
 )
 
 tab_catalog, tab_novel, tab_coverage, tab_mass = st.tabs(
@@ -102,7 +104,7 @@ tab_catalog, tab_novel, tab_coverage, tab_mass = st.tabs(
         "📦 Encounter Catalog",
         "🔭 Novel Encounters",
         "📡 Gaia Coverage",
-        "⚖️ Mass Candidates",
+        "⚖️ Asteroid Masses",
     ]
 )
 
@@ -183,7 +185,7 @@ with tab_catalog:
                 title="Distance distribution",
             )
             fig.update_layout(margin=dict(t=40, b=10), height=300, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         with ch2:
             fig = px.scatter(
@@ -201,7 +203,7 @@ with tab_catalog:
                 title="Velocity vs separation (sample 10 k)",
             )
             fig.update_layout(margin=dict(t=40, b=10), height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         ch3, ch4 = st.columns(2)
         with ch3:
@@ -215,7 +217,7 @@ with tab_catalog:
                 title="Encounters per month",
             )
             fig.update_layout(margin=dict(t=40, b=10), height=280, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         with ch4:
             # Orbit class breakdown
@@ -238,7 +240,7 @@ with tab_catalog:
                 title="Encounters by orbit class",
             )
             fig.update_layout(margin=dict(t=40, b=10), height=280)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         # ── Table ──────────────────────────────────────────────────────────
         st.subheader("Closest encounters")
@@ -263,7 +265,7 @@ with tab_catalog:
             if c in df.columns
         ]
         top_df = df.sort("dist_au").head(500).select(show_cols)
-        st.dataframe(top_df.to_pandas(), use_container_width=True, height=380)
+        st.dataframe(top_df.to_pandas(), width="stretch", height=380)
 
         st.download_button(
             "⬇ Download filtered catalog (CSV)",
@@ -345,7 +347,7 @@ with tab_novel:
                 height=420,
                 coloraxis_colorbar_title="AU",
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         with ch2:
             fig = px.scatter(
@@ -365,7 +367,7 @@ with tab_novel:
                 title="Deflection score landscape",
             )
             fig.update_layout(margin=dict(t=40, b=10), height=420)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         st.subheader(f"All {len(df_n):,} filtered novel encounters")
         show = [
@@ -387,7 +389,7 @@ with tab_novel:
         ]
         st.dataframe(
             df_n.sort("deflection_score", descending=True).select(show).to_pandas(),
-            use_container_width=True,
+            width="stretch",
             height=400,
         )
 
@@ -449,7 +451,7 @@ with tab_coverage:
             fig.add_hline(y=3, line_dash="dot", line_color="gray", annotation_text="min post=3")
             fig.add_vline(x=5, line_dash="dot", line_color="gray", annotation_text="min pre=5")
             fig.update_layout(margin=dict(t=40, b=10), height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         with ch2:
             # Gap to nearest post-encounter transit
@@ -464,7 +466,7 @@ with tab_coverage:
             )
             fig.add_vline(x=30, line_dash="dash", line_color="orange", annotation_text="30 d")
             fig.update_layout(margin=dict(t=40, b=10), height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         # Top viable candidates table
         st.subheader("Top viable candidates (sorted by deflection score)")
@@ -505,11 +507,11 @@ with tab_coverage:
             .sort("deflection_score", descending=True)
             .select(show_cov)
         )
-        st.dataframe(viable_df.to_pandas(), use_container_width=True, height=420)
+        st.dataframe(viable_df.to_pandas(), width="stretch", height=420)
 
         with st.expander("Show all (including non-viable)"):
             all_cov = df_cov_aug.sort("deflection_score", descending=True).select(show_cov)
-            st.dataframe(all_cov.to_pandas(), use_container_width=True, height=400)
+            st.dataframe(all_cov.to_pandas(), width="stretch", height=400)
 
         st.download_button(
             "⬇ Download full coverage audit (CSV)",
@@ -525,8 +527,121 @@ with tab_coverage:
 with tab_mass:
     df_cand = _load_candidates()
 
-    # ── Published mass-fit results (hardcoded from our LOO runs) ──────────
-    st.subheader("Published mass-fit results from this pipeline")
+    # ── Measured masses (joint orbit+mass engine, src/orbdet/) ───────────
+    st.subheader("Measured perturber masses — joint orbit+mass engine (Gaia FPR)")
+    st.caption(
+        "Simultaneous least-squares fit of perturber mass + test-asteroid orbits "
+        "over the full Gaia FPR arc (ASSIST/DE440 force model, EIH relativity). "
+        "`sigma_jack` is the external jackknife σ (leave-one-target-out), which "
+        "reincorporates the mass↔orbit regression that the formal Fisher σ misses. "
+        "`mass_status`: **measured** (SNR_jack ≥ 3, genuine measurement), "
+        "**not_identifiable** (deflection below per-encounter astrometric noise → "
+        "bound, not a measurement), **unknown** (too few targets to jackknife)."
+    )
+
+    _mass_loaded = load_mass_catalog()
+    if _mass_loaded is None:
+        st.info(
+            "Mass catalog not found: `data/output/orbdet/mass_catalog_jack.csv`. "
+            "Build it with `python -m scripts.mass.build_mass_catalog`."
+        )
+    else:
+        df_mass, mass_name = _mass_loaded
+        n_perturbers = len(df_mass)
+        n_measured = (
+            int((df_mass["mass_status"] == "measured").sum())
+            if "mass_status" in df_mass.columns
+            else 0
+        )
+        n_calib = int(df_mass["is_calibrator"].sum()) if "is_calibrator" in df_mass.columns else 0
+
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("Perturbers fit", n_perturbers)
+        mc2.metric("Measured (SNR_jack ≥ 3)", n_measured)
+        mc3.metric("Calibrators", n_calib)
+        mc4.metric("Force model", "ASSIST · DE440")
+        st.caption(f"Source: `{mass_name}`")
+
+        # ── Fit vs literature: ratio with jackknife error bars ───────────
+        if {"ratio_fit_over_ref", "name", "mass_status"}.issubset(df_mass.columns):
+            df_r = df_mass.with_columns(
+                # fractional jackknife error, guarding against nulls/zeros
+                (pl.col("sigma_total_kg") / pl.col("mass_fit_kg").abs()).alias("frac_err")
+            ).sort("ratio_fit_over_ref")
+            df_r_pd = df_r.to_pandas()
+            fig = px.scatter(
+                df_r_pd,
+                x="ratio_fit_over_ref",
+                y="name",
+                color="mass_status",
+                error_x=df_r_pd["ratio_fit_over_ref"] * df_r_pd["frac_err"],
+                color_discrete_map={
+                    "measured": "#2ecc71",
+                    "not_identifiable": "#e67e22",
+                    "unknown": "#95a5a6",
+                },
+                labels={
+                    "ratio_fit_over_ref": "Fit mass / reference mass",
+                    "name": "Perturber",
+                    "mass_status": "Status",
+                },
+                title="Fit / reference mass (±1σ jackknife); 1.0 = agreement",
+            )
+            fig.add_vline(x=1.0, line_dash="dash", line_color="gray")
+            fig.update_layout(margin=dict(t=40, b=10), height=460)
+            st.plotly_chart(fig, width="stretch")
+
+        # ── Table ────────────────────────────────────────────────────────
+        show_mass = [
+            c
+            for c in [
+                "perturber",
+                "name",
+                "n_targets",
+                "n_obs",
+                "mass_fit_kg",
+                "sigma_total_kg",
+                "sigma_total_frac",
+                "snr_jack",
+                "mass_status",
+                "chi2_red",
+                "ref_mass_kg",
+                "ref_source",
+                "ratio_fit_over_ref",
+                "z_total",
+                "is_calibrator",
+                "reliable",
+            ]
+            if c in df_mass.columns
+        ]
+        st.dataframe(
+            df_mass.sort("perturber").select(show_mass).to_pandas(),
+            width="stretch",
+            height=420,
+        )
+        st.download_button(
+            "⬇ Download mass catalog (CSV)",
+            data=df_mass.to_pandas().to_csv(index=False).encode(),
+            file_name=mass_name,
+            mime="text/csv",
+        )
+        st.caption(
+            "Calibrators Ceres, Vesta, Hygiea recover the literature mass to 1–5 % "
+            "(|z| < 3) at N ≥ 20 targets. (16) Psyche: 2.43×10¹⁹ kg, σ_stat ≈ 3.3 %, "
+            "consistent with Fuentes-Muñoz et al. (2025). See "
+            "`docs/mass_determination_results.md`."
+        )
+
+    st.divider()
+
+    # ── Legacy per-encounter LOO fits (superseded; context only) ─────────
+    st.subheader("Legacy per-encounter LOO fits (superseded — context only)")
+    st.caption(
+        "These two single-encounter fits come from the earlier LOO orbit→mass "
+        "pipeline (`src/mass/`), which was closed as non-determinable: the "
+        "sequential method, not the astrometry, was the limitation (see "
+        "`docs/mass_layer_track_a_closure.md`). The joint engine above supersedes them."
+    )
 
     fit_results = [
         {
@@ -537,7 +652,7 @@ with tab_mass:
             "M_fit (kg)": 5.43e17,
             "M_lit (kg)": 1.76e18,
             "ρ_fit (g/cm³)": 0.51,
-            "ρ_lit (g/cm³)": 1.15,
+            "ρ_lit (g/cm³)": "1.15",
             "χ²_red": 1.03,
             "Verdict": "⚠️ Signal < noise (137-day gap)",
         },
@@ -557,7 +672,7 @@ with tab_mass:
 
     import pandas as pd
 
-    st.dataframe(pd.DataFrame(fit_results), use_container_width=True)
+    st.dataframe(pd.DataFrame(fit_results), width="stretch")
 
     st.caption(
         "Loreley: mass within 3% of our ρ=1.5 g/cm³ estimate. "
@@ -615,7 +730,7 @@ with tab_mass:
                 margin=dict(t=40, b=10),
                 height=500,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         # Full table
         show_cols_c = [
@@ -641,7 +756,7 @@ with tab_mass:
         st.subheader("All mass candidates")
         st.dataframe(
             (df_cand.to_pandas() if isinstance(df_cand, pl.DataFrame) else df_cand)[show_cols_c],
-            use_container_width=True,
+            width="stretch",
             height=380,
         )
 
@@ -684,7 +799,7 @@ with tab_mass:
             if c in top10.columns
         ]
 
-        st.dataframe(top10.select(show_top10).to_pandas(), use_container_width=True)
+        st.dataframe(top10.select(show_top10).to_pandas(), width="stretch")
 
         st.caption(
             "**Recommended next fits**: Alkeste (gap=30d, 76 post obs), "
