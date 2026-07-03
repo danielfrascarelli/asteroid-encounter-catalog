@@ -48,14 +48,18 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import matplotlib
-
-matplotlib.use("Agg")  # headless backend for containers
-import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-from matplotlib.figure import Figure
+
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
+# matplotlib is imported lazily in ``_setup_matplotlib()``: it is not baked into
+# the project image (installed ad-hoc at runtime), so importing this module must
+# not require it — the entrypoint test imports every script module.
+plt = None  # populated by _setup_matplotlib()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,22 +84,36 @@ RNG_SEED = 42
 MAX_SCATTER = 100_000
 
 # Sober journal aesthetics -------------------------------------------------- #
-plt.rcParams.update(
-    {
-        "font.size": 11,
-        "font.family": "serif",
-        "axes.titlesize": 12,
-        "axes.labelsize": 11,
-        "xtick.labelsize": 10,
-        "ytick.labelsize": 10,
-        "legend.fontsize": 9,
-        "axes.edgecolor": "0.2",
-        "axes.linewidth": 0.8,
-        "figure.dpi": 110,
-        "savefig.dpi": DPI,
-        "savefig.bbox": "tight",
-    }
-)
+def _setup_matplotlib() -> None:
+    """Import matplotlib lazily (headless Agg) and apply journal styling.
+
+    Kept out of module scope so this module imports even when matplotlib is not
+    installed (it is added ad-hoc at runtime, not baked into the image).
+    """
+    global plt
+    import matplotlib
+
+    matplotlib.use("Agg")  # headless backend for containers
+    import matplotlib.pyplot as _plt
+
+    _plt.rcParams.update(
+        {
+            "font.size": 11,
+            "font.family": "serif",
+            "axes.titlesize": 12,
+            "axes.labelsize": 11,
+            "xtick.labelsize": 10,
+            "ytick.labelsize": 10,
+            "legend.fontsize": 9,
+            "axes.edgecolor": "0.2",
+            "axes.linewidth": 0.8,
+            "figure.dpi": 110,
+            "savefig.dpi": DPI,
+            "savefig.bbox": "tight",
+        }
+    )
+    plt = _plt
+
 
 NEUTRAL = "0.35"
 ACCENT = "#8c1515"  # muted dark red for reference lines/annotations
@@ -595,6 +613,7 @@ def _figure4_schematic() -> list[Path]:
 
 def main() -> None:
     """Generate all four paper figures into :data:`OUT_DIR`."""
+    _setup_matplotlib()
     logger.info("Output directory: %s", OUT_DIR.resolve())
     figure1_separation_hist()
     figure2_relvel_hist()
