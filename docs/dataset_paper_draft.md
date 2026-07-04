@@ -32,9 +32,11 @@ refinement for the 8.7 million pairs in the dynamically fragile subset
 is a *measured* completeness budget rather than an assumed one: the Kepler-to-N-body
 refinement error (median 12 μAU, p99 2.5 mAU), the false-negative rate induced by
 the 0.05 AU threshold (0.70 %, 95 % CI 0.59–0.83 %, symmetric and
-scatter-dominated), and the recall of the orbital prefilter on the adverse
-high-e/high-i tail (76 %) are each quantified from dedicated re-refinement
-experiments. We show the catalogue is a direct target-selection input for
+scatter-dominated) each bound this catalogue directly, while the recall of an
+eccentricity-blind orbital prefilter on the adverse high-e/high-i tail (76 %) is
+quantified as a caveat for future prefiltered runs. The 12 h coarse cadence loses
+no encounter up to 25 km/s (widened-radius bracketing); the residual is ≲10⁻³ %.
+These are each quantified from dedicated re-refinement experiments. We show the catalogue is a direct target-selection input for
 asteroid mass determination: applying a joint orbit+mass least-squares engine to
 Gaia FPR astrometry recovers all four calibrator masses (Ceres, Vesta, Pallas,
 Hygiea) at |z| < 3 and determines sixteen perturbers, of which the ten
@@ -120,9 +122,16 @@ query, and the |Δa| cut did *not* shape this catalogue (provenance
 
 The core of the detector is a **per-timestep 3D KD-tree**. At each coarse step
 the heliocentric ecliptic positions of all bodies are inserted into a KD-tree
-(O(N log N) construction), and a radius query at the 0.05 AU threshold returns
-neighbour candidates (O(log N) per query), avoiding any O(N²) distance matrix.
-The coarse cadence is Δt = 12 h.
+(O(N log N) construction), and a radius query returns neighbour candidates
+(O(log N) per query), avoiding any O(N²) distance matrix. The coarse cadence is
+Δt = 12 h. To prevent the cadence from missing an encounter whose true minimum
+falls *between* two samples, the query radius is *widened* to
+r_q = 0.05 AU + v_max·(Δt/2) ≈ 0.0536 AU with v_max = 25 km/s: under near-linear
+relative motion a pair whose separation dips below 0.05 AU between samples is
+within r_q at the nearer bracketing sample and enters the candidate set; the
+sub-grid refinement then discards any whose true minimum exceeds 0.05 AU. The
+bracketing is exact for relative velocities up to v_max; the residual (encounters
+with v_rel > v_max) is bounded in §3.3.
 
 Each coarse candidate is then **refined on a dense temporal sub-grid**: a
 ±2 h window around the apparent minimum is sampled at 120 s, and the minimum
@@ -285,8 +294,13 @@ it is the recommended replacement for any future run. Second, and specific to
 skipped entirely, so the |Δa| cut did not actually drop these pairs from the
 frozen catalogue. The 76 % figure measures the damage the prefilter *would* cause
 if applied at small N, not damage suffered here. Completeness of this freeze is
-instead bounded by the 12 h KD-tree coarse cadence (fast minima can fall between
-grid samples) and by the threshold censoring of §3.2. For the dynamically cold
+instead bounded by the threshold censoring of §3.2. The 12 h coarse cadence does
+*not* by itself lose encounters up to v_rel = v_max = 25 km/s, because the widened
+query radius (§2.2) brackets them; the only encounters it can miss have
+v_rel > 25 km/s, and just 0.0012 % of catalogued encounters exceed that
+(p99.99 = 20 km/s, max 68 km/s), so the residual cadence-induced incompleteness is
+≲10⁻³ % — three orders of magnitude below the threshold-censoring term and
+negligible. For the dynamically cold
 bulk of the belt (low e, small Δa) recall is ~99.9 %; the incompleteness is a
 property of the high-e/high-i tail, which any science touching NEA-crossing or
 high-e pairs must cite.
