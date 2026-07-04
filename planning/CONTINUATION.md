@@ -52,19 +52,28 @@ Hecho (2026-07-03, branch `docs/paper-submission-prep`):
   "determines sixteen … of which the ten identifiable masses are consistent").
 - [x] **Notas internas quitadas** en la versión LaTeX (el markdown conserva el
   bloque `<!-- Notas -->` y "Figures" a propósito, como copia de referencia).
-- [x] Cosmético fig3: quitado el label duplicado de inclinación en
-  `scripts/bench/make_paper_figures.py`. **Falta regenerar fig3** (ver abajo);
-  el PDF en `docs/figures/` es todavía la versión con el label duplicado.
+- [x] Cosmético fig3: quitado el label duplicado y **fig3 regenerada** (2026-07-04,
+  PDF/PNG en `docs/figures/` actualizados).
+- [x] **Build A&A real verificado**: `aa.cls`/`aa.bst`/`linenoaa.sty` (kit oficial v9.4)
+  incluidos en `docs/paper/`; PDF compilado `docs/paper/aa_encounters.pdf` (7 pp.).
+- [x] **Números solo-de-figura** (93.010 cuerpos; 4.25 km/s) documentados en
+  `docs/paper/figures_provenance.md`.
+- [x] **Revisión tipo tribunal** completa en `docs/paper_referee_report.md` (panel de 4
+  lentes + comparación con literatura verificada + veredicto). Cerró en el proceso el
+  hueco de cadencia (radio ensanchado bracketea v_rel≤25 km/s; residual ≲10⁻³ %) y afinó
+  ventana DR3, prefiltro, deflexión mutua, "231→232 masas". **Veredicto: minor–moderate
+  revision** (ciencia sólida; resta lo mecánico/author-owned).
 
 Falta (author-owned, marcado `TODO(author)` en el `.tex`):
 - [ ] **Autores, afiliaciones, ORCID, e-mail de contacto** (`\author`,`\institute`).
 - [ ] **Acknowledgements** (financiación, software, boilerplate Gaia/DPAC).
-- [ ] **Data availability DOI**: registrar el catálogo (Zenodo/VizieR) e insertar DOI.
-- [ ] **Nº de abstract LPSC de FM 2024** (`55, 2388`): confirmar contra el
-  programa LPSC 2024 en ADS; valorar si sigue haciendo falta ahora que salió el AJ.
-- [ ] Dos números solo-de-figura (93.010 cuerpos; 4.25 km/s mediana) no tienen
-  doc de respaldo en prosa — considerar anotarlos en una nota de proveniencia.
-- [ ] **Regenerar fig3** con el fix (ver bloque de abajo).
+- [ ] **Data availability DOI** — **reparo #1 más probable de un árbitro A&A** (depósito
+  CDS/VizieR mandatorio y contractualmente forzado). Scaffolding listo:
+  `docs/paper/DATA_AVAILABILITY.md` + `zenodo_data_deposit.json`.
+- [ ] **Injection–recovery de la completitud** — reparo científico más probable: un
+  árbitro pedirá validación por inyección sintética (FN y FP), más allá de la medición
+  por re-refinamiento. Ver `docs/paper_referee_report.md` §F.4.
+- [ ] **Nº de abstract LPSC de FM 2024** (`55, 2388`): confirmar contra ADS.
 
 **Regenerar figuras** (matplotlib NO está en la imagen — instalar ad-hoc):
 ```bash
