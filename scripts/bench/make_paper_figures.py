@@ -83,6 +83,7 @@ DPI = 300
 RNG_SEED = 42
 MAX_SCATTER = 100_000
 
+
 # Sober journal aesthetics -------------------------------------------------- #
 def _setup_matplotlib() -> None:
     """Import matplotlib lazily (headless Agg) and apply journal styling.
