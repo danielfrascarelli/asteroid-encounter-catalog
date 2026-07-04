@@ -140,35 +140,67 @@ engineering and provenance are above the bar.
 
 ## E. Comparison with analogous published work
 
-*(Verified citations and competitive numbers folded in from a dedicated literature
-search; see §F for the bottom line.)*
+*(Citations verified against publisher pages — A&A/IOP/Springer — in a dedicated
+four-front literature search. ADS abstract pages render client-side and could not be
+fetched, so volume/page/DOI come from the publishers directly.)*
 
-- **Encounter catalogues for mass work** (Galád 2001; Galád & Gray 2002; Hilton
-  2002): these enumerate *selected* close approaches between a massive perturber and a
-  short list of test bodies, chosen for favourable geometry — tens to hundreds of
-  encounters, hand-curated, and **none publishes its own completeness / false-negative
-  budget**. The manuscript's exhaustive-over-the-numbered-population approach and its
-  measured budget are, on this axis, genuinely without precedent. This supports the
-  novelty claim.
-- **Astrometric mass determination at scale** (Baer & Chesley 2008/2011/2017;
-  Goffin 2014; Fuentes-Muñoz et al. 2025, AJ 170, 353 = 231 masses from Gaia FPR):
-  these are the state of the art and deliver **hundreds** of masses. The manuscript's
-  16 perturbers / 10 identifiable, all *consistent with* FM 2025, are therefore
-  **confirmatory, not competitive** — which the paper states plainly. The mass section's
-  contribution is methodological (FOV-block covariance; external jackknife σ;
-  identifiability), not a new mass catalogue.
-- **FOV-block (intra-transit) covariance**: Gaia delivers ~7–9 CCD measurements per
-  focal-plane transit with correlated attitude/centroid error. Explicitly whitening
-  with a per-transit block covariance `diag(σ²) + s_c²·11ᵀ` calibrated to χ²_red = 1,
-  with a measured ICC = 0.32 and the resulting √(1.66) σ-inflation, is a clean, useful
-  methodological point and appears under-treated in prior encounter-based mass work.
-- **Gaia context** (Tanga et al. 2023, A&A 674, A12): the ~150k SSO, mas-level
-  astrometry, and the DR3 window are correctly used.
+**E.1 Encounter / close-approach catalogues.**
+
+| Work | Citation | Scale | Completeness budget? |
+|------|----------|------:|----------------------|
+| Galád | A&A 370, 311 (2001) | 9,511 asteroids | qualitative only |
+| Galád & Gray | A&A 391, 1115 (2002) | 24,599 asteroids | "not guaranteed all pairs found" — **unquantified** |
+| Baer & Chesley | CeMDA 100, 27 (2008) | 21 masses; defines the two-body encounter-selection algorithm reused since | none |
+| Baer, Chesley & Matson | AJ 141, 143 (2011) | 26 masses | "several successful events… missed" — **unquantified** |
+| Fuentes-Muñoz et al. | AJ 170, 353 (2025) | **975,673** test asteroids screened (dCA < 0.05 AU) | none |
+| Bernstein, Najafi & Gomes | arXiv:2504.01184 (LSST, 2025) | 6,839 encounters | "not exhaustive" — qualitative |
+
+**Verified bottom line:** no prior published asteroid–asteroid mutual-encounter list
+reports a *measured* completeness budget. Several authors *know* their lists are
+incomplete and say so **in words** (Galád & Gray 2002; Baer et al. 2011; Bernstein et
+al. 2025) — none converts it into numbers. **The novelty claim holds**, with two
+framing refinements the paper should adopt: (i) phrase it as "first *for
+asteroid–asteroid mutual-encounter catalogues*," since completeness budgeting is
+routine in adjacent domains (impact-monitoring; Gaia stellar-encounter rates); (ii) the
+raw scale (72.2 M) independently dwarfs the nearest prior effort (FM 2025's ~976 k
+screened test asteroids). Note: the "21 asteroids" work is **Baer & Chesley 2008, not
+Goffin** — the manuscript's Goffin citation is for a *simultaneous* determination
+(A&A 565, A56: 132 acceptable masses, 49 new), which is correct.
+
+**E.2 Mass determination — state of the art.**
+Baer & Chesley (2008/2011/2017: 21/26/30 masses), Goffin (2014: 132 masses), Konopliv
+et al. (2006/2011: the reference masses for the biggest perturbers via Mars ranging),
+Michalak (2000/2001), and the direct competitor **Fuentes-Muñoz et al. 2025** (AJ 170,
+353): **232 masses at SNR > 3, 159 at > 5, 77 at > 10**, same mechanism and same Gaia
+FPR data. On raw count the manuscript's "16 perturbers / 10 identifiable" is
+**confirmatory, not catalogue-competitive** — the paper says so. But the two
+methodological novelties are **confirmed genuine against the competitor**:
+- **Full intra-transit / FOV-block along-scan covariance**: FM 2024/2025 use only a
+  *scalar* per-transit systematic floor `C = C_rnd + C_sys/N`; Baer et al. 2011/2017
+  model same-observatory correlations for ground data but not Gaia's FOV blocks. **No
+  deflection-mass paper models the full block covariance** the manuscript uses
+  (ICC = 0.32, √1.66 inflation).
+- **External (jackknife/bootstrap) error bars**: every deflection-mass paper uses
+  *scaled formal covariance* (Baer & Chesley: variational re-runs; FM: scaled formal;
+  the exception is Siltala & Granvik 2020, A&A 633, A46, Bayesian MCMC). Crucially,
+  **Siltala & Granvik explicitly argue LSQ literature uncertainties are underestimated /
+  non-Gaussian** — that standing critique is *exactly* what the manuscript's jackknife σ
+  answers. This is the sharpest way to sell the error methodology to a referee.
+
+**E.3 Gaia context** (Tanga et al. 2023, A&A 674, A12; FPR orbits David et al. 2023,
+A&A 680, A37): ~156 k asteroids ("~150 k" is a fair round-down); **along-scan precision
+sub-mas (best ~0.25 mas), across-scan ~1 arcsec** — a ~3-order AL/AC asymmetry that is
+the published physical motivation for the anisotropic along-scan covariance. **Window
+correction applied to the manuscript:** the DR3 SSO nominal-ops window is 2014 Aug 5 –
+2017 May 28; the propagation window (2014 Jul 25 – 2017 May 28) brackets it (§2.1 now
+says so). The mass layer's FPR astrometry spans a longer arc (to 2020 Jan) — the paper
+correctly says "full arc of Gaia FPR astrometry," so no conflation there.
 
 > The comparison confirms the **shape** of the contribution: novel as a *dataset +
-> methods* paper (first encounter catalogue with a measured budget; a tidy Gaia-FPR
-> mass-error methodology), not as a *discovery* paper (no new mass, no new large–large
-> encounter — stated honestly).
+> methods* paper (first encounter catalogue with a measured budget; the first
+> deflection-mass treatment with FOV-block covariance + external jackknife σ, which
+> directly answers the Siltala & Granvik critique), not as a *discovery* paper (no new
+> mass, no new large–large encounter — stated honestly).
 
 ---
 
@@ -198,12 +230,30 @@ PSJ). Remaining before acceptance:
    abstract distinguish terms that bound *this* catalogue (Kepler error, censoring,
    cadence) from the term that bounds *future prefiltered* runs (prefilter recall).
    (Referee 2 — the main remaining analytical wording item.)
-3. **Execute the data deposit** (Zenodo DOI + CDS/VizieR ReadMe) and insert the DOI;
-   fill author metadata and software citations. Scaffolding is now in `docs/paper/`.
-   (Referee 3, blocking-but-mechanical.)
-4. Minor: move "candidate" nearer the front of the abstract/title framing; soften or
-   justify the 10⁵ extrapolation; one sentence each on mutual-deflection neglect and
-   the 10k-body representativeness of the censoring measurement.
+3. **Execute the data deposit** — and treat it as the **single highest-probability
+   referee/editor trigger**. A&A's data policy is *mandatory and contractually
+   enforced*: a 72 M-row catalogue must go to CDS/VizieR as documented machine-readable
+   tables (compliant ReadMe, units), typically with a reduced table at CDS + the bulk on
+   Zenodo. CDS independently checks consistency and can hold the paper at proofs.
+   Scaffolding is in `docs/paper/` (`DATA_AVAILABILITY.md`, `zenodo_data_deposit.json`);
+   fill author metadata + software citations. (Referee 3, blocking-but-mechanical.)
+4. **Anticipate an injection–recovery demand on the completeness budget.** The
+   censoring measurement (re-refining the [0.05, 0.06) band) and the FM-2025 literature
+   recovery (§3.4) are recovery experiments, but an A&A referee for a completeness-claim
+   paper will likely ask for a *synthetic injection–recovery* (inject known encounters,
+   report recovered fraction and both false-negative **and false-positive** rates). The
+   pieces largely exist; framing them as a single injection–recovery section would
+   pre-empt the most probable *scientific* revision request. (New, from the literature
+   search of A&A norms.)
+5. **Frame the mass-error methodology against Siltala & Granvik (2020).** State
+   explicitly that jackknife externals answer the standing critique that LSQ literature
+   σ are underestimated/non-Gaussian, and that the FOV-block covariance is absent even
+   from the direct competitor (FM 2025). This converts "confirmatory" into a defensible
+   *methods* advance. (§E.2.)
+6. Minor (partly done this pass): "candidate" now in the abstract; mutual-deflection and
+   10k-body representativeness sentences added (§2.3, §3.2); still to do — soften/justify
+   the 10⁵ extrapolation. DR3 window start clarified (§2.1); "231" → "over 230 (232 at
+   SNR>3)".
 
 **What would make it a strong accept:** items 1–3 done. The methods (FOV-block
 covariance, jackknife σ, identifiability, measured censoring) and the provenance

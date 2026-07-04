@@ -24,7 +24,8 @@ snapshot whose osculating epoch sits at the centre of the window, and encounters
 are detected by a per-timestep KD-tree spatial query, refined on a dense temporal
 sub-grid around each apparent minimum. The catalogue records the minimum physical
 3D separation of each pair — a genuine spatial approach, not an apparent
-sky-plane co-location — for 72,236,904 pairs that came within 0.05 AU, together
+sky-plane co-location — for 72,236,904 candidate pairs that came within 0.05 AU
+(two-body distances, N-body-refined on the fragile subset), together
 with the encounter epoch, relative velocity, observing geometry, and estimated
 physical properties. A hybrid variant carries full N-body (rebound/ASSIST)
 refinement for the 8.7 million pairs in the dynamically fragile subset
@@ -98,8 +99,11 @@ living file and results are not bit-reproducible across snapshot versions. The
 run is restricted to **numbered asteroids** (higher orbital quality); provisional
 designations are out of scope for this release.
 
-The temporal domain is the Gaia DR3 Solar System survey window,
-2014 July 25 – 2017 May 28. All internal computation is carried out in Julian
+The temporal domain brackets the Gaia DR3 Solar System survey period: the
+propagation window is 2014 July 25 – 2017 May 28, whose start (the DR3
+astrometric-solution baseline) slightly precedes the 2014 August 5 start of
+nominal SSO operations reported by Tanga et al. (2023), so the window fully
+contains the survey coverage. All internal computation is carried out in Julian
 Date on the Barycentric Dynamical Time (TDB) scale; conversions to/from the
 Barycentric Coordinate Time (TCB) that Gaia reports, and to UTC, are performed
 only at input/output interfaces. Distances are in AU, angles in radians, and
@@ -167,6 +171,13 @@ properties (absolute magnitude H, and diameter and taxonomic class estimated fro
 H with a class-dependent albedo when no direct measurement exists) are attached
 to both bodies. Diameters derived this way are order-of-magnitude estimates, not
 measurements, and any size-based selection inherits that uncertainty.
+
+The two encountering bodies are treated as independent test particles moving in
+the planetary + massive-asteroid field; their *mutual* gravitational deflection
+over the approach is not modelled. At asteroid masses and the ≳10⁵ km separations
+that dominate the catalogue this is entirely negligible for the recorded geometry,
+and it is in any case the very quantity a downstream mass determination sets out
+to measure, not a property of the encounter itself.
 
 ### 2.4 Catalogue overview
 
@@ -237,7 +248,8 @@ that Kepler placed *above* 0.05 AU was never written, so its downward crossing
 censoring, not measurement ([`docs/kepler_threshold_bias_paper.md`]).
 
 We measured the missing side directly. Re-running Kepler detection at a widened
-0.06 AU threshold over 10,000 numbered bodies and isolating the 17,469 pairs with
+0.06 AU threshold over 10,000 numbered bodies (drawn to span the belt in (a, e, i)
+and so representative of the propagated population) and isolating the 17,469 pairs with
 Kepler distance in [0.05, 0.06) AU — exactly the band a 0.05 AU catalogue
 discards — then re-refining each under full N-body, **0.70 %** [95 % CI
 0.59–0.83 %] cross *downward* below 0.05 AU (a conservative floor of ~0.42 %
@@ -459,7 +471,8 @@ A reference list of encounters touching one of the sixteen studied perturbers
 [`docs/notable_encounters.md`] so that already-worked events can be separated from
 potential discoveries. The honest verdict is that no new large–large encounter of
 publication interest emerged: the belt's largest bodies are well studied, and
-Fuentes-Muñoz et al. (2025) already published 231 masses covering essentially all
+Fuentes-Muñoz et al. (2025) already published over 230 masses (232 at SNR > 3)
+covering essentially all
 classical large MBAs. The novelty of this work is the dataset itself — a catalogue
 with a measured completeness budget — and the methodological framework of §5, not
 a single spectacular event.
