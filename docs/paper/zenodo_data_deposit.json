@@ -1,0 +1,50 @@
+{
+  "//": "Zenodo deposit metadata TEMPLATE for the close-encounter catalogue data.",
+  "//authors": "TODO(author): fill creators (name 'Last, First', affiliation, orcid) before minting the DOI.",
+  "//workflow": "See DATA_AVAILABILITY.md for how to create the deposit and paste the DOI back into aa_encounters.tex (Sect. Data availability).",
+  "metadata": {
+    "upload_type": "dataset",
+    "title": "A systematic catalogue of real 3D close encounters between numbered asteroids during the Gaia DR3 window",
+    "description": "Catalogue of 72,236,904 real three-dimensional close-encounter pairs (minimum separation < 0.05 AU) between numbered asteroids over the Gaia DR3 observation window (2014-07-25 to 2017-05-28), with a measured completeness budget. Files: (1) encounters_catalog_rebound_005au.parquet (Kepler-refined candidate catalogue, 72,236,904 rows, SHA-256 prefix b0272be7...); (2) encounters_catalog_hybrid_stageb.parquet (hybrid catalogue with per-row refinement_method in {kepler, nbody} and both Kepler and N-body distances/epochs/velocities for the dynamically fragile subset); (3) encounters_characterized_full.parquet (adds observability, solar elongation, magnitudes, diameters, taxonomic classes for all rows). Orbits propagated from a single frozen MPCORB snapshot (MPCORB_20160217.DAT, SHA-256 prefix 3e44e7d3...). Provenance sidecar records the MPCORB hash, frozen configuration, and pipeline parameters. Companion paper submitted to Astronomy & Astrophysics.",
+    "creators": [
+      {
+        "name": "TODO_LAST, TODO_First",
+        "affiliation": "TODO",
+        "orcid": "0000-0000-0000-0000"
+      }
+    ],
+    "keywords": [
+      "minor planets, asteroids: general",
+      "celestial mechanics",
+      "astrometry",
+      "catalogs",
+      "surveys",
+      "Gaia DR3",
+      "close encounters",
+      "asteroid mass determination"
+    ],
+    "license": "CC-BY-4.0",
+    "version": "1.0",
+    "language": "eng",
+    "related_identifiers": [
+      {
+        "relation": "isSupplementTo",
+        "identifier": "TODO_paper_DOI_once_accepted",
+        "resource_type": "publication-article",
+        "scheme": "doi"
+      },
+      {
+        "relation": "isDerivedFrom",
+        "identifier": "10.1051/0004-6361/202243796",
+        "resource_type": "publication-article",
+        "scheme": "doi",
+        "//": "Tanga et al. 2023, A&A 674, A12 — Gaia DR3 Solar System survey"
+      }
+    ],
+    "references": [
+      "Tanga, P., Pauwels, T., Mignard, F., et al. 2023, A&A, 674, A12",
+      "Fuentes-Munoz, O., Farnocchia, D., Giorgini, J. D., & Park, R. S. 2025, AJ, 170, 353"
+    ],
+    "notes": "MPCORB is a living file; results are not bit-reproducible across snapshot versions. Anything derived from the catalogue must cite both the catalogue SHA (b0272be7...) and the code commit at generation time."
+  }
+}

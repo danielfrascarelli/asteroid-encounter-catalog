@@ -66,9 +66,10 @@ approach, not a sky-plane co-location --- for 72\,236\,904 pairs within
 0.05\,AU, with encounter epoch, relative velocity, geometry, and estimated
 physical properties. Its distinguishing feature is a \emph{measured}
 completeness budget: the Kepler-to-N-body refinement error (median
-12\,$\mu$AU, p99 2.5\,mAU), the threshold-induced false-negative rate
-(0.70\,\%, symmetric and scatter-dominated), and the prefilter recall on the
-adverse high-$e$/high-$i$ tail (76\,\%). Applied to mass determination, the
+12\,$\mu$AU, p99 2.5\,mAU) and the threshold-induced false-negative rate
+(0.70\,\%, symmetric and scatter-dominated) bound this catalogue directly, while
+the recall of an orbital prefilter on the adverse tail (76\,\%) is quantified as a
+caveat for prefiltered runs. Applied to mass determination, the
 engine recovers all four calibrator masses (Ceres, Vesta, Pallas, Hygiea) at
 $|z|<3$ and determines sixteen perturbers, of which ten identifiable masses
 agree with recent independent work.}
@@ -174,9 +175,17 @@ $|\Delta a|$ cut did \emph{not} shape this catalogue (provenance
 
 The core of the detector is a \emph{per-timestep 3D KD-tree}. At each coarse
 step the heliocentric ecliptic positions of all bodies are inserted into a
-KD-tree ($O(N\log N)$ construction), and a radius query at the 0.05\,AU
-threshold returns neighbour candidates ($O(\log N)$ per query), avoiding any
-$O(N^2)$ distance matrix. The coarse cadence is $\Delta t = 12$\,h.
+KD-tree ($O(N\log N)$ construction), and a radius query returns neighbour
+candidates ($O(\log N)$ per query), avoiding any $O(N^2)$ distance matrix. The
+coarse cadence is $\Delta t = 12$\,h. To prevent the cadence from missing an
+encounter whose true minimum falls \emph{between} two samples, the query radius is
+\emph{widened} to $r_q = 0.05\,\mathrm{AU} + v_{\max}\,(\Delta t/2) \approx
+0.0536$\,AU with $v_{\max} = 25$\,km\,s$^{-1}$: under near-linear relative motion a
+pair whose separation dips below 0.05\,AU between samples is within $r_q$ at the
+nearer bracketing sample and therefore enters the candidate set; the sub-grid
+refinement then discards any whose true minimum exceeds 0.05\,AU. The bracketing is
+exact for relative velocities up to $v_{\max}$, and the residual (encounters with
+$v_{\rm rel} > v_{\max}$) is bounded in Sect.~\ref{sec:prefilter}.
 
 Each coarse candidate is then \emph{refined on a dense temporal sub-grid}: a
 $\pm2$\,h window around the apparent minimum is sampled at 120\,s, and the
@@ -367,9 +376,14 @@ main-belt scale the pair-list prefilter was skipped entirely, so the
 $|\Delta a|$ cut did not actually drop these pairs from the frozen catalogue.
 The 76\,\% figure measures the damage the prefilter \emph{would} cause if
 applied at small $N$, not damage suffered here. Completeness of this freeze is
-instead bounded by the 12\,h KD-tree coarse cadence (fast minima can fall
-between grid samples) and by the threshold censoring of
-Sect.~\ref{sec:censoring}. For the dynamically cold bulk of the belt (low $e$,
+instead bounded by the threshold censoring of Sect.~\ref{sec:censoring}. The 12\,h
+coarse cadence does \emph{not} by itself lose encounters up to
+$v_{\rm rel} = v_{\max} = 25$\,km\,s$^{-1}$, because the widened query radius
+(Sect.~\ref{sec:detection}) brackets them; the only encounters it can miss have
+$v_{\rm rel} > 25$\,km\,s$^{-1}$, and just 0.0012\,\% of catalogued encounters
+exceed that (p99.99 $= 20$\,km\,s$^{-1}$, max 68\,km\,s$^{-1}$), so the residual
+cadence-induced incompleteness is $\lesssim 10^{-3}$\,\% --- three orders of
+magnitude below the threshold-censoring term and negligible. For the dynamically cold bulk of the belt (low $e$,
 small $\Delta a$) recall is $\sim$99.9\,\%; the incompleteness is a property of
 the high-$e$/high-$i$ tail, which any science touching NEA-crossing or high-$e$
 pairs must cite.
@@ -394,9 +408,12 @@ $<0.05$\,AU encounter and lies in the numbered population is recovered; the
 apparent shortfall is entirely pairs that are not $<0.05$\,AU encounters or not
 numbered. Per-body recovery among the most-listed perturbers ranges from 6\,\%
 (Davida) to 61\,\% (Liguria), with the Ceres and Vesta calibrators at
-$\sim$36\,\%. Pair-level cross-matching against \citet{goffin2014} was not
-possible: the available VizieR tables give per-perturber masses only, not the
-individual encounter pairs.
+$\sim$36\,\%. Pair-level cross-matching against \citet{goffin2014} is not
+applicable: Goffin's masses come from a single \emph{simultaneous} global fit of
+all perturber masses to the astrometric residuals of the entire numbered
+population, not from per-perturber target lists, so there is no set of
+(perturber, target) pairs to match (the VizieR tables give per-perturber masses
+and literature mass compilations only).
 
 % =========================================================================
 \section{Notable events}

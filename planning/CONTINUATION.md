@@ -92,12 +92,21 @@ docker compose run --rm pipeline python -m scripts.mass.orbdet_fit_realdata \
 ```
 Gate: N(Pallas) ≥ 20. No accionable hasta que DR4 esté disponible.
 
-### 2.4 Cruce Goffin pair-level (bloqueado: extracción de PDF)
-El cruce de completitud (§3.4) usó FM 2025. Goffin 2014 a nivel de pares no se pudo:
-los parquets VizieR solo traen masas por perturbador, no los pares, y el contenedor
-no tiene extractor de PDF. Si se quiere: agregar `pdfplumber`/`PyMuPDF` y extraer las
-tablas de pares de `papers/goffin_2014_aa565_A56.pdf`, luego extender
-`scripts/validate/crosscheck_literature_encounters.py`.
+### 2.4 Cruce Goffin pair-level — ✅ verificado NO aplicable (2026-07-04)
+El cruce de completitud (§3.4) usó FM 2025. Goffin 2014 a nivel de pares **no es
+aplicable, no bloqueado**: se extrajo el PDF (`papers/goffin_2014_aa565_A56.pdf`,
+pdfplumber ad-hoc) y se confirmó que Goffin hace un ajuste **simultáneo global** de
+todas las masas contra los residuos astrométricos de toda la población — no hay listas
+de objetivos por perturbador, así que no existe conjunto de pares (perturbador,
+objetivo) que cruzar (table6 de VizieR es una compilación de masas de literatura, no
+pares). El §3.4 del paper se afinó para decir esto explícitamente. Cerrado.
+
+### 2.5 Submission del paper — scaffolding de datos listo (2026-07-04)
+En `docs/paper/`: `DATA_AVAILABILITY.md` (checklist Zenodo+CDS/VizieR con tabla de
+archivos/SHA), `zenodo_data_deposit.json` (metadata de depósito, faltan `creators` y el
+DOI del paper), `figures_provenance.md` (los dos números solo-de-figura 93.010 y
+4.25 km/s re-derivados). Sigue faltando lo author-owned: autores/afiliaciones/ORCID,
+acknowledgements, y ejecutar el depósito para obtener el DOI.
 
 ## 3. Gotchas del entorno (LEER antes de operar — evitan errores ya cometidos)
 
