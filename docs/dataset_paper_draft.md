@@ -37,8 +37,8 @@ high-e/high-i tail (76 %) are each quantified from dedicated re-refinement
 experiments. We show the catalogue is a direct target-selection input for
 asteroid mass determination: applying a joint orbit+mass least-squares engine to
 Gaia FPR astrometry recovers all four calibrator masses (Ceres, Vesta, Pallas,
-Hygiea) at |z| < 3 and yields sixteen perturber determinations consistent with
-recent independent work.
+Hygiea) at |z| < 3 and determines sixteen perturbers, of which the ten
+identifiable masses are consistent with recent independent work.
 
 ---
 
@@ -589,7 +589,7 @@ which together turn a bulk propagation into a defensibly characterised catalogue
 ## References
 
 - Fuentes-Muñoz, O., Scheeres, D. J., Tanga, P., et al. 2024, LPSC, 55, 2388
-- Fuentes-Muñoz, O., Scheeres, D. J., Tanga, P., et al. 2025, AJ, 170, 353
+- Fuentes-Muñoz, O., Farnocchia, D., Giorgini, J. D., & Park, R. S. 2025, AJ, 170, 353
 - Goffin, E. 2014, A&A, 565, A56
 - Michalak, G. 2000, A&A, 360, 363
 - Park, R. S., Konopliv, A. S., Bills, B. G., et al. 2016, Nature, 537, 515 (Dawn/Ceres GM)

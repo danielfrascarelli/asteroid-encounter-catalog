@@ -33,20 +33,38 @@ F3 negativo). Es dataset paper + methods paper, no paper de descubrimiento.
 ## 2. Qué falta (prioridad alta → baja)
 
 ### 2.1 Submission del dataset paper (mayor retorno; es trabajo de escritorio)
-El draft está en `docs/dataset_paper_draft.md`. Para someterlo:
-- [ ] **Verificar referencias contra ADS**: volúmenes/páginas de Fuentes-Muñoz 2025
-  (AJ 170, 353 — confirmar), Vernazza 2020 (Nat. Astron. 4, 136), Park 2016,
-  Russell 2012, Tanga 2023, Goffin 2014, Michalak 2000. Sección "References" del draft.
-- [ ] **Elegir journal**: A&A (encaja con Tanga/Goffin) o PSJ. Define template y formato.
-- [ ] **Revisión de consistencia de números** entre secciones (72,236,904 encuentros;
-  0.70 % censura; 76 % recall; 29.5 % recuperación FM; masas §5). Que ningún número
-  se contradiga entre abstract, cuerpo y conclusiones.
-- [ ] **Quitar notas internas** (el bloque `<!-- Notas de redacción -->` y la sección
-  "Figures" interna) al pasar a template de journal.
-- [ ] **Autores, afiliaciones, acknowledgements, data availability final** (DOIs/Zenodo
-  para el catálogo si se publica el dato).
-- [ ] Cosmético: fig3 tiene la etiqueta "Inclination i (deg)" duplicada (colorbar +
-  marginal). Editar `scripts/bench/make_paper_figures.py` (`figure3_aei_map`) y regenerar.
+El draft está en `docs/dataset_paper_draft.md`. **Journal elegido: A&A.** El
+paquete LaTeX A&A vive en `docs/paper/` (`aa_encounters.tex` + `references.bib`
++ `README.md`); compila limpio (probado con stub de `aa.cls`; el build real
+necesita `aa.cls`/`aa.bst` del sitio A&A — ver `docs/paper/README.md`).
+
+Hecho (2026-07-03, branch `docs/paper-submission-prep`):
+- [x] **Referencias verificadas contra ADS**: Goffin 2014 (A&A 565 A56),
+  Michalak 2000 (A&A 360 363), Park 2016 (Nature 537 515), Russell 2012
+  (Science 336 684), Tanga 2023 (A&A 674 A12), Vernazza 2020 (Nat.Astron. 4 136),
+  FM 2025 (AJ 170 353) — **todas OK salvo autores de FM 2025**: eran
+  Fuentes-Muñoz, Farnocchia, Giorgini, Park (el draft había copiado mal
+  Scheeres/Tanga → corregido en draft y `.bib`).
+- [x] **Journal elegido: A&A**; paquete LaTeX generado en `docs/paper/`.
+- [x] **Consistencia de números**: auditoría completa (abstract/cuerpo/tablas/
+  captions vs docs de respaldo) → 0 contradicciones duras, aritmética de
+  porcentajes OK. Corregida imprecisión del abstract ("sixteen … consistent" →
+  "determines sixteen … of which the ten identifiable masses are consistent").
+- [x] **Notas internas quitadas** en la versión LaTeX (el markdown conserva el
+  bloque `<!-- Notas -->` y "Figures" a propósito, como copia de referencia).
+- [x] Cosmético fig3: quitado el label duplicado de inclinación en
+  `scripts/bench/make_paper_figures.py`. **Falta regenerar fig3** (ver abajo);
+  el PDF en `docs/figures/` es todavía la versión con el label duplicado.
+
+Falta (author-owned, marcado `TODO(author)` en el `.tex`):
+- [ ] **Autores, afiliaciones, ORCID, e-mail de contacto** (`\author`,`\institute`).
+- [ ] **Acknowledgements** (financiación, software, boilerplate Gaia/DPAC).
+- [ ] **Data availability DOI**: registrar el catálogo (Zenodo/VizieR) e insertar DOI.
+- [ ] **Nº de abstract LPSC de FM 2024** (`55, 2388`): confirmar contra el
+  programa LPSC 2024 en ADS; valorar si sigue haciendo falta ahora que salió el AJ.
+- [ ] Dos números solo-de-figura (93.010 cuerpos; 4.25 km/s mediana) no tienen
+  doc de respaldo en prosa — considerar anotarlos en una nota de proveniencia.
+- [ ] **Regenerar fig3** con el fix (ver bloque de abajo).
 
 **Regenerar figuras** (matplotlib NO está en la imagen — instalar ad-hoc):
 ```bash
