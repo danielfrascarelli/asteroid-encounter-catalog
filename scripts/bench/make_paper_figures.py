@@ -83,6 +83,7 @@ DPI = 300
 RNG_SEED = 42
 MAX_SCATTER = 100_000
 
+
 # Sober journal aesthetics -------------------------------------------------- #
 def _setup_matplotlib() -> None:
     """Import matplotlib lazily (headless Agg) and apply journal styling.
@@ -445,7 +446,9 @@ def figure3_aei_map() -> list[Path]:
     )
     ax1.set_ylim(0.0, np.percentile(i, 99.5))
     ax1.set_xlabel("count")
-    ax1.set_ylabel("Inclination $i$ (deg)")
+    # No y-axis label here: the colorbar immediately to the left already labels
+    # the shared inclination axis, so repeating it on the marginal is redundant
+    # (see docs/dataset_paper_draft.md §2.1 cosmetic note).
     ax1.grid(True, axis="x", linestyle=":", linewidth=0.5, color="0.85")
 
     ax0.text(
