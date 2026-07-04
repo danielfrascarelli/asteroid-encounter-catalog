@@ -40,22 +40,32 @@ Marked inline in the `.tex` with `TODO(author)`:
 2. **Acknowledgements** — funding, software stack (astropy, rebound, ASSIST,
    polars, scipy), Gaia/DPAC boilerplate.
 3. **Data availability DOI** — register the catalogue (Zenodo/VizieR) and insert
-   the DOI in Sect. "Data availability".
+   the DOI in Sect. "Data availability". Scaffolding ready:
+   [`DATA_AVAILABILITY.md`](DATA_AVAILABILITY.md) (checklist + file/SHA table) and
+   [`zenodo_data_deposit.json`](zenodo_data_deposit.json) (deposit metadata
+   template — fill `creators`, then the paper DOI once accepted).
 4. **`fuentesmunoz2024` LPSC abstract number** — confirm `55, 2388` against the
    LPSC 2024 (55th) programme on ADS. Now that the full AJ paper
    (`fuentesmunoz2025`) is out, consider whether the LPSC abstract is still
    needed as a separate citation.
 
+## Support files
+
+- [`DATA_AVAILABILITY.md`](DATA_AVAILABILITY.md) — deposit checklist (Zenodo + CDS/VizieR).
+- [`zenodo_data_deposit.json`](zenodo_data_deposit.json) — Zenodo metadata template.
+- [`figures_provenance.md`](figures_provenance.md) — source of the two figure-only
+  aggregates (93,010 encountering bodies; 4.25 km/s median v_rel), re-derived
+  against the frozen catalogue.
+
 ## Known content notes
 
-- **Figure 3 needs regeneration.** The on-disk `../figures/fig3_aei_map.pdf`
-  predates the fix in `scripts/bench/make_paper_figures.py` that removed the
-  duplicated "Inclination *i* (deg)" label (colorbar + marginal). Regenerate:
+- **Figure 3 is up to date** (regenerated 2026-07-04 with the duplicated
+  "Inclination *i* (deg)" label removed). To regenerate all figures:
 
   ```bash
   docker compose run --rm pipeline bash -c \
     "pip install --quiet matplotlib && python -m scripts.bench.make_paper_figures"
-  mv data/output/figures/fig3_aei_map.png data/output/figures/fig3_aei_map.pdf docs/figures/
+  mv data/output/figures/*.png data/output/figures/*.pdf docs/figures/
   ```
 
 - Two figure-only aggregate numbers — **93,010 encountering bodies** and the

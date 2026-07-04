@@ -310,8 +310,11 @@ encounter and lies in the numbered population is recovered; the apparent shortfa
 is entirely FM pairs that are not < 0.05 AU encounters or not numbered. Per-body
 recovery among the most-listed perturbers ranges from 6 % (Davida) to 61 %
 (Liguria), with the Ceres and Vesta calibrators at ~36 %. Pair-level
-cross-matching against Goffin (2014) was not possible: the available VizieR tables
-give per-perturber masses only, not the individual encounter pairs.
+cross-matching against Goffin (2014) is not applicable: Goffin's masses come from
+a single *simultaneous* global fit of all perturber masses to the astrometric
+residuals of the entire numbered population, not from per-perturber target lists,
+so there is no set of (perturber, target) pairs to match (the VizieR tables give
+per-perturber masses and literature mass compilations only).
 
 ---
 
