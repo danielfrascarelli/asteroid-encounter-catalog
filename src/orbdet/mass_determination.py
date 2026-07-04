@@ -40,7 +40,11 @@ from .observation import (
     radec_from_positions,
     tangent_residuals_mas,
 )
-from .variational import partial_wrt_gm, partials_wrt_elements
+from .variational import (
+    partial_wrt_gm,
+    partial_wrt_gm_variational,
+    partials_wrt_elements,
+)
 
 
 def _pool_worker_init() -> None:
@@ -110,6 +114,11 @@ class _ModelConfig:
     gm_rel_delta: float
     backend: str = "rebound"
     gr: bool = True
+    gm_variational: bool = True
+    """Usar la parcial ∂x/∂GM **analítica** (partícula variacional de masa, F6) en el
+    backend ``rebound``, en vez de diferencias finitas. Ahorra dos propagaciones por
+    Jacobiano y es exacta a mejor que 1e-6. Ignorado en el backend ``assist`` (las
+    fuerzas de la efeméride no propagan variacionales → siempre FD)."""
     sys_floor_mas: float = 0.0
     """Piso de error sistemático along-scan **correlacionado dentro de cada FOV
     transit** (mas). Modela el error de actitud/centroide común a los CCDs de un
@@ -277,17 +286,30 @@ def _forward_al(
             dt_days=cfg.dt_days,
             asteroid_perturbers=ast_perts,
         )
-        dgm = partial_wrt_gm(
-            el,
-            cfg.epoch_jd_tdb,
-            jd_ret,
-            perturber_index=0,
-            perturbers=cfg.perturbers,
-            integrator=cfg.integrator,
-            dt_days=cfg.dt_days,
-            asteroid_perturbers=ast_perts,
-            rel_delta=cfg.gm_rel_delta,
-        )
+        if cfg.gm_variational:
+            # F6: parcial ∂x/∂GM analítica (una propagación por sentido) en vez de FD.
+            dgm = partial_wrt_gm_variational(
+                el,
+                cfg.epoch_jd_tdb,
+                jd_ret,
+                perturber_index=0,
+                perturbers=cfg.perturbers,
+                integrator=cfg.integrator,
+                dt_days=cfg.dt_days,
+                asteroid_perturbers=ast_perts,
+            )
+        else:
+            dgm = partial_wrt_gm(
+                el,
+                cfg.epoch_jd_tdb,
+                jd_ret,
+                perturber_index=0,
+                perturbers=cfg.perturbers,
+                integrator=cfg.integrator,
+                dt_days=cfg.dt_days,
+                asteroid_perturbers=ast_perts,
+                rel_delta=cfg.gm_rel_delta,
+            )
         dpos_dmass = dgm[:, 0:3] * GM_SUN  # ∂r_ecl/∂mass = GM_SUN·∂r_ecl/∂GM
 
     ast_icrs = ecliptic_to_equatorial(pos)
@@ -340,6 +362,7 @@ def _make_config(
     backend: str = "rebound",
     gr: bool = True,
     sys_floor_mas: float = 0.0,
+    gm_variational: bool = True,
 ) -> _ModelConfig:
     return _ModelConfig(
         epoch_jd_tdb=epoch_jd_tdb,
@@ -354,6 +377,7 @@ def _make_config(
         backend=backend,
         gr=gr,
         sys_floor_mas=sys_floor_mas,
+        gm_variational=gm_variational,
     )
 
 
@@ -379,6 +403,7 @@ def determine_mass_and_orbit(
     backend: str = "rebound",
     gr: bool = True,
     sys_floor_mas: float = 0.0,
+    gm_variational: bool = True,
     max_iter: int = 80,
     **lm_kwargs,
 ) -> tuple[float, KeplerElements, LeastSquaresResult]:
@@ -406,6 +431,7 @@ def determine_mass_and_orbit(
         backend=backend,
         gr=gr,
         sys_floor_mas=sys_floor_mas,
+        gm_variational=gm_variational,
     )
     tobs = TargetObservations(
         initial_elements=initial_elements,
@@ -444,6 +470,7 @@ def determine_shared_mass(
     backend: str = "rebound",
     gr: bool = True,
     sys_floor_mas: float = 0.0,
+    gm_variational: bool = True,
     max_iter: int = 80,
     n_workers: int = 1,
     **lm_kwargs,
@@ -481,6 +508,7 @@ def determine_shared_mass(
         backend=backend,
         gr=gr,
         sys_floor_mas=sys_floor_mas,
+        gm_variational=gm_variational,
     )
     n_t = len(targets)
     n_par = 1 + 6 * n_t

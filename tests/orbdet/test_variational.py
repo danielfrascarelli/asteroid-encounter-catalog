@@ -21,6 +21,7 @@ from src.orbdet.dynamics import AsteroidPerturber, propagate
 from src.orbdet.kepler import KeplerElements
 from src.orbdet.variational import (
     partial_wrt_gm,
+    partial_wrt_gm_variational,
     partials_wrt_elements,
     propagate_with_stm,
     richardson_convergence_dgm,
@@ -209,3 +210,44 @@ def test_dgm_central_difference_is_linear() -> None:
     rel = np.abs(dgm - secant) / np.where(scale > 1e-30, scale, 1.0)
     # Linealidad a ~1e-8 de masa solar: acuerdo a mejor que 1e-3.
     assert rel.max() < 1e-3, f"max rel {rel.max():.2e}"
+
+
+# --- Parcial ∂x/∂GM analítica (partícula variacional de masa, F6) -------------
+
+
+@pytest.mark.slow
+def test_dgm_variational_matches_fd() -> None:
+    """GATE F6: la parcial ∂x/∂GM analítica (partícula variacional de masa)
+    coincide con la diferencia finita central < 1e-6 relativo por época.
+
+    La referencia FD se extrapola con Richardson (δ y δ/2 → orden δ⁴) para eliminar
+    la truncación O(δ²) de la diferencia central; así el residuo mide la partícula
+    variacional contra la derivada verdadera, no contra el sesgo de paso de la FD.
+    """
+    kw = dict(perturber_index=0, perturbers=_PERTURBERS, asteroid_perturbers=(_PERT_AST,))
+    dgm_var = partial_wrt_gm_variational(_EL, _EPOCH, _OUT_GM, **kw)
+
+    fd_h = partial_wrt_gm(_EL, _EPOCH, _OUT_GM, rel_delta=2e-3, **kw)
+    fd_h2 = partial_wrt_gm(_EL, _EPOCH, _OUT_GM, rel_delta=1e-3, **kw)
+    dgm_fd = (4.0 * fd_h2 - fd_h) / 3.0
+
+    diff = np.linalg.norm(dgm_var - dgm_fd, axis=1)  # (N,) sobre las 6 componentes
+    base = np.linalg.norm(dgm_fd, axis=1)
+    rel = diff / np.where(base > 0.0, base, 1.0)
+    assert rel.max() < 1e-6, f"max rel error por época {rel.max():.2e}"
+
+
+@pytest.mark.slow
+def test_dgm_variational_finite_and_nonzero() -> None:
+    """La parcial variacional es finita y no nula (el perturbador deflecta)."""
+    dgm = partial_wrt_gm_variational(
+        _EL,
+        _EPOCH,
+        _OUT_GM,
+        perturber_index=0,
+        perturbers=_PERTURBERS,
+        asteroid_perturbers=(_PERT_AST,),
+    )
+    assert dgm.shape == (_OUT_GM.size, 6)
+    assert np.isfinite(dgm).all()
+    assert np.linalg.norm(dgm) > 0.0

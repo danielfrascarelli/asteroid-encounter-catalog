@@ -1,7 +1,8 @@
 # Determinación de masas — ítems abiertos y mejoras
 
-> **Estado:** 🟡 CASI CERRADO — F1–F5 y F7 hechos (2026-07-03); solo quedan F6 (baja) y F8 (espera DR4).
-> **Última actualización:** 2026-07-03.
+> **Estado:** 🟡 CASI CERRADO — F1–F7 hechos; F6 cerrado para el backend `rebound`
+> (2026-07-04), bloqueado en `assist`; solo queda F8 (espera DR4).
+> **Última actualización:** 2026-07-04.
 > Trabajo futuro sobre el motor de masas `src/orbdet/`. El plan original
 > (T1–T11) está completo; sus resultados están en
 > [`docs/mass_determination_results.md`](../docs/mass_determination_results.md) y la
@@ -17,7 +18,7 @@
 | F3 | Acotar el sesgo medio −4 % de los calibradores | media | ✅ (hipótesis refutada) | fondo 16→35 mueve masas <0.25%, f_sys 4.16%→4.26%: el −4% NO es incompletitud del fondo. Ver [`docs/mass_f3_background_extension.md`](../docs/mass_f3_background_extension.md) (PR #89) |
 | F4 | Catálogo de perturbadores más allá de los 16 de `sb441-n16.bsp` | media | ✅ | rama custom (flag `--perturber-orbit-source`); (19) Fortuna χ²_red=0.977, (9) Metis 0.981. Ver [`docs/mass_layer_f4_design.md`](../docs/mass_layer_f4_design.md) (PR #89) |
 | F5 | Extender el cruce Fuentes-Muñoz a perturbadores débiles | media | ✅ | 10/10 medidas en \|z\|<3 con σ jackknife (vs 5/10 formal). Ver [`docs/mass_crosscheck_jack.md`](../docs/mass_crosscheck_jack.md) (PR #90) |
-| F6 | ∂x/∂GM analítico (partícula variacional sobre ASSIST) | baja | ⬜ | parcial analítica coincide con FD a < 1e-6 relativo; reduce nº de propagaciones |
+| F6 | ∂x/∂GM analítico (partícula variacional de masa) | baja | ✅ backend `rebound` / 🔒 `assist` bloqueado | parcial analítica vs FD < 1e-6 ✅; ahorra 2 props/Jacobiano. `rebound` usa `partial_wrt_gm_variational`; `assist` sigue FD (fuerzas de efeméride no propagan variacionales). Ver [`docs/mass_layer_f6_analytic_gm.md`](../docs/mass_layer_f6_analytic_gm.md) |
 | F7 | Cruce con masas terrestres (Goffin 2014, Galád 2002) donde solape | baja | ✅ | ratio y z reportados para los perturbadores en común (PR #84) |
 | F8 | Perturbadores target-limited (Pallas) con Gaia DR4 | baja | ⬜ (espera datos) | N(Pallas) ≥ 20 con baseline DR4 |
 
@@ -63,13 +64,23 @@ Una vez disponible la σ de F1, recomputar z para los 12 perturbadores no-calibr
 y reportar cuántos quedan en |z| < 3. Hoy 4/8 fiables están en |z| < 3 con σ formal,
 limitado por la subestimación de σ en perturbadores débiles.
 
-### F6 — Parcial de masa analítica
-**Estado actual.** Bajo ASSIST, las parciales (∂x/∂elementos y ∂x/∂GM) se calculan por
-diferencias finitas centrales sobre `propagate_assist` (las partículas variacionales de
-rebound no propagan a través de las fuerzas de la efeméride).
-**Acción.** Implementar la partícula variacional respecto a la masa o un esquema
-adjunto, reduciendo el número de propagaciones por evaluación de Jacobiano.
-**Gate.** Parcial analítica vs FD < 1e-6 relativo; reducción medible de tiempo de cómputo.
+### F6 — Parcial de masa analítica ✅ (backend `rebound`)
+**Hecho (2026-07-04).** `orbdet.variational.partial_wrt_gm_variational` integra
+∂x/∂GM con la partícula variacional de masa de REBOUND (`Variation.vary(i, "m")`)
+en una sola propagación por sentido; cableada en `mass_determination._forward_al`
+(rama `rebound`) tras `gm_variational=True`. Gate cumplido: coincide con la FD
+(extrapolada Richardson) a **< 1e-6** (`test_dgm_variational_matches_fd`) y ahorra
+las dos propagaciones de la FD. Detalle: [`docs/mass_layer_f6_analytic_gm.md`](../docs/mass_layer_f6_analytic_gm.md).
+
+**Pendiente / bloqueado en `assist` (producción).** Bajo ASSIST el Sol/planetas/GR
+son fuerzas adicionales de la efeméride que no propagan partículas variacionales de
+REBOUND, así que allí ∂x/∂GM (y ∂x/∂elementos) siguen por diferencias finitas
+centrales sobre `propagate_assist`. Camino futuro (no bloqueante): integrar la
+variacional con el producto Jacobiano-vector `(∂a/∂r)·s` por diferencia finita
+direccional de la *aceleración* de ASSIST (2 evals de fuerza/paso, no 2
+propagaciones), o Jacobiano analítico de Sol/planetas/GR. Ganancia marginal en
+producción (la parcial de masa es 2 de ~15 propagaciones; el grueso son las 12 de
+∂x/∂elementos).
 
 ### F7 — Cruce con masas terrestres
 Goffin (2014) y Galád (2002) reportan masas por astrometría terrestre. Comparar donde
