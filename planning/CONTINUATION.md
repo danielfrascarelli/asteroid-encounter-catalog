@@ -73,12 +73,15 @@ docker compose run --rm pipeline bash -c \
 mv data/output/figures/*.png data/output/figures/*.pdf docs/figures/   # docs/ no está montado
 ```
 
-### 2.2 F6 — parcial ∂x/∂GM analítica (baja prioridad, única ingeniería sustancial que queda)
-Hoy las parciales se calculan por diferencias finitas centrales sobre `propagate_assist`.
-- **Acción**: implementar partícula variacional respecto a la masa (o esquema adjunto)
-  sobre ASSIST, reduciendo nº de propagaciones por Jacobiano.
-- **Gate**: parcial analítica vs FD < 1e-6 relativo; reducción medible de tiempo.
-- Detalle en `planning/MASS_FUTURE_WORK.md` §F6. Toca `src/orbdet/`.
+### 2.2 F6 — parcial ∂x/∂GM analítica ✅ (backend `rebound`; `assist` bloqueado)
+**Hecho (2026-07-04).** `partial_wrt_gm_variational` (partícula variacional de masa
+de REBOUND) integra ∂x/∂GM en una sola propagación por sentido; cableada en la rama
+`rebound` de `mass_determination` (`gm_variational=True`). Gate cumplido: vs FD
+< 1e-6 (`test_dgm_variational_matches_fd`), ahorra 2 props/Jacobiano.
+- **Bloqueado en `assist`** (producción): las fuerzas de la efeméride no propagan
+  partículas variacionales de REBOUND → allí ∂x/∂GM sigue por FD. Camino futuro:
+  JVP `(∂a/∂r)·s` por diferencia finita direccional de la aceleración ASSIST.
+- Detalle: `docs/mass_layer_f6_analytic_gm.md`, `planning/MASS_FUTURE_WORK.md` §F6.
 
 ### 2.3 F8 — Pallas con Gaia DR4 (bloqueado: espera datos)
 Pallas tiene solo 6–7 objetivos < 0.05 AU en DR3 (target-limited). Cuando salga DR4:

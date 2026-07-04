@@ -12,11 +12,18 @@ del ajuste conjunto órbita+masa (T6):
   regla de la cadena ``Φ(t) · J_elem``, donde ``J_elem = ∂[r, v]₀ / ∂elementos``
   es el Jacobiano analítico del mapa kepleriano en la época
   (:func:`orbdet.kepler.dstate_delements`).
-- **Parcial respecto a GM del perturbador** ``∂[r, v](t) / ∂GM`` por
-  **diferencias finitas centrales** con verificación de convergencia (Richardson),
-  según la decisión de diseño T3 (2026-06-01): desbloquea el flujo end-to-end con
-  código simple y robusto; la variante de partícula variacional analítica respecto
-  a la masa queda como optimización posterior.
+- **Parcial respecto a GM del perturbador** ``∂[r, v](t) / ∂GM``, en dos variantes:
+
+  - :func:`partial_wrt_gm` — **diferencias finitas centrales** con verificación de
+    convergencia (Richardson), según la decisión T3 (2026-06-01). Es la variante
+    usada por el backend ASSIST, donde las fuerzas de la efeméride no propagan
+    partículas variacionales.
+  - :func:`partial_wrt_gm_variational` — **partícula variacional analítica** de la
+    masa (F6): integra ``∂[r, v]/∂GM`` junto a la trayectoria en una sola
+    propagación por sentido (``Variation.vary(index, "m")``). Válida en el backend
+    :mod:`orbdet.dynamics` (Sol + planetas como partículas masivas de REBOUND);
+    coincide con la FD a mejor que 1e-6 relativo y ahorra dos propagaciones por
+    Jacobiano.
 
 Convenciones de marco/unidades idénticas a :mod:`orbdet.dynamics` (baricéntrico
 eclíptico J2000; AU, día, M_sun; ``GM`` en AU³/día²).
@@ -280,6 +287,102 @@ def partial_wrt_gm(
         _scaled_perturber_mass(asteroid_perturbers, perturber_index, -dmass),
     )
     return np.asarray((state_plus - state_minus) / (2.0 * dmass * GM_SUN), dtype=float)
+
+
+def _perturber_particle_index(perturbers: tuple[str, ...], perturber_index: int) -> int:
+    """Índice rebound de ``asteroid_perturbers[perturber_index]`` en la simulación.
+
+    El orden de :func:`orbdet.dynamics._build_simulation` es: el Sol y los planetas
+    (con el Sol antepuesto si falta), luego los ``asteroid_perturbers``, luego el
+    objetivo. Por tanto el asteroide ``perturber_index`` cae en
+    ``len(nombres_planetarios) + perturber_index``.
+    """
+    names = [p.lower() for p in perturbers]
+    if "sun" not in names:
+        names = ["sun", *names]
+    return len(names) + int(perturber_index)
+
+
+def partial_wrt_gm_variational(
+    test_elements: KeplerElements,
+    epoch_jd_tdb: float,
+    out_epochs_jd_tdb: np.ndarray,
+    *,
+    perturber_index: int,
+    perturbers: tuple[str, ...] = DEFAULT_PERTURBERS,
+    integrator: str = "ias15",
+    dt_days: float = 1.0,
+    asteroid_perturbers: tuple[AsteroidPerturber, ...],
+) -> np.ndarray:
+    """Parcial ``∂[r, v](t) / ∂GM_perturbador`` **analítica** (F6).
+
+    Integra la ecuación variacional de primer orden respecto a la masa del
+    perturbador junto a la trayectoria, con la partícula variacional de masa de
+    REBOUND (``Variation.vary(index, "m")``). A diferencia de
+    :func:`partial_wrt_gm` (diferencias finitas, dos propagaciones completas), aquí
+    la sensibilidad se propaga con el mismo integrador que la órbita en **una sola**
+    integración por sentido, y captura exactamente el acoplamiento perturbador↔resto
+    del sistema (el objetivo no masivo y todos los cuerpos activos son partículas de
+    REBOUND, así que ``sim.G`` y la gravedad mutua entran en la variacional).
+
+    .. note::
+       Sólo es válida en el backend :mod:`orbdet.dynamics` (Sol + planetas como
+       partículas masivas de REBOUND). Bajo el backend ASSIST las fuerzas del
+       Sol/planetas/GR son ``additional_forces`` de la efeméride que **no** propagan
+       partículas variacionales, por lo que allí la parcial sigue siendo por
+       diferencias finitas (:func:`partial_wrt_gm`).
+
+    REBOUND deriva respecto a la *masa* de la partícula (``m`` = ``mass_msun``, pues
+    ``sim.G = GM_SUN``). Como ``GM = GM_SUN · mass_msun``, la parcial respecto a
+    ``GM`` es la parcial respecto a la masa dividida por ``GM_SUN`` — idéntica
+    convención y unidades que :func:`partial_wrt_gm`.
+
+    Parameters
+    ----------
+    perturber_index:
+        Índice del perturbador en *asteroid_perturbers* cuyo ``GM`` se deriva.
+    asteroid_perturbers:
+        Debe contener al menos al perturbador indexado (su masa puede ser cualquier
+        valor ≥ 0: la variacional es lineal y no la usa como paso).
+
+    Returns
+    -------
+    np.ndarray
+        ``(N, 6)`` con columnas ``(rx, ry, rz, vx, vy, vz)``: ``∂[r, v]/∂GM`` en el
+        marco baricéntrico eclíptico, misma convención que :func:`partial_wrt_gm`.
+    """
+    out_epochs = np.atleast_1d(np.asarray(out_epochs_jd_tdb, dtype=float))
+    n = out_epochs.size
+    dgm_out = np.full((n, 6), np.nan, dtype=float)
+
+    r_h, v_h = elements_to_state(test_elements, GM_SUN)
+    sun_p, sun_v = planet_state_ecliptic("sun", epoch_jd_tdb)
+    test_state = (r_h + sun_p, v_h + sun_v)
+
+    pert_idx = _perturber_particle_index(perturbers, perturber_index)
+
+    dts = out_epochs - epoch_jd_tdb
+    fwd, bwd = _sorted_fwd_bwd(dts)
+
+    for idx_list in (fwd, bwd):
+        if not idx_list:
+            continue
+        sim = _build_simulation(
+            epoch_jd_tdb, test_state, perturbers, integrator, dt_days, asteroid_perturbers
+        )
+        test_idx = sim.N - 1
+        # Una partícula variacional de primer orden respecto a la MASA del
+        # perturbador estudiado; el resto de las semillas quedan en cero.
+        var = sim.add_variation(order=1)
+        var.vary(pert_idx, "m")
+
+        for i in idx_list:
+            sim.integrate(float(dts[i]))
+            vp = var.particles[test_idx]
+            # ∂[r,v]_test/∂mass_msun → ∂/∂GM dividiendo por GM_SUN.
+            dgm_out[i] = (vp.x, vp.y, vp.z, vp.vx, vp.vy, vp.vz)
+
+    return np.asarray(dgm_out / GM_SUN, dtype=float)
 
 
 def richardson_convergence_dgm(
