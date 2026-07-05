@@ -23,7 +23,7 @@
 |---|-------|-----|--------|-----------|-----------------|
 | 1 | Fix ventana de refinamiento + regenerar catálogo | B1 | 🔶 código+tests listos; **regen abortada** (Docker Desktop se cayó en chunk 5/35, sin output) — relanzar `run_pipeline` cuando Docker vuelva | — | `src/detect/refine.py`, freeze nuevo |
 | 2 | Root-cause del miss (804)×(733) | B10 | 🔶 aislado re-verificado con refinador fijo (0.013547 AU, 2015-02-12); cierre = presencia en b1fix | 1 | doc en `docs/` |
-| 3 | Declarar universo muestral y N + sidecars completos | B2 | 🔶 N=449.454 conocido; sidecar con bloque `universe`; falta tex | 1 | sidecar, §2 del tex |
+| 3 | Declarar universo muestral y N + sidecars completos | B2 | 🔶 sidecar `universe` + §2.1 del tex declaran corte a∈[1.5,4.0] y N=449.454; falta rehacer extrapolación N² (post-regen) | 1 | sidecar, §2 del tex |
 | 4 | Diámetros/albedos medidos + regenerar §4 | B3 | 🔶 código+datos SBDB listos (gates Ceres/Nysa/Aegina OK); faltan tablas §4 | 1 | `src/characterize/`, tablas §4 |
 | 5 | Presupuesto de completitud honesto (σ elementos + injection-recovery) | B4 | ⬜ | 1 | `docs/`, §3 del tex |
 | 6 | σ de masas defendible (leverage, N mín, bootstrap) | B6 | 🔶 catálogo listo; falta bootstrap | — | `src/orbdet/`, `mass_catalog` |
@@ -53,8 +53,8 @@
 
 | # | tarea | sev | estado |
 |---|-------|-----|--------|
-| 23 | Lote de correcciones de código/comentarios de bajo riesgo | C1–C8 | 🔶 C1–C3 hechos |
-| 24 | Lote de correcciones de texto/figuras del paper | C9–C15 | ⬜ |
+| 23 | Lote de correcciones de código/comentarios de bajo riesgo | C1–C8 | ✅ C1–C8 hechos |
+| 24 | Lote de correcciones de texto/figuras del paper | C9–C15 | 🔶 C9/C10/C15 hechos; faltan C11–C14 (Fig.1 ley de potencias, etc.) |
 | 25 | Reproducibilidad: sidecars, hashes, desempate determinista | C16 | 🔶 desempate hecho |
 | 26 | F3: reformular gate como Δmasa pareada | C14 | 🔶 gate reformulado y PASA (máx 0.23 % < 0.25 %); falta cota de escala |
 | 27 | Limpieza de refs y tablas menores del paper | C17–C19 | ⬜ |
@@ -441,6 +441,23 @@ Suite completa verde tras todos los cambios de la sesión (552 passed, ruff/blac
 - **Tarea 28 parcial:** lista de software/fuentes en acknowledgements (A&A la exige).
 - **Paper compila limpio: 10 pp., 18/18 citas resueltas** (`pdflatex`+`bibtex` OK).
 - Todo commiteado y pusheado (PR #102 actualizado).
+
+## A6. Sexta tanda (sesión 2026-07-05, en paralelo a la regen)
+
+- **Tarea 23 (C4–C8) ✅:** documentados en `src/orbdet/` (solo docstrings/comentarios):
+  deflexión gravitacional de la luz no aplicada (DPAC ya la corrige; sub-mas) y término
+  ∂τ/∂param omitido ~1e-4 (observation.py); frame bias ICRS↔eclíptica ~17 mas que se
+  cancela en la cadena (frames.py); falta de chequeo de meseta en los pasos FD de
+  elementos (mass_determination.py).
+- **Tarea 3 (B2) tex ✅:** §2.1 declara el corte a∈[1.5,4.0] AU (excluye
+  NEAs/Troyanos/outer) y N=449.454 cuerpos como denominador de completitud.
+- **Tarea 24 (C9/C10) ✅:** definición de "encuentro" (una fila = mínimo global del par
+  en la ventana), criterio Gaia-observable explícito (elong>45°, V<21), marco de
+  referencia explícito e invariancia de la distancia mutua; §2.3 corregido (diámetros
+  medidos>albedo con procedencia; clase dinámica, no taxonómica — B3).
+- **Regen (2 workers):** estable en 10/104, pasó la zona de OOM (moría en 11-13 con 4
+  workers); memoria estable. Más lenta (~50 min de scan) pero sobrevive.
+- Paper compila limpio (10 pp.); todo commiteado y pusheado (PR #102).
 
 ## B. Tarea 1 — lo que falta: regeneración del catálogo
 
