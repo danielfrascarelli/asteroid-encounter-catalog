@@ -94,6 +94,21 @@ def light_time_correct(
     ≪ 1 s a 3 AU). ``bary_ecl_at(jd_array)`` devuelve la posición baricéntrica
     **eclíptica** ``(N, 3)`` del asteroide; acá se rota a ICRS.
 
+    Notas de segundo orden (tribunal 2026-07-04, menores C4/C5):
+
+    - **Deflexión gravitacional de la luz** (curvatura del rayo por el potencial
+      solar): NO se aplica acá. Para fuentes del sistema solar a distancia finita
+      el residuo es de orden sub-mas y máximo cerca de ~45° de elongación; DPAC ya
+      corrige la deflexión relativista en la reducción astrométrica de Gaia, así
+      que las posiciones observadas de entrada ya la llevan descontada. El gate
+      Horizons (0.17 mas) acota cualquier residuo remanente por debajo del piso
+      astrométrico.
+    - **Parcial ∂τ/∂(elementos, GM)**: el Jacobiano de :mod:`mass_determination`
+      diferencia la posición en ``t_emit`` pero trata ``τ`` como fijo respecto de
+      los parámetros. El término omitido ``∂τ/∂param`` es ~v_ast·(∂r/∂param)/c,
+      fraccionalmente ~v_ast/c ≈ 10⁻⁴ del término retenido — muy por debajo de la
+      precisión del ajuste. Documentado; no corregido.
+
     Returns
     -------
     (jd_retarded, ast_bary_icrs)

@@ -125,6 +125,16 @@ class _ModelConfig:
     mismo cruce: ``C_bloque = diag(σ_AL²) + sys_floor² · 11ᵀ``. Se calibra para que
     χ²_red ≈ 1. ``0`` → sin piso (covarianza diagonal)."""
     elem_fd_steps: tuple[float, ...] = (1e-7, 1e-7, 1e-7, 1e-7, 1e-7, 1e-7)
+    """Pasos de diferencias finitas centradas para ∂pos/∂elementos bajo ASSIST.
+
+    A diferencia del paso de GM (``gm_rel_delta``), estos pasos están fijos y NO
+    tienen chequeo de meseta (tribunal 2026-07-04, menor C7). Fueron elegidos en
+    la zona plana de la curva error-FD-vs-paso para elementos MBA propagados
+    ~años (por debajo domina el ruido de redondeo del integrador ASSIST/DE440;
+    por encima, el error de truncamiento O(δ²)). Si se cambia el tolerance del
+    integrador o se propaga a otros regímenes (NEA/arcos muy cortos), reverificar
+    la meseta antes de confiar en el Jacobiano — idealmente barrer δ y comprobar
+    que ∂pos/∂param varía < ~1e-3 relativo, como hace la calibración de GM."""
 
 
 # Pasos de diferencias finitas para ∂pos/∂elementos en el backend ASSIST
