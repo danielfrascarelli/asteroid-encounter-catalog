@@ -655,8 +655,12 @@ Sect.~\ref{sec:mass}, not a single spectacular event.
 \section{Application to mass determination}
 \label{sec:mass}
 
-The catalogue is the target-selection front-end of an asteroid
-mass-determination engine. Perturber mass is obtained by a joint least-squares
+This section demonstrates the catalogue end-to-end as the target-selection
+front-end of an asteroid mass-determination engine. It is a \emph{usage
+demonstration}, not a claim of new or improved masses: as noted below and in
+Sect.~\ref{sec:newknown}, every mass recovered here is already published, and a
+single out-of-sixteen perturber with $\sim$50 Gaia-FPR targets yields only a
+coarse determination. Perturber mass is obtained by a joint least-squares
 fit of the perturber's mass and the orbits of its test bodies --- those with a
 $<0.05$\,AU encounter drawn directly from the catalogue --- over the full arc of
 Gaia FPR astrometry \citep{gaiafpr2023}. The force model is ASSIST
@@ -763,6 +767,21 @@ averages to nearly zero deflection over the target ensemble. The residual bias i
 more plausibly attributable to per-target orbit imperfection over the short Gaia
 arc or unmodelled per-encounter astrometric systematics.
 
+\paragraph{Relation to other methods.} The estimator used here (a joint
+orbit$+$mass least-squares fit with an FOV-block covariance, an external
+jackknife $\sigma$, and an identifiability flag) is functionally a transparent
+reimplementation of established encounter-based mass determination, not a new
+methodology. \citet{siltala2020} obtain full Bayesian posteriors by MCMC, which
+natively expose multi-modality and non-Gaussian tails that a single covariance
+cannot; \citet{fuentesmunoz2025} propagate a prior to a posterior over the same
+Gaia FPR astrometry. Relative to those, our contribution in this section is not
+methodological sophistication but end-to-end demonstration that the open
+all-pairs catalogue feeds a mass pipeline whose every step (target selection,
+covariance model, jackknife, identifiability cut) is open and reproducible.
+Because \citet{fuentesmunoz2025} fits the same FPR data, the cross-check below is
+a consistency test between two analyses of one dataset, not an independent
+confirmation.
+
 % =========================================================================
 \section{Data availability}
 \label{sec:data}
@@ -801,17 +820,19 @@ with a zero-cost radial-overlap fix that recovers 100\,\%). A hybrid variant
 provides N-body-grade geometry on the dynamically fragile subset.
 
 The catalogue is a working target-selection front-end for mass determination: a
-joint orbit+mass engine on Gaia FPR astrometry recovers all four calibrators at
-$|z|<3$, determines sixteen perturbers (all ten identifiable masses consistent
-with \citealt{fuentesmunoz2025} at $|z|<3$ under a jackknife $\sigma$), and
-generalises to bodies beyond the ephemeris set. We are explicit about the
+joint orbit+mass fit on Gaia FPR astrometry recovers the calibrators, determines
+the studied perturbers, and generalises to bodies beyond the ephemeris set,
+demonstrated end-to-end (Sect.~\ref{sec:mass}). We are explicit about the
 limits: distances are candidates under frozen two-body assumptions except on the
 N-body-refined subset, the catalogue is not complete, and no new large--large
 encounter or unpublished large-body mass emerged --- the belt's massive bodies
-are already well surveyed. The contribution is the dataset with its quantified
-budget and the methodological framework (FOV-block covariance, identifiability
-criterion, external jackknife $\sigma$), which together turn a bulk propagation
-into a defensibly characterised catalogue.
+are already well surveyed, and the mass layer is a demonstration of use rather
+than a source of competitive new masses. The contribution is the dataset itself:
+an all-pairs catalogue published in full with a quantified incompleteness budget,
+fed to a mass pipeline whose every step (FOV-block covariance, external jackknife
+$\sigma$, identifiability flag) is open and reproducible --- a transparent
+reimplementation of established encounter-based mass determination
+\citep{siltala2020, fuentesmunoz2025}, not a new methodology.
 
 \begin{acknowledgements}
 % TODO(author): acknowledgements, funding, software (astropy, rebound, ASSIST,
@@ -823,5 +844,66 @@ Data Processing and Analysis Consortium (DPAC).
 
 \bibliographystyle{aa}
 \bibliography{references}
+
+\appendix
+
+% =========================================================================
+\section{Catalogue column schema}
+\label{sec:schema}
+
+Table~\ref{tab:schema} documents the columns of the characterised catalogue
+(\texttt{encounters\_characterized\_full.parquet}), the widest of the three
+published products. The detection catalogue
+(\texttt{encounters\_catalog\_rebound\_005au.parquet}) carries the first block of
+identity and geometry columns only (\texttt{number\_1} through
+\texttt{rel\_vel\_m\_s}); the hybrid catalogue
+(\texttt{encounters\_catalog\_hybrid\_stageb.parquet}) adds a
+\texttt{refinement\_method} $\in\{\texttt{kepler},\texttt{nbody}\}$ column and,
+for the N-body-refined rows, parallel \texttt{dist\_au\_nbody},
+\texttt{jd\_tdb\_nbody}, \texttt{rel\_vel\_au\_day\_nbody} columns and their
+Kepler$-$N-body residuals. Bodies are ordered so that subscript~1 is the larger
+(perturber) body of the pair (Sect.~\ref{sec:characterisation}).
+
+\begin{table*}
+\caption{Columns of the characterised close-encounter catalogue.}
+\label{tab:schema}
+\centering
+\footnotesize
+\begin{tabular}{p{0.26\textwidth}p{0.07\textwidth}p{0.08\textwidth}p{0.50\textwidth}}
+\hline\hline
+column & type & unit & description \\
+\hline
+\texttt{run\_id} & string & --- & Pipeline run identifier (ISO timestamp) \\
+\texttt{number\_1} & int32 & --- & MPC number of body 1 (larger/perturber) \\
+\texttt{number\_2} & int32 & --- & MPC number of body 2 (smaller/target) \\
+\texttt{designation\_1} & string & --- & MPC packed designation of body 1 \\
+\texttt{designation\_2} & string & --- & MPC packed designation of body 2 \\
+\texttt{jd\_tdb} & float64 & d & Julian Date of closest approach (TDB) \\
+\texttt{date\_utc} & string & --- & Calendar date of closest approach (UTC) \\
+\texttt{dist\_au} & float64 & AU & Minimum 3D separation at closest approach \\
+\texttt{dist\_km} & float64 & km & Minimum 3D separation at closest approach \\
+\texttt{rel\_vel\_au\_day} & float64 & AU\,d$^{-1}$ & Relative velocity at encounter \\
+\texttt{rel\_vel\_km\_s} & float64 & km\,s$^{-1}$ & Relative velocity at encounter \\
+\texttt{rel\_vel\_m\_s} & float64 & m\,s$^{-1}$ & Relative velocity at encounter \\
+\texttt{H\_1} & float64 & mag & Absolute magnitude of body 1 (MPCORB) \\
+\texttt{H\_2} & float64 & mag & Absolute magnitude of body 2 (MPCORB) \\
+\texttt{diameter\_1\_km} & float64 & km & Diameter of body 1 (measured if available, else from $H$) \\
+\texttt{diameter\_2\_km} & float64 & km & Diameter of body 2 (measured if available, else from $H$) \\
+\texttt{diameter\_source\_1} & string & --- & Provenance: measured\,$\vert$\,albedo\_measured\,$\vert$\,zone\_albedo\,$\vert$\,default\_albedo\,$\vert$\,unknown \\
+\texttt{diameter\_source\_2} & string & --- & Provenance of \texttt{diameter\_2\_km} (same categories) \\
+\texttt{deflection\_dv\_m\_s} & float64 & m\,s$^{-1}$ & Impulse-approximation velocity kick $2GM_1/(b\,v_{\rm rel})$ on body 2; ranking metric, not a measurement \\
+\texttt{class\_1} & string & --- & Dynamical class of body 1 (NEA/MBA/Trojan/Centaur/TNO/Other) \\
+\texttt{class\_2} & string & --- & Dynamical class of body 2 \\
+\texttt{solar\_elongation\_deg} & float64 & deg & Solar elongation of encounter midpoint (legacy) \\
+\texttt{solar\_elongation\_1\_deg} & float64 & deg & Solar elongation of body 1 from Earth \\
+\texttt{solar\_elongation\_2\_deg} & float64 & deg & Solar elongation of body 2 from Earth \\
+\texttt{app\_mag\_1} & float64 & mag & Apparent $V$ magnitude of body 1 (HG model) \\
+\texttt{app\_mag\_2} & float64 & mag & Apparent $V$ magnitude of body 2 (HG model) \\
+\texttt{gaia\_observable\_1} & bool & --- & Body 1 individually detectable by Gaia at encounter \\
+\texttt{gaia\_observable\_2} & bool & --- & Body 2 individually detectable by Gaia at encounter \\
+\texttt{gaia\_observable} & bool & --- & Combined flag: \texttt{gaia\_observable\_1} OR \texttt{gaia\_observable\_2} \\
+\hline
+\end{tabular}
+\end{table*}
 
 \end{document}
