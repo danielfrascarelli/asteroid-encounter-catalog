@@ -45,7 +45,7 @@ _DETECT_KWARGS: dict = dict(
     inclination_diff_max_deg=30.0,
     leaf_size=30,
     fine_step_seconds=60.0,
-    window_hours=2.0,
+    window_hours=6.0,
     prefilter_enabled=True,
     refinement_enabled=True,
     n_workers=1,
@@ -354,6 +354,116 @@ def test_refine_output_schema(three_asteroids: pl.DataFrame) -> None:
         "dist_au": pl.Float64,
         "rel_vel_au_day": pl.Float64,
     }
+
+
+# ===========================================================================
+# refine.py — B1 regression: minimum beyond the fine window (tribunal 2026-07-04)
+#
+# The coarse scan samples every coarse_step (12 h in production); the true
+# minimum can lie up to coarse_step/2 from the nearest coarse sample.  Before
+# the fix, a ±2 h fine window clipped the epoch at the window edge without
+# interpolating and biased the distance high for ~60 % of the frozen catalog.
+# ===========================================================================
+
+
+def _crossing_pair(delta_deg: float) -> pl.DataFrame:
+    """Two circular orbits (a=2.5 AU) with intersecting planes (±15° tilt).
+
+    Both bodies pass the mutual intersection point; body 0 arrives
+    ``delta_deg`` of mean anomaly late, producing a close approach with
+    realistic relative velocity |v_rel| = 2·a·n·sin(15°) ≈ 5.6×10⁻³ AU/d
+    (~9.8 km/s) and miss distance ≈ a·cos(15°)·Δ (rad).
+    """
+    return _make_elements(
+        a=[2.5, 2.5],
+        i_deg=[15.0, 15.0],
+        omega_big_deg=[0.0, 180.0],
+        m_deg=[180.0 - delta_deg, 0.0],
+    )
+
+
+def _dense_scan_minimum(
+    elems: pl.DataFrame, t_lo: float, t_hi: float, step_seconds: float = 5.0
+) -> tuple[float, float]:
+    """Brute-force ground-truth minimum via dense sampling, independent of refine.py."""
+    from src.propagate.kepler import kepler_to_cartesian
+
+    t = np.arange(t_lo, t_hi, step_seconds / 86400.0)
+
+    def _pos(k: int) -> np.ndarray:
+        row = elems.row(k, named=True)
+        return kepler_to_cartesian(
+            a_au=row["a_au"],
+            e=row["e"],
+            i_rad=np.radians(row["i_deg"]),
+            Omega_rad=np.radians(row["Omega_deg"]),
+            omega_rad=np.radians(row["omega_deg"]),
+            M0_rad=np.radians(row["M_deg"]),
+            epoch_jd=row["epoch_jd"],
+            t_jd=t,
+        )
+
+    d = np.linalg.norm(_pos(0) - _pos(1), axis=1)
+    k = int(np.argmin(d))
+    return float(t[k]), float(d[k])
+
+
+@pytest.mark.parametrize("window_hours", [6.0, 2.0])
+def test_refine_recovers_minimum_beyond_window(window_hours: float) -> None:
+    """B1 gate: a minimum ~5 h past the coarse sample (beyond the old ±2 h
+    window) must be recovered with |Δt| ≤ fine step and |Δd| ≤ 1 μAU.
+
+    With window_hours=6 the minimum falls inside the first window; with the
+    old window_hours=2 it is only reachable through the edge re-centring loop.
+    """
+    elems = _crossing_pair(delta_deg=0.0237)
+    # Ground truth: dense 5 s scan around the plane-crossing epoch.
+    t_true, d_true = _dense_scan_minimum(elems, _EPOCH - 0.2, _EPOCH + 0.3)
+    assert d_true < 0.0015  # sanity: geometry produces a sub-threshold approach
+
+    # Simulate the coarse sample sitting 5 h before the true minimum.
+    t_coarse = t_true - 5.0 / 24.0
+    fine_step_seconds = 60.0
+    result = refine_candidates(
+        elems,
+        [(0, 1, t_coarse, 1.0e-2)],
+        threshold_au=0.05,
+        fine_step_seconds=fine_step_seconds,
+        window_hours=window_hours,
+    )
+    assert len(result) == 1
+    dt_days = abs(result["jd_tdb"][0] - t_true)
+    dd_au = abs(result["dist_au"][0] - d_true)
+    assert dt_days <= fine_step_seconds / 86400.0, f"epoch clipped: Δt = {dt_days * 24:.3f} h"
+    assert dd_au <= 1.0e-6, f"distance biased: Δd = {dd_au:.3e} AU"
+
+
+def test_refine_edge_bias_would_be_caught() -> None:
+    """Documents the magnitude of the pre-fix bias: the distance at the old
+    ±2 h window edge is > 100 μAU above the true minimum for this geometry, so
+    the 1 μAU tolerance above genuinely discriminates the buggy behaviour."""
+    elems = _crossing_pair(delta_deg=0.0237)
+    t_true, d_true = _dense_scan_minimum(elems, _EPOCH - 0.2, _EPOCH + 0.3)
+    t_coarse = t_true - 5.0 / 24.0
+    # Distance at the old window edge (t_coarse + 2 h, i.e. 3 h before t_true)
+    _, d_at_edge = _dense_scan_minimum(
+        elems, t_coarse + 2.0 / 24.0, t_coarse + 2.0 / 24.0 + 1.0 / 86400.0, step_seconds=1.0
+    )
+    assert d_at_edge - d_true > 1.0e-4
+
+
+def test_pipeline_rejects_window_narrower_than_half_step(
+    three_asteroids: pl.DataFrame,
+) -> None:
+    """B1 gate: config validation must fail when window_hours < coarse_step/2."""
+    grid = make_time_grid(_EPOCH, _EPOCH + 2.0, step_hours=12.0)
+    with pytest.raises(ValueError, match="window_hours"):
+        detect_encounters(
+            three_asteroids,
+            grid,
+            threshold_au=_THRESHOLD,
+            **{**_DETECT_KWARGS, "window_hours": 2.0},
+        )
 
 
 # ===========================================================================

@@ -123,6 +123,23 @@ def detect_encounters(
         threshold_au,
     )
 
+    # --- Config validation (tribunal B1) ---
+    # The Kepler refiner samples ±window_hours around each coarse sample. The
+    # true minimum can be up to half a coarse step away from the nearest grid
+    # point; a narrower window clips the epoch at the window edge and biases
+    # the distance high (~60 % of the pre-2026-07 frozen catalog).
+    if refinement_enabled and len(time_grid) > 1:
+        grid_step_hours = float(time_grid[1] - time_grid[0]) * 24.0
+        uses_kepler_refiner = force_kepler_refine or positions is None
+        if uses_kepler_refiner and window_hours < grid_step_hours / 2.0:
+            raise ValueError(
+                f"detection.refinement.window_hours={window_hours:g} h is smaller than "
+                f"half the coarse grid step ({grid_step_hours:g} h / 2 = "
+                f"{grid_step_hours / 2.0:g} h): true minima between coarse samples "
+                "would be clipped at the window edge (B1). Increase window_hours to "
+                f"≥ {grid_step_hours / 2.0:g}."
+            )
+
     # --- Step 1: prefilter ---
     pairs: np.ndarray | None
 

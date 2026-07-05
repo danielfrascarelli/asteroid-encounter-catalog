@@ -6,10 +6,21 @@ KD-tree scan, this module:
 1. Samples a fine-grained time window of ±``window_hours`` around ``t_coarse``
    at ``fine_step_seconds`` resolution.
 2. Finds the true minimum-distance epoch with quadratic interpolation over the
-   three grid points surrounding the argmin.
+   three grid points surrounding the argmin.  When the argmin falls on a window
+   edge the true minimum lies outside the sampled window: the search window is
+   **re-centred on the edge and repeated** (up to ``_MAX_RECENTER`` times) so the
+   returned epoch/distance are never silently truncated at the window boundary
+   (tribunal finding B1: with a ±2 h window under a 12 h coarse grid, ~60 % of
+   the frozen catalog had its epoch clipped at exactly 2 h and its distance
+   biased high).
 3. Computes the relative velocity at the minimum via centred finite differences
    (±1 fine step).
 4. Drops encounters whose refined distance exceeds ``threshold_au``.
+
+``window_hours`` must be ≥ half the coarse-grid step so the true minimum is
+reachable in the first pass (validated in :mod:`src.detect.pipeline`); the
+re-centring loop is defence-in-depth for pathological geometries and for
+minima just outside the observation window.
 """
 
 from __future__ import annotations
@@ -26,6 +37,14 @@ logger = logging.getLogger(__name__)
 
 _DEG = np.pi / 180.0
 _SECONDS_PER_DAY = 86400.0
+
+# Maximum number of window re-centrings when the argmin keeps landing on a
+# window edge (true minimum outside the sampled window).  Each re-centring
+# shifts the window centre by half_window, so the total reach beyond t_coarse
+# is (1 + _MAX_RECENTER) × window_hours.  With window_hours ≥ coarse_step/2
+# (enforced in pipeline.py) a single pass suffices for interior minima; the
+# loop covers boundary minima and pathological cases.
+_MAX_RECENTER = 4
 
 
 # ---------------------------------------------------------------------------
@@ -159,16 +178,28 @@ def _refine_one_kepler(
     fine_step_days: float,
     half_window_days: float,
 ) -> dict | None:
-    """Refine a single Kepler-path candidate; returns None if distance exceeds threshold."""
-    t_fine = np.arange(
-        t_coarse - half_window_days,
-        t_coarse + half_window_days + fine_step_days * 0.5,
-        fine_step_days,
-    )
-    if len(t_fine) < 3:
-        t_min = t_coarse
-        d_min = d_coarse
-    else:
+    """Refine a single Kepler-path candidate; returns None if distance exceeds threshold.
+
+    When the discrete argmin lands on a window edge, the window is re-centred on
+    that edge and the search repeated (up to ``_MAX_RECENTER`` times), so the
+    true minimum is recovered even when it lies outside the initial window
+    (tribunal B1).  Only if the minimum keeps receding after all re-centrings is
+    the last edge sample returned (genuine monotonic approach, e.g. a minimum far
+    outside the observation window).
+    """
+    center = t_coarse
+    t_min = t_coarse
+    d_min = d_coarse
+    for _ in range(1 + _MAX_RECENTER):
+        t_fine = np.arange(
+            center - half_window_days,
+            center + half_window_days + fine_step_days * 0.5,
+            fine_step_days,
+        )
+        if len(t_fine) < 3:
+            t_min = t_coarse
+            d_min = d_coarse
+            break
         pos_i, pos_j = _propagate_pair(row_i, row_j, t_fine)
         dists = np.linalg.norm(pos_i - pos_j, axis=1)
         k = int(np.argmin(dists))
@@ -181,9 +212,12 @@ def _refine_one_kepler(
                 float(dists[k]),
                 float(dists[k + 1]),
             )
-        else:
-            t_min = float(t_fine[k])
-            d_min = float(dists[k])
+            break
+        # Argmin on a window edge → true minimum outside this window.
+        # Re-centre on the edge and search again.
+        t_min = float(t_fine[k])
+        d_min = float(dists[k])
+        center = t_min
 
     if d_min > threshold_au:
         return None
@@ -213,7 +247,7 @@ def refine_candidates(
     candidates: list[tuple[int, int, float, float]],
     threshold_au: float,
     fine_step_seconds: float = 60.0,
-    window_hours: float = 2.0,
+    window_hours: float = 6.0,
     positions: np.ndarray | None = None,
     time_grid: np.ndarray | None = None,
     n_workers: int = 1,
@@ -234,6 +268,8 @@ def refine_candidates(
         Time resolution of the fine search grid in seconds.
     window_hours:
         Half-width of the fine search window around each coarse epoch (hours).
+        Must be ≥ half the coarse-grid step so the true minimum falls inside
+        the first window (B1); the edge re-centring loop covers the rest.
     n_workers:
         Number of worker processes for the Kepler refinement path.  Has no
         effect when *positions* / *time_grid* are supplied (cache path is
