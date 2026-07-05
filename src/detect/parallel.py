@@ -149,6 +149,22 @@ def _make_chunks(
     return chunks
 
 
+def _merge_into(
+    best: dict[tuple[int, int], tuple[float, float]],
+    chunk_result: list[tuple[int, int, float, float]],
+) -> None:
+    """Fold one chunk's candidates into the running ``best`` dict in place.
+
+    Keeps the minimum-distance epoch per pair, breaking ties on distance by the
+    earlier epoch (lexicographic ``(dist, t)``) so the result is deterministic
+    regardless of chunk arrival order (``imap_unordered``).
+    """
+    for idx_i, idx_j, t_jd, dist in chunk_result:
+        key = (idx_i, idx_j)
+        if key not in best or (dist, t_jd) < (best[key][1], best[key][0]):
+            best[key] = (t_jd, dist)
+
+
 def _merge_candidates(
     results: list[list[tuple[int, int, float, float]]],
 ) -> list[tuple[int, int, float, float]]:
@@ -161,10 +177,7 @@ def _merge_candidates(
     """
     best: dict[tuple[int, int], tuple[float, float]] = {}
     for chunk_result in results:
-        for idx_i, idx_j, t_jd, dist in chunk_result:
-            key = (idx_i, idx_j)
-            if key not in best or (dist, t_jd) < (best[key][1], best[key][0]):
-                best[key] = (t_jd, dist)
+        _merge_into(best, chunk_result)
     return [(k[0], k[1], v[0], v[1]) for k, v in best.items()]
 
 
@@ -354,13 +367,19 @@ def scan_parallel(
             positions_zarr_path,
         ),
     ) as pool:
-        all_results: list[list[tuple[int, int, float, float]]] = []
+        # Merge each chunk into the running best-dict AS IT ARRIVES rather than
+        # accumulating every chunk's raw candidate list. At production scale a
+        # pair close for many steps emits one candidate row per step across many
+        # chunks (~480 M raw rows total ≈ 30 GB of Python tuples → OOM-kill,
+        # ExitCode 137). Folding on arrival bounds parent memory to the number of
+        # *unique* pairs (~the final catalog size), collapsing the duplicates.
+        best: dict[tuple[int, int], tuple[float, float]] = {}
         with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
             for result in pool.imap_unordered(_scan_chunk, tasks):
-                all_results.append(result)
+                _merge_into(best, result)
                 pbar.update(1)
 
-    candidates = _merge_candidates(all_results)
+    candidates = [(k[0], k[1], v[0], v[1]) for k, v in best.items()]
     logger.info("Parallel scan complete: %d candidate pairs", len(candidates))
     if pairs_tmp_dir is not None:
         pairs_tmp_dir.cleanup()
