@@ -184,16 +184,22 @@ Interpretación:
   no-recuperados).** El objetivo (o, en 270 casos, el perturbador) nunca aparece
   en ninguna fila del catálogo. Son mayormente objetivos de numeración alta y
   reciente (ejemplos verificados para Ceres: 613383, 668956, 731182) que quedan
-  fuera de nuestro subconjunto de numerados propagados / del prefiltro orbital.
+  fuera de nuestro subconjunto de numerados propagados (snapshot 2016 + corte
+  a ∈ [1.5, 4.0]; el prefiltro orbital **no** aplicó al freeze —
+  `skipped_large_n`, corrección 2026-05-31).
 - **Sin encuentro cercano (25,962, 91.6 % de los no-recuperados) — causa
-  dominante y esperada.** Ambos cuerpos *están* en el catálogo, pero ese par
-  concreto nunca se aproximó a < 0.05 AU en nuestra propagación. Esto **no es un
-  fallo de completitud**: la lista de "señal" de FM **no está limitada a
-  0.05 AU**. La señal de masa depende de la geometría y de la masa del
-  perturbador, no de un corte geométrico duro; FM incluye encuentros
-  genuinamente más anchos que 0.05 AU. Nuestro catálogo, por diseño, solo cataloga
-  encuentros < 0.05 AU. Esta diferencia de criterio explica la mayor parte de la
-  brecha entre el 29.5 % recuperado y el 100 %.
+  dominante: la ventana temporal.** Ambos cuerpos *están* en el catálogo, pero
+  ese par concreto no se aproximó a < 0.05 AU **dentro de 2014-07 → 2017-05**.
+  > **Corrección (2026-07-04, tribunal M1):** la explicación anterior de este
+  > documento ("la lista de FM no está limitada a 0.05 AU") era **factualmente
+  > errónea** — Fuentes-Muñoz et al. 2025 usa exactamente 0.05 AU como umbral
+  > para MBAs. La diferencia real de dominio es la **ventana temporal**: FM
+  > busca encuentros sobre los arcos completos (décadas, hasta nov-2024),
+  > mientras este catálogo cubre ~2.8 años. Un par FM cuyo encuentro < 0.05 AU
+  > ocurrió fuera de la ventana DR3 cae aquí como "sin encuentro cercano".
+  > **Pendiente (Tarea 11 del plan de remediación):** clasificar los 25,962
+  > pares por época del encuentro FM para cuantificar cuántos caen fuera de la
+  > ventana; hasta entonces, no atribuir la brecha al umbral.
 
 ---
 
@@ -201,10 +207,11 @@ Interpretación:
 
 - **Recuperación honesta: 29.5 %** de los pares (perturbador, objetivo) numerados
   del top-100-por-señal de FM aparecen como encuentros < 0.05 AU en el catálogo.
-- El déficit **no** se debe a fallos de detección dentro de nuestro dominio: el
-  ~92 % de la brecha son encuentros que FM usa pero que son **más anchos que
-  nuestro umbral de 0.05 AU** (definición de dominio distinta), y solo ~8 % son
-  objetos fuera de nuestro subconjunto de numerados propagados.
+- El déficit se explica sobre todo por la **ventana temporal** (FM busca sobre
+  los arcos completos hasta nov-2024; este catálogo cubre 2014-07 → 2017-05;
+  FM usa el mismo umbral 0.05 AU para MBAs — corrección 2026-07-04, tribunal
+  M1); ~8 % son objetos fuera de nuestro subconjunto de numerados propagados.
+  La cuantificación por época está pendiente (Tarea 11).
 - Los calibradores Big-4 (Ceres 36 %, Vesta 37 %, Pallas 11 %, Hygiea 18 %) y los
   perturbadores del motor de masas (Psyche 38 %, Sylvia 39 %, Europa 41 %,
   Eunomia 51 %) se recuperan con fracciones consistentes con esta interpretación:

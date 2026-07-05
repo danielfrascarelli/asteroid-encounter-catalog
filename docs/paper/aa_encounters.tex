@@ -19,9 +19,9 @@
 
 \begin{document}
 
-\title{A systematic catalogue of real three-dimensional close encounters
-between numbered asteroids during the Gaia DR3 window, with a measured
-completeness budget}
+\title{An all-pairs catalogue of real three-dimensional close encounters
+between numbered main-belt asteroids during the Gaia DR3 window, with a
+measured incompleteness budget}
 
 \titlerunning{A catalogue of real 3D asteroid close encounters (Gaia DR3)}
 \authorrunning{D. Frascarelli}
@@ -43,13 +43,18 @@ completeness budget}
 \abstract
 % context
 {Close approaches between asteroids are the classical route to asteroid mass
-determination and a dynamical observable of the main belt. Existing
-encounter-based work selects individual events by hand, and no systematic
-catalogue of real three-dimensional asteroid--asteroid encounters has had its
-own completeness characterised.}
+determination and a dynamical observable of the main belt. Systematic encounter
+searches exist --- from early surveys \citep{galad2002} to mutual-encounter
+catalogues built for Gaia astrometry \citep{ivantsov2018} and the
+signal-ranked search behind the largest mass catalogue to date
+\citep{fuentesmunoz2025} --- but their event lists are published truncated
+(top candidates per perturber) or without a characterised selection function:
+no all-pairs 3D encounter catalogue has been published in full with provenance
+and a \emph{measured} incompleteness budget.}
 % aims
 {We build a systematic catalogue of real 3D close encounters between numbered
-asteroids during the Gaia DR3 window (2014 July 25 -- 2017 May 28) and, unlike a
+main-belt asteroids (semi-major axis 1.5--4.0\,AU) during the Gaia DR3 window
+(2014 July 25 -- 2017 May 28), publish it in full, and, unlike a
 bulk propagation exercise, we \emph{measure} what the detection pipeline misses
 rather than asserting completeness.}
 % methods
@@ -95,22 +100,29 @@ emerged from the numbered population.}
 Close encounters between asteroids are of interest on several fronts. A slow,
 close approach between a massive perturber and a small test body deflects the
 latter's orbit measurably, and such events are the classical route to asteroid
-mass determination \citep{michalak2000, goffin2014, fuentesmunoz2024,
-fuentesmunoz2025}. Encounters between members of the same dynamical family
-probe the collisional history of the belt, and the statistical distribution of
-mutual approach distances and velocities is itself a dynamical observable.
+mass determination \citep{michalak2000, fienga2003, goffin2014, baer2017,
+siltala2020, li2023, fuentesmunoz2025}. Encounters between members of the same
+dynamical family probe the collisional history of the belt, and the statistical
+distribution of mutual approach distances and velocities is itself a dynamical
+observable.
 
-Existing work on encounter-based mass determination
-\citep{goffin2014, fuentesmunoz2024, fuentesmunoz2025} starts from
-\emph{hand-selected} individual encounters chosen for their favourable
-geometry, typically a single large perturber against a short list of
-well-observed test bodies. There is, to our knowledge, no systematic catalogue
-of real 3D asteroid--asteroid encounters whose own completeness has been
-characterised. That is the gap this work fills: we detect encounters
-exhaustively over the full numbered population in the Gaia DR3 window, and ---
-the point that separates this catalogue from a bulk propagation exercise --- we
-\emph{measure} what the detection pipeline misses rather than asserting
-completeness.
+Systematic encounter searches have a long history. \citet{galad2002} searched
+for mass-determination encounters across 24\,599 asteroids;
+\citet{ivantsov2018} built a catalogue of mutual encounters of the numbered
+population over 2013--2023 specifically to exploit Gaia astrometry;
+\citet{goffin2014} fitted masses against the entire numbered population rather
+than curated target lists; and \citet{fuentesmunoz2025} ran a systematic,
+signal-ranked search over 1\,783 perturbers against more than a million
+orbits --- using, for main-belt targets, the same 0.05\,AU threshold adopted
+here. What none of these works provides is the \emph{event list published in
+full with a characterised selection function}: published tables are truncated
+to the top candidates per perturber, and the completeness of the underlying
+searches is asserted rather than measured. That is the gap this work fills: an
+\emph{all-pairs} catalogue over the numbered main-belt population
+($1.5 \le a \le 4.0$\,AU) in the Gaia DR3 window, published in full with
+provenance, where --- the point that separates this catalogue from a bulk
+propagation exercise --- we \emph{measure} what the detection pipeline misses
+rather than asserting completeness.
 
 A methodological distinction is central. Two asteroids can appear arbitrarily
 close in right ascension and declination as seen from Earth while remaining
@@ -182,12 +194,15 @@ KD-tree ($O(N\log N)$ construction), and a radius query returns neighbour
 candidates ($O(\log N)$ per query), avoiding any $O(N^2)$ distance matrix. The
 coarse cadence is $\Delta t = 12$\,h. To prevent the cadence from missing an
 encounter whose true minimum falls \emph{between} two samples, the query radius is
-\emph{widened} to $r_q = 0.05\,\mathrm{AU} + v_{\max}\,(\Delta t/2) \approx
-0.0536$\,AU with $v_{\max} = 25$\,km\,s$^{-1}$: under near-linear relative motion a
+\emph{widened} to $r_q = 0.05\,\mathrm{AU} + v_{\max}\,\Delta t \approx
+0.0572$\,AU with $v_{\max} = 25$\,km\,s$^{-1}$: under near-linear relative motion a
 pair whose separation dips below 0.05\,AU between samples is within $r_q$ at the
 nearer bracketing sample and therefore enters the candidate set; the sub-grid
-refinement then discards any whose true minimum exceeds 0.05\,AU. The bracketing is
-exact for relative velocities up to $v_{\max}$, and the residual (encounters with
+refinement then discards any whose true minimum exceeds 0.05\,AU. Bracketing a
+minimum midway between two samples strictly requires only $v_{\max}\,\Delta t/2
+\approx 0.0536$\,AU; the pipeline uses the full-step widening ($v_{\max}\,\Delta
+t$), a factor-of-two conservative margin. The bracketing is thus exact for
+relative velocities up to $v_{\max}$, and the residual (encounters with
 $v_{\rm rel} > v_{\max}$) is bounded in Sect.~\ref{sec:prefilter}.
 
 Each coarse candidate is then \emph{refined on a dense temporal sub-grid}: a
@@ -403,16 +418,21 @@ pairs must cite.
 \subsection{Recovery of literature encounter pairs}
 \label{sec:litrecovery}
 
-As an external check we cross-matched the hand-selected (perturber, target)
+As an external check we cross-matched the signal-ranked (perturber, target)
 pairs that \citet{fuentesmunoz2025} used for mass determination against this
 catalogue. Of 40\,176 numbered pairs drawn from their per-perturber target
 lists, 11\,842 (29.5\,\%) appear as $<0.05$\,AU encounters in the hybrid
 catalogue. This fraction is a lower bound and, crucially, the non-recovery is
 dominated by a \emph{domain difference}, not a detection failure: 91.6\,\% of
 the unmatched pairs have both bodies present in the catalogue but never
-approached within 0.05\,AU, because a measurable mass deflection does not
-require so close an encounter and their signal-ranked target lists are therefore
-not restricted to 0.05\,AU. A further 8.4\,\% are targets or perturbers outside
+approached within 0.05\,AU \emph{inside the 2.8-yr DR3 window}. For main-belt
+targets \citet{fuentesmunoz2025} apply the same 0.05\,AU threshold used here,
+but they search over the full observational arcs (decades, through late 2024),
+so a pair whose close encounter falls outside 2014--2017 cannot appear in this
+catalogue.
+% TODO(regen, Tarea 11): cuantificar sobre el catálogo regenerado cuántos de
+% los 25,962 pares no recuperados tienen su encuentro FM fuera de la ventana.
+A further 8.4\,\% are targets or perturbers outside
 the numbered, propagated universe (high or provisional designations), and ---
 the decisive point --- 0\,\% are pairs that our catalogue contains but places
 beyond 0.05\,AU. In other words, every literature pair that is genuinely a
@@ -626,9 +646,10 @@ potential discoveries. The honest verdict is that no new large--large encounter
 of publication interest emerged: the belt's largest bodies are well studied, and
 \citet{fuentesmunoz2025} already published over 230 masses (232 at SNR $>3$)
 covering essentially all
-classical large MBAs. The novelty of this work is the dataset itself --- a
-catalogue with a measured completeness budget --- and the methodological
-framework of Sect.~\ref{sec:mass}, not a single spectacular event.
+classical large MBAs. The contribution of this work is the dataset itself --- an
+all-pairs catalogue published in full with a measured completeness budget ---
+demonstrated end-to-end by the mass-determination application of
+Sect.~\ref{sec:mass}, not a single spectacular event.
 
 % =========================================================================
 \section{Application to mass determination}
@@ -638,9 +659,12 @@ The catalogue is the target-selection front-end of an asteroid
 mass-determination engine. Perturber mass is obtained by a joint least-squares
 fit of the perturber's mass and the orbits of its test bodies --- those with a
 $<0.05$\,AU encounter drawn directly from the catalogue --- over the full arc of
-Gaia FPR astrometry. The force model is ASSIST (JPL DE440 ephemeris; EIH
-relativistic corrections; sixteen massive asteroid perturbers); the
-implementation is our own, with no third-party orbit-determination dependency.
+Gaia FPR astrometry \citep{gaiafpr2023}. The force model is ASSIST
+\citep{holman2023} on the JPL DE440 ephemeris \citep{park2021}, with EIH
+relativistic corrections and sixteen massive asteroid perturbers; the
+fitting layer (observation model, partials, least squares) is implemented in
+this work on top of rebound/ASSIST \citep{rein2012, rein2015ias15, holman2023}
+and astropy \citep{astropy2022}.
 
 \paragraph{Calibrators.} The four calibrator masses are recovered at $|z|<3$
 against the literature (Table~\ref{tab:calibrators}). With $N\geq20$ test bodies,
