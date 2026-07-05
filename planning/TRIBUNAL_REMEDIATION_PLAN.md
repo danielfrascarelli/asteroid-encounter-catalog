@@ -29,7 +29,7 @@
 | 6 | σ de masas defendible (leverage, N mín, bootstrap) | B6 | 🔶 catálogo listo; falta bootstrap | — | `src/orbdet/`, `mass_catalog` |
 | 7 | Cruce FM con potencia + una sola σ oficial | B7 | 🔶 script con potencia+test de signo+z_total; falta σ oficial y doc/§5 | 6 | `docs/mass_crosscheck_jack.md`, §5 |
 | 8 | Validación de calibradores no circular (LOCO) + inyección end-to-end | B8 | 🔶 LOCO hecho y PASA (max \|z\|=1.40); falta ∂M/∂s_c e inyección | 6 | `scripts/mass/`, `docs/` |
-| 9 | Tabla de 16 masas + schema del catálogo + selección de targets | B9 | ⬜ | 6,7 | tablas del tex |
+| 9 | Tabla de 16 masas + schema del catálogo + selección de targets | B9 | 🔶 tabla de schema (Apéndice A) hecha y compila; faltan tabla de 16 masas y selección (post-regen) | 6,7 | tablas del tex |
 | 10 | Reescribir novedad + bibliografía completa | B5 | ✅ título/abstract/§1 reescritos; 18/18 citas verificadas contra ADS en `references.bib` | — | `aa_encounters.tex`, `references.bib` |
 
 ### Mayores (exigidos por referee, no bloquean el build)
@@ -42,7 +42,7 @@
 | 14 | Reconocer/justificar asimetría ventana DR3 vs arco FPR | M5 | ⬜ | — |
 | 15 | Tablas §4: fuente, flag boundary, reconciliar FROZEN_RUN | M6 | ⬜ | 1 |
 | 16 | Columna de señal de deflexión por par + estratificación de utilidad | M7 | 🔶 columna `deflection_dv_m_s` implementada+testeada; falta tabla del paper | 1 |
-| 17 | Reencuadrar §5 como demo de uso; comparar con Siltala/FM | M8,M9 | ⬜ | 9,10 |
+| 17 | Reencuadrar §5 como demo de uso; comparar con Siltala/FM | M8,M9 | 🔶 framing hecho (demo de uso + párrafo Siltala/FM + sin "methodological framework"); falta compresión y números post-regen | 9,10 |
 | 18 | Injection-recovery de detección como test permanente | M10 | ✅ harness + test CI; 200/200, \|Δd\|≤1.2e-10 AU | 1 |
 | 19 | Alinear docs de prefiltro con la corrección 2026-05-31 | M11 | ✅ 2026-07-04 | — |
 | 20 | Documentar mezcla de propagadores en `dist_au` (híbrido) | M12 | ⬜ | 1 |
@@ -418,6 +418,29 @@ Suite completa verde tras todos los cambios de la sesión (552 passed, ruff/blac
   completo, lo ejecutado — el log de regen lo confirma: +0.00722 AU) en vez de
   0.0536 (Δt/2); el texto ahora explica que el requisito estricto es Δt/2 y que el
   pipeline usa el paso completo (margen 2× conservador).
+
+## A5. Quinta tanda (sesión 2026-07-05, en paralelo a la regen)
+
+- **Fix de OOM del scan (destapa la regen):** `parallel.py` acumulaba TODOS los
+  candidatos de los 104 chunks en el padre antes de deduplicar (~480M tuplas ≈ 30 GB
+  → `OOMKilled=true`, ExitCode 137, moría a ~11/104). Ahora `_merge_into` funde cada
+  chunk al llegar (memoria acotada a pares únicos). Con esto la regen **pasó 11/104**
+  (donde moría) y sigue. Commit + push a PR #102.
+- **Diagnóstico de memoria del entorno:** la RAM del host (99%) la consume Docker
+  Desktop — `qemu-system-x86` (VM) 23.8 GB + `virtiofsd` (bind-mount) 8.6 GB, no un
+  leak. El scan es I/O-bound (virtiofsd sirviendo el zarr): medido, **4 workers es más
+  rápido que 8** (thrashing), y bajar workers reduce RAM. `config.local.yaml`: 4
+  workers / chunk 10 d.
+- **Tarea 9 (B9) parcial ✅:** tabla de schema del catálogo caracterizado en el
+  Apéndice A del tex (nombre/tipo/unidad/descripción de las 30 columnas + nota de las
+  extra del híbrido). Compila limpio.
+- **Tarea 17 (M8/M9) framing ✅:** §5 reencuadrada como demostración de uso (no fuente
+  de masas nuevas); párrafo "Relation to other methods" (Siltala&Granvik MCMC / FM
+  prior→posterior; FM ajusta la misma astrometría FPR → cross-check no independiente);
+  conclusiones sin "methodological framework".
+- **Tarea 28 parcial:** lista de software/fuentes en acknowledgements (A&A la exige).
+- **Paper compila limpio: 10 pp., 18/18 citas resueltas** (`pdflatex`+`bibtex` OK).
+- Todo commiteado y pusheado (PR #102 actualizado).
 
 ## B. Tarea 1 — lo que falta: regeneración del catálogo
 
