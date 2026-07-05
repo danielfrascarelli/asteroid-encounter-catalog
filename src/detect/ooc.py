@@ -108,9 +108,9 @@ def dedup_shards(shard_dir: Path, out_parquet: Path, memory_limit: str = "4GB") 
         """,
         {"glob": glob, "out": str(out_parquet)},
     )
-    n = con.execute(f"SELECT count(*) FROM read_parquet('{out_parquet}')").fetchone()[0]
+    row = con.execute(f"SELECT count(*) FROM read_parquet('{out_parquet}')").fetchone()
     con.close()
-    return int(n)
+    return int(row[0]) if row else 0
 
 
 def refine_streaming(

@@ -548,9 +548,7 @@ def test_ooc_detect_matches_in_memory(three_asteroids: pl.DataFrame, tmp_path) -
     from src.detect.ooc import detect_encounters_ooc
 
     grid = make_time_grid(_EPOCH, _EPOCH + 0.5, step_hours=6.0)
-    ref = detect_encounters(
-        three_asteroids, grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS
-    )
+    ref = detect_encounters(three_asteroids, grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS)
 
     out = tmp_path / "ooc_catalog.parquet"
     n = detect_encounters_ooc(
