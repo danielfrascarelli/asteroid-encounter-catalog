@@ -28,7 +28,12 @@ import polars as pl
 import pytest
 
 from src.detect.kdtree_scan import scan_time_grid
-from src.detect.pipeline import detect_encounters, effective_prefilter_mode
+from src.detect.pipeline import (
+    detect_encounters,
+    effective_prefilter_mode,
+    load_scan_checkpoint,
+    write_scan_checkpoint,
+)
 from src.detect.prefilter import compatible_pairs
 from src.detect.refine import _quadratic_min, refine_candidates
 from src.propagate.grid import make_time_grid
@@ -464,6 +469,43 @@ def test_pipeline_rejects_window_narrower_than_half_step(
             threshold_au=_THRESHOLD,
             **{**_DETECT_KWARGS, "window_hours": 2.0},
         )
+
+
+# ===========================================================================
+# pipeline.py — scan checkpoint / resume (insurance against refinement crash)
+# ===========================================================================
+
+
+def test_scan_checkpoint_roundtrip(tmp_path) -> None:
+    """write_scan_checkpoint → load_scan_checkpoint preserves candidate tuples."""
+    cands = [(0, 1, 2457000.0, 5e-4), (3, 7, 2457001.5, 1e-3)]
+    p = tmp_path / "scan.parquet"
+    write_scan_checkpoint(cands, p)
+    loaded = load_scan_checkpoint(p)
+    assert loaded == cands
+
+
+def test_resume_from_scan_matches_full_run(three_asteroids: pl.DataFrame, tmp_path) -> None:
+    """A run that writes a scan checkpoint and a resume-from-scan run must yield
+    the identical catalog — the insurance path is behaviourally transparent."""
+    grid = make_time_grid(_EPOCH, _EPOCH + 0.5, step_hours=6.0)
+    ckpt = tmp_path / "scan_candidates.parquet"
+
+    full = detect_encounters(
+        three_asteroids,
+        grid,
+        threshold_au=_THRESHOLD,
+        **{**_DETECT_KWARGS, "scan_checkpoint_path": str(ckpt)},
+    )
+    assert ckpt.exists()  # checkpoint written before refinement
+
+    resumed = detect_encounters(
+        three_asteroids,
+        grid,
+        threshold_au=_THRESHOLD,
+        **{**_DETECT_KWARGS, "resume_from_scan": str(ckpt)},
+    )
+    assert full.to_dicts() == resumed.to_dicts()
 
 
 # ===========================================================================

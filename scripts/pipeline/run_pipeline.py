@@ -95,6 +95,19 @@ def _verify_major_bodies(results: pl.DataFrame) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Gaia asteroid encounter detection")
     parser.add_argument("--config", default="config.yaml")
+    parser.add_argument(
+        "--resume-from-scan",
+        default=None,
+        help="Path to a coarse-scan checkpoint parquet (written automatically as "
+        "<output>_scan_candidates.parquet). Skips prefilter+scan and resumes at "
+        "refinement — use to recover a killed refinement, optionally with a "
+        "different parallel.n_workers in the config.",
+    )
+    parser.add_argument(
+        "--no-scan-checkpoint",
+        action="store_true",
+        help="Disable writing the coarse-scan checkpoint before refinement.",
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -263,6 +276,19 @@ def main() -> int:
     )
     t0 = time.monotonic()
 
+    # Coarse-scan checkpoint next to the output; refinement is long and
+    # memory-heavy, so persisting the scan lets a killed refinement resume via
+    # --resume-from-scan (optionally with a different parallel.n_workers).
+    out_dir = Path(cfg.paths.output)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    scan_ckpt_path = (
+        None
+        if args.no_scan_checkpoint
+        else str(out_dir / f"{cfg.output.filename}_scan_candidates.parquet")
+    )
+    if args.resume_from_scan:
+        logger.info("Resuming refinement from scan checkpoint: %s", args.resume_from_scan)
+
     results = detect_encounters(
         elements,
         grid,
@@ -279,6 +305,8 @@ def main() -> int:
         positions=positions,
         query_radius_au=query_radius_au,
         force_kepler_refine=use_tiered,
+        scan_checkpoint_path=scan_ckpt_path,
+        resume_from_scan=args.resume_from_scan,
     )
 
     elapsed = time.monotonic() - t0
@@ -292,9 +320,7 @@ def main() -> int:
     # --- Gate check: major bodies ---
     gate_checks = _verify_major_bodies(results)
 
-    # --- Save ---
-    out_dir = Path(cfg.paths.output)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # --- Save --- (out_dir created above, before detection)
     out_path = out_dir / f"{cfg.output.filename}.{cfg.output.format}"
 
     if cfg.output.format == "parquet":
