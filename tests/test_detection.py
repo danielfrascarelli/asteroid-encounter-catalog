@@ -509,6 +509,71 @@ def test_resume_from_scan_matches_full_run(three_asteroids: pl.DataFrame, tmp_pa
 
 
 # ===========================================================================
+# ooc.py — out-of-core detection (disk shards + DuckDB dedup + batched refine)
+# ===========================================================================
+
+
+def test_ooc_dedup_matches_in_memory(tmp_path) -> None:
+    """dedup_shards keeps the same min-(dist,t) row per pair as _merge_into."""
+    from src.detect.ooc import _SHARD_SCHEMA, dedup_shards
+    from src.detect.parallel import _merge_candidates
+
+    shards = [
+        [(0, 1, 10.0, 0.03), (0, 1, 9.0, 0.02), (2, 5, 1.0, 0.04)],
+        [(0, 1, 8.0, 0.02), (2, 5, 3.0, 0.01)],  # (0,1): tie dist 0.02 → earlier t=8
+    ]
+    d = tmp_path / "shards"
+    d.mkdir()
+    for i, ch in enumerate(shards):
+        ii, jj, t, dd = zip(*ch)
+        pl.DataFrame(
+            {"idx_i": ii, "idx_j": jj, "t_coarse_jd": t, "d_coarse_au": dd},
+            schema=_SHARD_SCHEMA,
+        ).write_parquet(d / f"chunk_{i:05d}.parquet")
+
+    out = tmp_path / "dedup.parquet"
+    n = dedup_shards(d, out)
+    got = {
+        (r["idx_i"], r["idx_j"]): (r["t_coarse_jd"], r["d_coarse_au"])
+        for r in pl.read_parquet(out).to_dicts()
+    }
+    ref = {(a, b): (t, dd) for a, b, t, dd in _merge_candidates(shards)}
+    assert n == len(ref)
+    assert got == ref  # (0,1)→(8.0,0.02), (2,5)→(3.0,0.01)
+
+
+def test_ooc_detect_matches_in_memory(three_asteroids: pl.DataFrame, tmp_path) -> None:
+    """Full out-of-core detection recovers the same encounter as the in-memory
+    path (same pair, refined distance within 1 nAU)."""
+    from src.detect.ooc import detect_encounters_ooc
+
+    grid = make_time_grid(_EPOCH, _EPOCH + 0.5, step_hours=6.0)
+    ref = detect_encounters(
+        three_asteroids, grid, threshold_au=_THRESHOLD, **_DETECT_KWARGS
+    )
+
+    out = tmp_path / "ooc_catalog.parquet"
+    n = detect_encounters_ooc(
+        three_asteroids,
+        grid,
+        threshold_au=_THRESHOLD,
+        leaf_size=30,
+        fine_step_seconds=60.0,
+        window_hours=6.0,
+        n_workers=2,
+        chunk_size_days=30.0,
+        out_path=out,
+        spill_dir=tmp_path / "spill",
+    )
+    ooc = pl.read_parquet(out)
+    assert n == len(ref) == len(ooc)
+    ref_pairs = set(zip(ref["number_1"].to_list(), ref["number_2"].to_list()))
+    ooc_pairs = set(zip(ooc["number_1"].to_list(), ooc["number_2"].to_list()))
+    assert ref_pairs == ooc_pairs
+    assert abs(ref["dist_au"].min() - ooc["dist_au"].min()) < 1e-9
+
+
+# ===========================================================================
 # pipeline.py — end-to-end
 # ===========================================================================
 

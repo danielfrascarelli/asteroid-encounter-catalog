@@ -289,44 +289,75 @@ def main() -> int:
     if args.resume_from_scan:
         logger.info("Resuming refinement from scan checkpoint: %s", args.resume_from_scan)
 
-    results = detect_encounters(
-        elements,
-        grid,
-        threshold_au=det.threshold_au,
-        semimajor_diff_max_au=det.prefilter.semimajor_diff_max_au,
-        inclination_diff_max_deg=det.prefilter.inclination_diff_max_deg,
-        leaf_size=det.kdtree.leaf_size,
-        fine_step_seconds=det.refinement.fine_time_step_seconds,
-        window_hours=det.refinement.window_hours,
-        prefilter_enabled=det.prefilter.enabled,
-        refinement_enabled=det.refinement.enabled,
-        n_workers=n_workers,
-        chunk_size_days=par.chunk_size_days,
-        positions=positions,
-        query_radius_au=query_radius_au,
-        force_kepler_refine=use_tiered,
-        scan_checkpoint_path=scan_ckpt_path,
-        resume_from_scan=args.resume_from_scan,
-    )
+    out_path = out_dir / f"{cfg.output.filename}.{cfg.output.format}"
 
-    elapsed = time.monotonic() - t0
-    logger.info(
-        "Detection complete in %.1fs — %d encounters ≤ %.4f AU",
-        elapsed,
-        len(results),
-        det.threshold_au,
-    )
+    if det.out_of_core:
+        # Out-of-core path: bounds parent RAM (scan→disk shards, DuckDB dedup,
+        # batched refine→streaming write). Required for the full numbered
+        # population on a memory-constrained VM. Writes out_path directly, then we
+        # re-read for the gate check and sidecar. Refinement is always Kepler here
+        # (matches force_kepler_refine in tiered mode).
+        from src.detect.ooc import detect_encounters_ooc
+
+        logger.info("Detection: out-of-core mode (spill+DuckDB dedup+streaming refine)")
+        n_out = detect_encounters_ooc(
+            elements,
+            grid,
+            threshold_au=det.threshold_au,
+            leaf_size=det.kdtree.leaf_size,
+            fine_step_seconds=det.refinement.fine_time_step_seconds,
+            window_hours=det.refinement.window_hours,
+            n_workers=n_workers,
+            chunk_size_days=par.chunk_size_days,
+            out_path=out_path,
+            spill_dir=Path(cfg.paths.cache) / f"{cfg.output.filename}_ooc",
+            positions=positions,
+            query_radius_au=query_radius_au,
+        )
+        elapsed = time.monotonic() - t0
+        logger.info(
+            "Detection complete (OOC) in %.1fs — %d encounters ≤ %.4f AU → %s",
+            elapsed,
+            n_out,
+            det.threshold_au,
+            out_path,
+        )
+        # Re-read only the columns needed for the major-body gate (bounded memory).
+        results = pl.read_parquet(out_path, columns=["number_1", "number_2", "dist_au"])
+    else:
+        results = detect_encounters(
+            elements,
+            grid,
+            threshold_au=det.threshold_au,
+            semimajor_diff_max_au=det.prefilter.semimajor_diff_max_au,
+            inclination_diff_max_deg=det.prefilter.inclination_diff_max_deg,
+            leaf_size=det.kdtree.leaf_size,
+            fine_step_seconds=det.refinement.fine_time_step_seconds,
+            window_hours=det.refinement.window_hours,
+            prefilter_enabled=det.prefilter.enabled,
+            refinement_enabled=det.refinement.enabled,
+            n_workers=n_workers,
+            chunk_size_days=par.chunk_size_days,
+            positions=positions,
+            query_radius_au=query_radius_au,
+            force_kepler_refine=use_tiered,
+            scan_checkpoint_path=scan_ckpt_path,
+            resume_from_scan=args.resume_from_scan,
+        )
+        elapsed = time.monotonic() - t0
+        logger.info(
+            "Detection complete in %.1fs — %d encounters ≤ %.4f AU",
+            elapsed,
+            len(results),
+            det.threshold_au,
+        )
+        if cfg.output.format == "parquet":
+            results.write_parquet(out_path, compression=cfg.output.compression)  # type: ignore[arg-type]
+        else:
+            results.write_csv(out_path)
 
     # --- Gate check: major bodies ---
     gate_checks = _verify_major_bodies(results)
-
-    # --- Save --- (out_dir created above, before detection)
-    out_path = out_dir / f"{cfg.output.filename}.{cfg.output.format}"
-
-    if cfg.output.format == "parquet":
-        results.write_parquet(out_path, compression=cfg.output.compression)  # type: ignore[arg-type]
-    else:
-        results.write_csv(out_path)
 
     logger.info("Catalog saved → %s  (%d rows)", out_path, len(results))
 

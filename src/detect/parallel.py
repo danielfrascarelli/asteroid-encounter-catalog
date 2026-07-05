@@ -17,6 +17,7 @@ import logging
 import multiprocessing as mp
 import os
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -198,6 +199,7 @@ def scan_parallel(
     chunk_size_days: float = 30.0,
     positions: np.ndarray | None = None,
     query_radius_au: float | None = None,
+    on_chunk: Callable[[list[tuple[int, int, float, float]]], None] | None = None,
 ) -> list[tuple[int, int, float, float]]:
     """Parallel drop-in replacement for :func:`~src.detect.kdtree_scan.scan_time_grid`.
 
@@ -367,19 +369,28 @@ def scan_parallel(
             positions_zarr_path,
         ),
     ) as pool:
-        # Merge each chunk into the running best-dict AS IT ARRIVES rather than
-        # accumulating every chunk's raw candidate list. At production scale a
-        # pair close for many steps emits one candidate row per step across many
-        # chunks (~480 M raw rows total ≈ 30 GB of Python tuples → OOM-kill,
-        # ExitCode 137). Folding on arrival bounds parent memory to the number of
-        # *unique* pairs (~the final catalog size), collapsing the duplicates.
-        best: dict[tuple[int, int], tuple[float, float]] = {}
-        with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
-            for result in pool.imap_unordered(_scan_chunk, tasks):
-                _merge_into(best, result)
-                pbar.update(1)
-
-    candidates = [(k[0], k[1], v[0], v[1]) for k, v in best.items()]
+        # Two accumulation modes:
+        #  - sink (on_chunk given): hand each chunk to the caller and keep NOTHING
+        #    in the parent. Used by the out-of-core path, which spills chunks to
+        #    disk and dedups with DuckDB — the only way the full numbered
+        #    population fits, since even the deduped unique-pair dict (~15-20 GB)
+        #    plus the trajectory working set overflows a 24 GB VM (OOM-kill /
+        #    ExitCode 137 observed at ~40/104 chunks).
+        #  - in-memory (default): fold each chunk into the running best-dict as it
+        #    arrives (bounds memory to the unique-pair count; fine for small runs).
+        if on_chunk is not None:
+            with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
+                for result in pool.imap_unordered(_scan_chunk, tasks):
+                    on_chunk(result)
+                    pbar.update(1)
+            candidates = []
+        else:
+            best: dict[tuple[int, int], tuple[float, float]] = {}
+            with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
+                for result in pool.imap_unordered(_scan_chunk, tasks):
+                    _merge_into(best, result)
+                    pbar.update(1)
+            candidates = [(k[0], k[1], v[0], v[1]) for k, v in best.items()]
     logger.info("Parallel scan complete: %d candidate pairs", len(candidates))
     if pairs_tmp_dir is not None:
         pairs_tmp_dir.cleanup()
