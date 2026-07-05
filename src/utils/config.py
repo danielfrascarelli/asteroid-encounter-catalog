@@ -248,6 +248,8 @@ class CharacterizeConfig:
     compute_phase_angle: bool
     estimate_diameters: bool
     default_albedo: float
+    # Tabla de diámetros/albedos medidos (SBDB). None = solo albedo por zona/default.
+    physical_data: str | None = None
 
 
 @dataclass

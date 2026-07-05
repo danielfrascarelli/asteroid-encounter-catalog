@@ -168,6 +168,26 @@ def main() -> int:
     # --- Supplement elements for major bodies not in gaia_orbits ---
     elements = _supplement_elements(elements, mpcorb)
 
+    # --- Measured diameters/albedos (B3) ---
+    physical: pl.DataFrame | None = None
+    phys_path = getattr(cfg.characterize, "physical_data", None)
+    if phys_path:
+        p = Path(phys_path)
+        if p.exists():
+            physical = pl.read_parquet(p)
+            logger.info(
+                "Measured physical data: %s (%d rows, %d with diameter)",
+                p,
+                len(physical),
+                int(physical["diameter_km"].is_not_null().sum()),
+            )
+        else:
+            logger.warning(
+                "characterize.physical_data=%s no existe — diámetros degradan a albedo "
+                "por zona. Descargar con scripts.ingest.download_sbdb_physical.",
+                p,
+            )
+
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -181,6 +201,7 @@ def main() -> int:
             str(out_path),
             run_id,
             albedo=cfg.characterize.default_albedo,
+            physical=physical,
             chunk_size=args.chunk_size,
             mpcorb_path=mpcorb_path,
             config_dict=dataclasses.asdict(cfg),
@@ -217,6 +238,7 @@ def main() -> int:
         elements,
         mpcorb,
         albedo=cfg.characterize.default_albedo,
+        physical=physical,
     )
     elapsed = time.monotonic() - t0
     logger.info("Characterization complete in %.1fs", elapsed)

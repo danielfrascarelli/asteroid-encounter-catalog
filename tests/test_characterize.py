@@ -16,7 +16,7 @@ from src.characterize.observability import (
     is_gaia_observable,
     solar_elongation_deg,
 )
-from src.characterize.physical import classify_orbit, diameter_km
+from src.characterize.physical import classify_orbit, diameter_km, diameter_km_with_source
 
 # ------------------------------------------------------------------ #
 # physical.py                                                          #
@@ -58,6 +58,107 @@ class TestDiameterKm:
         assert not np.isnan(result[0])
         assert np.isnan(result[1])
         assert not np.isnan(result[2])
+
+
+class TestDiameterKmWithSource:
+    """B3 (tribunal 2026-07-04): cadena de prioridades de diámetro con procedencia."""
+
+    def test_measured_diameter_wins(self) -> None:
+        # Ceres: H≈3.34 con albedo 0.14 daría ~763 km; el medido (939.4) debe ganar.
+        diam, src = diameter_km_with_source(
+            h=np.array([3.34]),
+            a_au=np.array([2.77]),
+            diameter_measured_km=np.array([939.4]),
+            albedo_measured=np.array([0.09]),
+        )
+        assert diam[0] == 939.4
+        assert src[0] == "measured"
+
+    def test_measured_albedo_when_no_diameter(self) -> None:
+        # (44) Nysa, tipo E (albedo ~0.48): con 0.14 daría ~139 km; con el albedo
+        # medido, ~75 km — mucho más cerca del valor real (~71 km).
+        h, p = 6.87, 0.48
+        diam, src = diameter_km_with_source(
+            h=np.array([h]),
+            a_au=np.array([2.42]),
+            diameter_measured_km=np.array([np.nan]),
+            albedo_measured=np.array([p]),
+        )
+        expected = float(diameter_km(h, p))
+        assert diam[0] == pytest.approx(expected)
+        assert src[0] == "albedo_measured"
+        assert diam[0] < 100.0  # con albedo 0.14 saldría 139 km
+
+    def test_zone_albedo_fallback(self) -> None:
+        diam, src = diameter_km_with_source(
+            h=np.array([12.0, 12.0, 12.0]),
+            a_au=np.array([2.2, 2.6, 3.1]),  # inner / mid / outer
+        )
+        assert list(src) == ["zone_albedo"] * 3
+        # albedo interior (0.20) > exterior (0.06) ⇒ diámetro interior < exterior
+        assert diam[0] < diam[1] < diam[2]
+
+    def test_default_when_a_unknown(self) -> None:
+        diam, src = diameter_km_with_source(h=np.array([12.0]), a_au=np.array([np.nan]))
+        assert src[0] == "default_albedo"
+        assert diam[0] == pytest.approx(float(diameter_km(12.0, 0.14)))
+
+    def test_unknown_when_nothing_available(self) -> None:
+        diam, src = diameter_km_with_source(h=np.array([np.nan]), a_au=np.array([np.nan]))
+        assert np.isnan(diam[0])
+        assert src[0] == "unknown"
+
+    def test_measured_diameter_without_h(self) -> None:
+        # Diámetro medido debe reportarse aunque H sea NaN.
+        diam, src = diameter_km_with_source(
+            h=np.array([np.nan]),
+            a_au=np.array([2.77]),
+            diameter_measured_km=np.array([939.4]),
+        )
+        assert diam[0] == 939.4
+        assert src[0] == "measured"
+
+
+class TestDeflectionDv:
+    """M7: métrica de ranking Δv = 2GM/(b·v_rel) con GM ∝ ρ_zona·D³."""
+
+    def test_ceres_scale(self) -> None:
+        # Ceres (D=939.4 km, zona mid ρ=2000) a b=0.01 AU y v_rel=5 km/s:
+        # GM ≈ 6.674e-11·(π/6)·2000·(9.394e5)³ ≈ 5.8e10 m³/s². (GM real ~6.3e10.)
+        # Δv = 2·GM/(b·v) ≈ 2·5.8e10/(1.5e9·5000) ≈ 1.5e-2 m/s.
+        from src.characterize.physical import deflection_dv_m_s
+
+        dv = deflection_dv_m_s(
+            diameter_km=np.array([939.4]),
+            a_au=np.array([2.77]),
+            dist_m=np.array([0.01 * 1.495978707e11]),
+            v_rel_m_s=np.array([5000.0]),
+        )
+        assert 5e-3 < dv[0] < 5e-2
+
+    def test_monotonic_in_diameter_and_distance(self) -> None:
+        from src.characterize.physical import deflection_dv_m_s
+
+        dv = deflection_dv_m_s(
+            diameter_km=np.array([100.0, 200.0, 100.0]),
+            a_au=np.array([2.6, 2.6, 2.6]),
+            dist_m=np.array([1e9, 1e9, 2e9]),
+            v_rel_m_s=np.array([5000.0, 5000.0, 5000.0]),
+        )
+        assert dv[1] == pytest.approx(dv[0] * 8.0)  # ∝ D³
+        assert dv[2] == pytest.approx(dv[0] / 2.0)  # ∝ 1/b
+
+    def test_nan_when_unknown(self) -> None:
+        from src.characterize.physical import deflection_dv_m_s
+
+        dv = deflection_dv_m_s(
+            diameter_km=np.array([np.nan, 100.0]),
+            a_au=np.array([2.6, 2.6]),
+            dist_m=np.array([1e9, 0.0]),
+            v_rel_m_s=np.array([5000.0, 5000.0]),
+        )
+        assert np.isnan(dv[0])  # sin diámetro
+        assert np.isnan(dv[1])  # b=0
 
 
 class TestClassifyOrbit:
