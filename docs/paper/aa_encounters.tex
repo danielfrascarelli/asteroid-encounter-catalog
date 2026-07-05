@@ -159,7 +159,14 @@ recorded in the catalogue's provenance sidecar so that results are traceable to
 an exact input; MPCORB is a living file and results are not bit-reproducible
 across snapshot versions. The run is restricted to \emph{numbered asteroids}
 (higher orbital quality); provisional designations are out of scope for this
-release.
+release. The sample is further cut to the main belt by semi-major axis,
+$1.5 \le a \le 4.0$\,AU, which excludes near-Earth asteroids ($a<1.5$\,AU),
+the Jupiter Trojans, and the outer/trans-Jovian populations ($a>4$\,AU). The
+resulting universe is $N = 449{,}454$ propagated bodies; this $N$ is the
+population denominator for every completeness and censoring figure below, and is
+recorded in the provenance sidecar. ``Complete'' therefore always means complete
+\emph{with respect to this numbered main-belt sample}, never the whole catalogue
+of known asteroids.
 
 The temporal domain brackets the Gaia DR3 Solar System survey period
 \citep{tanga2023}: the propagation window is 2014 July 25 -- 2017 May 28, whose
@@ -170,7 +177,13 @@ carried out in Julian Date on the Barycentric Dynamical Time (TDB) scale;
 conversions to/from the Barycentric Coordinate Time (TCB) that Gaia reports,
 and to UTC, are performed only at input/output interfaces. Distances are in AU,
 angles in radians, and velocities in AU/day internally, converted to
-user-facing units (km, degrees, km\,s$^{-1}$) only for output.
+user-facing units (km, degrees, km\,s$^{-1}$) only for output. Positions are
+computed in the barycentric ecliptic frame for the N-body coarse scan and in the
+heliocentric ecliptic frame for the Kepler refinement; because the catalogue
+records the \emph{mutual} separation of two bodies, the common Sun--barycentre
+offset cancels in the difference vector and the recorded distances are identical
+in either frame. (The provenance sidecar's \texttt{reference\_frame} field refers
+to the N-body scan.)
 
 \subsection{Detection}
 \label{sec:detection}
@@ -234,16 +247,26 @@ justify the cost.
 \subsection{Characterisation}
 \label{sec:characterisation}
 
-For each detected pair the catalogue records the minimum separation and its
-exact epoch (from the refined sub-grid), the relative velocity at closest
-approach, and the geometry of the event relative to Gaia --- solar elongation
-and an observability flag --- computed on the characterised catalogue. Of the
-72\,236\,904 encounters, 13\,640\,870 (18.9\,\%) fall in a Gaia-observable
-configuration. Physical properties (absolute magnitude $H$, and diameter and
-taxonomic class estimated from $H$ with a class-dependent albedo when no direct
-measurement exists) are attached to both bodies. Diameters derived this way are
-order-of-magnitude estimates, not measurements, and any size-based selection
-inherits that uncertainty.
+Each pair contributes a single catalogue row: the \emph{global} minimum
+separation of that pair over the observation window, with its exact epoch (from
+the refined sub-grid), the relative velocity at closest approach, and the
+geometry relative to Gaia. Secondary local minima of a pair that recurs within
+the window are not catalogued separately. A body is flagged
+\emph{Gaia-observable} at the encounter when its solar elongation exceeds
+$45\degr$ (outside Gaia's solar-exclusion zone) \emph{and} its apparent $V$
+magnitude is brighter than 21 (the faint limit); the pair-level flag is the
+logical OR of the two bodies. Of the 72\,236\,904 encounters, 13\,640\,870
+(18.9\,\%) satisfy this for at least one body.
+
+Physical properties are attached to both bodies. Diameters use direct
+measurements (IRAS/AKARI/NEOWISE/occultations, via the JPL Small-Body Database)
+where available; otherwise they are derived from the absolute magnitude $H$ with
+an albedo taken --- in decreasing order of preference --- from a measured albedo,
+an orbital-zone average, or a default $0.14$. A per-row provenance column records
+which of these applied, so $H$-derived (order-of-magnitude) sizes are
+distinguishable from measured ones in any size-based selection. The
+accompanying \emph{class} is the \emph{dynamical} class from the orbital elements
+(NEA/MBA/Trojan/Centaur/TNO), not a taxonomic (spectral) type.
 
 The two encountering bodies are treated as independent test particles moving in
 the planetary\,+\,massive-asteroid field; their \emph{mutual} gravitational
