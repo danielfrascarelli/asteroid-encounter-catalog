@@ -15,9 +15,23 @@ unos pocos % de la verdad aunque σ_formal sea ~0.2%.
 
 El piso ``f_sys`` se **calibra con los Big-4**: es la dispersión RMS de
 ``masa_fit/masa_lit − 1`` sobre los calibradores. Cada masa se reporta entonces con
-``σ_total = √(σ_stat² + (f_sys·masa)²)`` y un z basado en σ_total. Es el tratamiento
+``σ_total = √(σ_stat² + (f_sys·|masa|)²)`` y un z basado en σ_total. Es el tratamiento
 estándar de "incertidumbre externa" cuando la formal subestima por sistemáticos no
 modelados.
+
+Diagnósticos de validez de σ_jack (tribunal 2026-07-04, B6)
+-----------------------------------------------------------
+Con N réplicas jackknife, σ_jack puede estar dominada por una sola réplica (leverage
+top-1 de hasta el 92 % de la varianza en este dataset → ~1 grado de libertad efectivo).
+El catálogo reporta por fila:
+
+- ``jack_leverage_top1``: fracción de la varianza jackknife aportada por la réplica
+  más influyente (``max((m_i − m̄)²) / Σ(m_i − m̄)²``).
+- ``sigma_jack_excl_top1_kg`` / ``snr_jack_excl_top1``: σ y SNR recalculados sin esa
+  réplica — diagnóstico de estabilidad de la clasificación.
+- ``sigma_jack_defensible``: True sólo si ``n_targets ≥ --min-n-jack`` (default 10) y
+  ``jack_leverage_top1 ≤ 0.5``. Una masa sólo se declara ``measured`` si su σ_jack es
+  defendible; masas ajustadas ≤ 0 se marcan ``non_physical``.
 
 Uso
 ---
@@ -47,6 +61,38 @@ def _load(in_dir: Path) -> list[dict]:
         if "mass_fit_kg" in d and "perturber" in d:
             rows.append(d)
     return rows
+
+
+def _jackknife_diagnostics(
+    jack_masses: list[float] | None,
+) -> tuple[float | None, float | None]:
+    """Leverage top-1 y σ_jack sin la réplica dominante (B6).
+
+    ``σ_jack = √((n−1)/n · Σ(m_i − m̄)²)`` — la misma fórmula del fitter (verificada
+    contra ``mass_fit_sigma_jack_kg`` de los JSON). El leverage top-1 es la fracción
+    de ``Σ(m_i − m̄)²`` que aporta la réplica más desviada; con leverage > 0.5 la
+    σ_jack tiene ~1 grado de libertad efectivo y no es defendible como σ.
+
+    Returns
+    -------
+    (leverage_top1, sigma_jack_excl_top1_kg) — ``(None, None)`` si hay < 3 réplicas.
+    """
+    if not jack_masses or len(jack_masses) < 3:
+        return None, None
+    n = len(jack_masses)
+    mean = sum(jack_masses) / n
+    devs2 = [(x - mean) ** 2 for x in jack_masses]
+    ss = sum(devs2)
+    if ss <= 0.0:
+        return 0.0, 0.0
+    k_top = devs2.index(max(devs2))
+    leverage = devs2[k_top] / ss
+    rest = [x for i, x in enumerate(jack_masses) if i != k_top]
+    m = len(rest)
+    mean_r = sum(rest) / m
+    ss_r = sum((x - mean_r) ** 2 for x in rest)
+    sigma_excl = math.sqrt((m - 1) / m * ss_r)
+    return leverage, sigma_excl
 
 
 def _calibrate_f_sys(rows: list[dict], min_n: int) -> tuple[float, float, int]:
@@ -103,6 +149,19 @@ def main() -> int:
         help="SNR de identificabilidad mínimo (masa/σ_jack) para declarar la masa "
         "como medida en vez de cota (F2). Requiere --jackknife en el ajuste",
     )
+    ap.add_argument(
+        "--min-n-jack",
+        type=int,
+        default=10,
+        help="nº mínimo de réplicas jackknife para que σ_jack sea defendible como σ "
+        "(B6: con N chico y leverage alto, σ_jack tiene ~1 gdl efectivo)",
+    )
+    ap.add_argument(
+        "--max-leverage",
+        type=float,
+        default=0.5,
+        help="leverage top-1 máximo para que σ_jack sea defendible (B6)",
+    )
     args = ap.parse_args()
 
     rows = _load(args.in_dir)
@@ -125,7 +184,9 @@ def main() -> int:
     for d in sorted(rows, key=lambda x: x["perturber"]):
         m = d["mass_fit_kg"]
         s_stat = d.get("mass_fit_sigma_kg") or 0.0
-        s_sys = f_sys * m
+        # |m|: con masa ajustada negativa (no física, p. ej. Davida N=3) el piso
+        # proporcional debe seguir siendo una σ positiva (bug de signo, B6).
+        s_sys = f_sys * abs(m)
         s_tot = math.sqrt(s_stat**2 + s_sys**2)
         # Referencia: masa de literatura si la hay (Big-4); si no, la masa semilla de
         # la efeméride DE441 (también un valor publicado) para los demás perturbadores.
@@ -142,12 +203,34 @@ def main() -> int:
         # F2 — identificabilidad por jackknife. La masa es una determinación genuina
         # sólo si supera su σ externa (que captura la regresión masa↔órbita); si no,
         # la deflexión queda bajo el ruido por-encuentro y se reporta como cota.
+        # B6 — σ_jack sólo es defendible con suficientes réplicas y sin una réplica
+        # dominante; masas ≤ 0 son no físicas y nunca "measured".
         s_formal = d.get("mass_fit_sigma_formal_kg")
         s_jack = d.get("mass_fit_sigma_jack_kg")
         snr_jack = (m / s_jack) if (s_jack and s_jack > 0) else None
-        if s_jack is None:
+        lev_top1, s_jack_excl = _jackknife_diagnostics(d.get("jackknife_masses_kg"))
+        snr_jack_excl = (m / s_jack_excl) if (s_jack_excl and s_jack_excl > 0) else None
+        n_targets = d.get("n_targets") or 0
+        sigma_jack_defensible = (
+            s_jack is not None
+            and n_targets >= args.min_n_jack
+            and lev_top1 is not None
+            and lev_top1 <= args.max_leverage
+        )
+        # "measured" exige estabilidad de la clasificación (gate B6): el SNR debe
+        # superar el umbral tanto con σ_jack completa como sin la réplica dominante,
+        # con N mínimo de réplicas y masa física. La defensibilidad de σ_jack como
+        # barra publicable es ortogonal y va en `sigma_jack_defensible` (leverage).
+        if m <= 0:
+            mass_status = "non_physical"
+        elif s_jack is None:
             mass_status = "unknown"  # ajuste sin --jackknife: identificabilidad no evaluada
-        elif snr_jack is not None and snr_jack >= args.min_snr_jack:
+        elif (
+            snr_jack is not None
+            and snr_jack >= args.min_snr_jack
+            and (snr_jack_excl is None or snr_jack_excl >= args.min_snr_jack)
+            and n_targets >= args.min_n_jack
+        ):
             mass_status = "measured"
         else:
             mass_status = "not_identifiable"
@@ -161,9 +244,13 @@ def main() -> int:
                 "sigma_stat_kg": s_stat,
                 "sigma_formal_kg": s_formal,
                 "sigma_jack_kg": s_jack,
+                "jack_leverage_top1": lev_top1,
+                "sigma_jack_excl_top1_kg": s_jack_excl,
+                "snr_jack_excl_top1": snr_jack_excl,
+                "sigma_jack_defensible": sigma_jack_defensible,
                 "sigma_sys_kg": s_sys,
                 "sigma_total_kg": s_tot,
-                "sigma_total_frac": s_tot / m if m else None,
+                "sigma_total_frac": s_tot / abs(m) if m else None,
                 "snr_jack": snr_jack,
                 "mass_status": mass_status,
                 "chi2_red": d.get("chi2_red"),
@@ -186,29 +273,46 @@ def main() -> int:
 
     print(
         f"\n{'name':10} {'N':>3} {'mass (kg)':>12} {'σ_tot':>10} {'σ%':>5} "
-        f"{'ratio':>6} {'z_tot':>6} {'snrJ':>5} {'status':>16} {'cal':>4} {'rel':>4}"
+        f"{'ratio':>6} {'z_tot':>6} {'snrJ':>5} {'lev1':>5} {'status':>16} {'cal':>4} {'rel':>4}"
     )
     for r in out_rows:
         ztxt = f"{r['z_total']:+.2f}" if r["z_total"] is not None else "  -  "
         rtxt = f"{r['ratio_fit_over_ref']:.3f}" if r["ratio_fit_over_ref"] else "  -  "
         sfrac = f"{r['sigma_total_frac'] * 100:.1f}" if r["sigma_total_frac"] else "-"
         snrtxt = f"{r['snr_jack']:.1f}" if r["snr_jack"] is not None else "  -  "
+        levtxt = (
+            f"{r['jack_leverage_top1']:.2f}" if r["jack_leverage_top1"] is not None else "  -  "
+        )
         print(
             f"{r['name']:10} {r['n_targets'] or 0:>3} {r['mass_fit_kg']:>12.3e} "
             f"{r['sigma_total_kg']:>10.2e} {sfrac:>5} {rtxt:>6} {ztxt:>6} {snrtxt:>5} "
-            f"{r['mass_status']:>16} {'Y' if r['is_calibrator'] else '':>4} "
+            f"{levtxt:>5} {r['mass_status']:>16} {'Y' if r['is_calibrator'] else '':>4} "
             f"{'Y' if r['reliable'] else 'no':>4}"
         )
     n_meas = sum(1 for r in out_rows if r["mass_status"] == "measured")
     n_bound = sum(1 for r in out_rows if r["mass_status"] == "not_identifiable")
     n_unk = sum(1 for r in out_rows if r["mass_status"] == "unknown")
+    n_nonphys = sum(1 for r in out_rows if r["mass_status"] == "non_physical")
+    n_lever = sum(
+        1
+        for r in out_rows
+        if r["jack_leverage_top1"] is not None and r["jack_leverage_top1"] > args.max_leverage
+    )
     if n_unk == len(out_rows):
         print("\n[F2] identificabilidad no evaluada (ajustes sin --jackknife)")
     else:
         print(
-            f"\n[F2] {n_meas} medidas (snr_jack≥{args.min_snr_jack:g}), "
-            f"{n_bound} no identificables (cota), {n_unk} sin jackknife"
+            f"\n[F2] {n_meas} medidas (snr_jack≥{args.min_snr_jack:g} con y sin réplica "
+            f"dominante, N≥{args.min_n_jack}), "
+            f"{n_bound} no identificables (cota), {n_nonphys} no físicas (M≤0), "
+            f"{n_unk} sin jackknife"
         )
+        if n_lever:
+            print(
+                f"[B6] {n_lever} perturbadores con leverage top-1 > {args.max_leverage:g}: "
+                "σ_jack dominada por una réplica (~1 gdl efectivo) — no defendible como σ; "
+                "requiere bootstrap/delete-d o más encuentros"
+            )
     return 0
 
 

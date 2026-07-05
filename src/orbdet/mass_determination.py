@@ -167,7 +167,11 @@ def _assist_pos_and_partials(
     """
     pos0 = _assist_positions(el, mass, jd_ret, cfg)
 
-    dm = cfg.gm_rel_delta * mass
+    # Guardia C6 (tribunal 2026-07-04): si LM llevó la masa a ≤ 0 (p. ej. Davida),
+    # `gm_rel_delta * mass` da un paso nulo o negativo → FD degenerada. El paso se
+    # toma sobre |masa| con un piso absoluto (~2×10¹⁶ kg); solo afecta el paso de
+    # diferenciación, no el modelo.
+    dm = cfg.gm_rel_delta * max(abs(mass), 1e-14)
     dpos_dmass = (
         _assist_positions(el, mass + dm, jd_ret, cfg)
         - _assist_positions(el, mass - dm, jd_ret, cfg)
@@ -183,6 +187,11 @@ def _assist_pos_and_partials(
         xm = x.copy()
         xm[k] -= steps[k]
         pp = _assist_positions(KeplerElements(*xp), mass, jd_ret, cfg)
+        if k == 1 and xm[1] < 0.0:
+            # Guardia C6: el paso central cruzaría e < 0 (solve_kepler lanza).
+            # FD adelantada de un lado — O(δ) en vez de O(δ²), solo para e ≈ 0.
+            dstate[:, :, k] = (pp - pos0) / steps[k]
+            continue
         pm = _assist_positions(KeplerElements(*xm), mass, jd_ret, cfg)
         dstate[:, :, k] = (pp - pm) / (2.0 * steps[k])
     return pos0, dpos_dmass, dstate
@@ -409,9 +418,13 @@ def determine_mass_and_orbit(
 ) -> tuple[float, KeplerElements, LeastSquaresResult]:
     """Ajuste conjunto de la masa del perturbador y los 6 elementos de un objetivo.
 
-    ``backend="assist"`` usa el modelo de fuerzas DE440 + GR + perturbadores (T8);
-    en ese caso ``background_perturbers`` debe traer los 15 asteroides grandes
-    restantes (ver :func:`orbdet.dynamics_assist.big_asteroid_perturbers`).
+    .. warning::
+        El default ``backend="rebound"`` usa las efemérides ``builtin`` de astropy
+        (series analíticas, ~km de error planetario — NO DE440). Para resultados de
+        producción usar ``backend="assist"`` explícitamente: modelo de fuerzas
+        DE440 + GR + perturbadores (T8); en ese caso ``background_perturbers`` debe
+        traer los 15 asteroides grandes restantes (ver
+        :func:`orbdet.dynamics_assist.big_asteroid_perturbers`).
 
     Returns
     -------
@@ -476,6 +489,10 @@ def determine_shared_mass(
     **lm_kwargs,
 ) -> tuple[float, list[KeplerElements], LeastSquaresResult]:
     """Stacking multi-objetivo: una masa de perturbador compartida por ``N`` objetivos.
+
+    .. warning::
+        El default ``backend="rebound"`` usa las efemérides ``builtin`` de astropy
+        (~km de error planetario, NO DE440); producción usa ``backend="assist"``.
 
     Vector de ``1 + 6N`` parámetros ``[mass, elementos_1, …, elementos_N]``. El
     Jacobiano es en flecha: la columna de masa es densa y cada bloque de 6

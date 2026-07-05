@@ -20,12 +20,16 @@ logger = logging.getLogger(__name__)
 
 
 def _hash_file(path: Path) -> str:
-    """Return a 16-char SHA-256 prefix for a file."""
+    """Return the full SHA-256 hex digest for a file.
+
+    Full digest (not a prefix): the tribunal audit (2026-07-04, menor 16) flagged
+    truncated hashes as insufficient for reproducibility claims.
+    """
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
-    return h.hexdigest()[:16]
+    return h.hexdigest()
 
 
 def _dep_versions() -> dict[str, str]:
@@ -152,6 +156,17 @@ def write_detection_sidecar(
         },
         "tiered_mode": use_tiered,
         "fine_step_hours": fine_step_hours,
+        # Universo muestral explícito (tribunal B2): el N propagado y los cortes
+        # que definen el denominador poblacional del catálogo. Duplicado a
+        # propósito fuera de `config` para que no haya que inferirlo.
+        "universe": {
+            "n_bodies_propagated": n_asteroids,
+            "only_numbered": cfg.subset.only_numbered,
+            "semimajor_axis_min_au": cfg.subset.semimajor_axis_au.min,
+            "semimajor_axis_max_au": cfg.subset.semimajor_axis_au.max,
+            "exclude_neas": cfg.subset.exclude_neas,
+            "max_asteroids_cap": cfg.subset.max_asteroids,
+        },
         "prefilter": {
             # `enabled` is the *declared* config flag.  `effective` is what
             # actually shaped the catalog: the pair-list prefilter is skipped
@@ -171,7 +186,7 @@ def write_detection_sidecar(
     if mpcorb_path and mpcorb_path.exists():
         meta["mpcorb"] = {
             "path": str(mpcorb_path),
-            "sha256_prefix": _hash_file(mpcorb_path),
+            "sha256": _hash_file(mpcorb_path),
             "size_bytes": mpcorb_path.stat().st_size,
         }
     if gate_checks is not None:
@@ -234,7 +249,7 @@ def write_catalog(
     if mpcorb_path and mpcorb_path.exists():
         meta["mpcorb"] = {
             "path": str(mpcorb_path),
-            "sha256_prefix": _hash_file(mpcorb_path),
+            "sha256": _hash_file(mpcorb_path),
             "size_bytes": mpcorb_path.stat().st_size,
         }
     if config_dict is not None:
