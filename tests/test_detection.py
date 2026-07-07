@@ -542,6 +542,41 @@ def test_ooc_dedup_matches_in_memory(tmp_path) -> None:
     assert got == ref  # (0,1)→(8.0,0.02), (2,5)→(3.0,0.01)
 
 
+def test_ooc_shard_sink_named_by_chunk_id(tmp_path) -> None:
+    """Shards are named by chunk id and re-discovered for resume."""
+    from src.detect.ooc import existing_shard_ids, make_shard_sink
+
+    d = tmp_path / "shards"
+    sink = make_shard_sink(d)
+    sink(0, [(0, 1, 10.0, 0.02)])
+    sink(20, [(2, 5, 11.0, 0.03)])
+    sink(40, [])  # empty chunk still writes a shard so its id counts as done
+    assert existing_shard_ids(d) == {0, 20, 40}
+    assert (d / "chunk_000000.parquet").exists()
+    assert (d / "chunk_000040.parquet").exists()
+
+
+def test_ooc_scan_skips_done_chunks(three_asteroids: pl.DataFrame, tmp_path) -> None:
+    """scan_parallel(skip_chunk_ids=...) drops chunks already scanned (resume)."""
+    from src.detect.ooc import existing_shard_ids, make_shard_sink
+    from src.detect.parallel import scan_parallel
+
+    grid = make_time_grid(_EPOCH, _EPOCH + 2.0, step_hours=12.0)  # 5 steps
+    d = tmp_path / "shards"
+    sink = make_shard_sink(d)
+    # First pass: scan everything into shards.
+    scan_parallel(three_asteroids, grid, None, _THRESHOLD, 30, 2, 1.0, on_chunk=sink)
+    done = existing_shard_ids(d)
+    assert done  # some shards written
+    # Second pass skipping all done ids: nothing new dispatched.
+    before = len(list(d.glob("chunk_*.parquet")))
+    scan_parallel(
+        three_asteroids, grid, None, _THRESHOLD, 30, 2, 1.0, on_chunk=sink, skip_chunk_ids=done
+    )
+    after = len(list(d.glob("chunk_*.parquet")))
+    assert after == before  # no re-scan
+
+
 def test_ooc_detect_matches_in_memory(three_asteroids: pl.DataFrame, tmp_path) -> None:
     """Full out-of-core detection recovers the same encounter as the in-memory
     path (same pair, refined distance within 1 nAU)."""

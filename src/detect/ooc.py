@@ -44,21 +44,41 @@ _SHARD_SCHEMA = {
 }
 
 
-def make_shard_sink(shard_dir: Path):
-    """Return an ``on_chunk`` callback that writes each scan chunk to a shard.
+def _shard_path(shard_dir: Path, chunk_id: int) -> Path:
+    return shard_dir / f"chunk_{chunk_id:06d}.parquet"
 
-    The returned callable is passed as ``scan_parallel(on_chunk=...)``; it keeps a
-    monotonically increasing shard index and returns nothing. Empty chunks are
-    skipped (no zero-row shard files).
+
+def existing_shard_ids(shard_dir: Path) -> set[int]:
+    """Chunk ids already written as shards — used to resume an interrupted scan."""
+    shard_dir = Path(shard_dir)
+    ids: set[int] = set()
+    for p in shard_dir.glob("chunk_*.parquet"):
+        try:
+            ids.add(int(p.stem.split("_")[1]))
+        except (IndexError, ValueError):
+            continue
+    return ids
+
+
+def make_shard_sink(shard_dir: Path):
+    """Return an ``on_chunk(chunk_id, rows)`` callback that writes one shard per chunk.
+
+    Shards are named by the chunk's stable grid id (``chunk_<id>.parquet``), so an
+    interrupted scan resumes by skipping ids whose shard already exists. Written
+    atomically (temp file + rename) so a crash mid-write never leaves a partial
+    shard that a resume would trust. Empty chunks write a zero-row shard so the id
+    still counts as done (no re-scan).
     """
     shard_dir = Path(shard_dir)
     shard_dir.mkdir(parents=True, exist_ok=True)
-    state = {"i": 0}
 
-    def sink(chunk_result: list[tuple[int, int, float, float]]) -> None:
-        if not chunk_result:
-            return
-        idx_i, idx_j, t_c, d_c = zip(*chunk_result)
+    def sink(chunk_id: int, chunk_result: list[tuple[int, int, float, float]]) -> None:
+        if chunk_result:
+            idx_i, idx_j, t_c, d_c = zip(*chunk_result)
+        else:
+            idx_i, idx_j, t_c, d_c = (), (), (), ()
+        final = _shard_path(shard_dir, chunk_id)
+        tmp = final.with_suffix(".parquet.tmp")
         pl.DataFrame(
             {
                 "idx_i": pl.Series(idx_i, dtype=pl.Int64),
@@ -67,8 +87,8 @@ def make_shard_sink(shard_dir: Path):
                 "d_coarse_au": pl.Series(d_c, dtype=pl.Float64),
             },
             schema=_SHARD_SCHEMA,
-        ).write_parquet(shard_dir / f"chunk_{state['i']:05d}.parquet", compression="zstd")
-        state["i"] += 1
+        ).write_parquet(tmp, compression="zstd")
+        tmp.rename(final)
 
     return sink
 
@@ -216,6 +236,14 @@ def detect_encounters_ooc(
     candidates_parquet = spill_dir / "scan_candidates.parquet"
     nw = resolve_n_workers(n_workers)
 
+    # Resume: skip chunks whose shard already exists (an interrupted prior scan).
+    already = existing_shard_ids(shard_dir)
+    if already:
+        logger.info(
+            "OOC detection: resuming scan — %d shards already on disk in %s",
+            len(already),
+            shard_dir,
+        )
     logger.info("OOC detection: scan → shards in %s", shard_dir)
     sink = make_shard_sink(shard_dir)
     scan_parallel(
@@ -229,6 +257,7 @@ def detect_encounters_ooc(
         positions=positions,
         query_radius_au=query_radius_au,
         on_chunk=sink,
+        skip_chunk_ids=already,
     )
 
     logger.info("OOC detection: DuckDB dedup of shards → %s", candidates_parquet)

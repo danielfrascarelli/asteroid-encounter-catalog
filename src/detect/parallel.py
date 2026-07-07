@@ -116,9 +116,17 @@ def _init_worker(
 
 def _scan_chunk(
     args: tuple[np.ndarray, np.ndarray, float, int, float],
-) -> list[tuple[int, int, float, float]]:
+) -> tuple[int, list[tuple[int, int, float, float]]]:
+    """Scan one chunk; return ``(chunk_id, rows)``.
+
+    ``chunk_id`` is the chunk's first grid-step index — a stable identity used to
+    name the out-of-core shard so the scan is resumable (a re-run skips chunks
+    whose shard already exists). ``imap_unordered`` loses input order, so the id
+    must travel back with the result.
+    """
     chunk_times, chunk_indices, threshold_au, leaf_size, query_radius_au = args
     assert _G_ELEMENTS is not None
+    chunk_id = int(chunk_indices[0])
     positions_chunk: Any | None = None
     if _G_POSITIONS is not None:
         positions_chunk = _PositionsWindow(
@@ -126,7 +134,7 @@ def _scan_chunk(
             int(chunk_indices[0]),
             int(chunk_indices[-1]) + 1,
         )
-    return scan_time_grid(
+    rows = scan_time_grid(
         _G_ELEMENTS,
         chunk_times,
         _G_PAIRS,
@@ -135,6 +143,7 @@ def _scan_chunk(
         positions=positions_chunk,
         query_radius_au=query_radius_au,
     )
+    return chunk_id, rows
 
 
 def _make_chunks(
@@ -199,7 +208,8 @@ def scan_parallel(
     chunk_size_days: float = 30.0,
     positions: np.ndarray | None = None,
     query_radius_au: float | None = None,
-    on_chunk: Callable[[list[tuple[int, int, float, float]]], None] | None = None,
+    on_chunk: Callable[[int, list[tuple[int, int, float, float]]], None] | None = None,
+    skip_chunk_ids: set[int] | None = None,
 ) -> list[tuple[int, int, float, float]]:
     """Parallel drop-in replacement for :func:`~src.detect.kdtree_scan.scan_time_grid`.
 
@@ -237,10 +247,24 @@ def scan_parallel(
     nw = resolve_n_workers(n_workers)
     chunks = _make_chunks(time_grid, chunk_size_days)
     qr = query_radius_au if query_radius_au is not None else threshold_au
+    # Resume: drop chunks whose shard already exists (id = first grid-step index).
+    if skip_chunk_ids:
+        n_before = len(chunks)
+        chunks = [c for c in chunks if int(c[1][0]) not in skip_chunk_ids]
+        logger.info(
+            "Resume: skipping %d/%d chunks already scanned; %d remaining",
+            n_before - len(chunks),
+            n_before,
+            len(chunks),
+        )
     tasks = [
         (chunk_times, chunk_indices, threshold_au, leaf_size, qr)
         for chunk_times, chunk_indices in chunks
     ]
+    if not tasks:
+        # All chunks already scanned (resume) — nothing to dispatch.
+        logger.info("All chunks already scanned; skipping the pool")
+        return []
 
     # Memmap-backed trajectories (cache hits) are passed as (filename, shape,
     # dtype) so each worker re-opens its own read-only map.  Zarr-backed caches
@@ -380,14 +404,14 @@ def scan_parallel(
         #    arrives (bounds memory to the unique-pair count; fine for small runs).
         if on_chunk is not None:
             with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
-                for result in pool.imap_unordered(_scan_chunk, tasks):
-                    on_chunk(result)
+                for chunk_id, result in pool.imap_unordered(_scan_chunk, tasks):
+                    on_chunk(chunk_id, result)
                     pbar.update(1)
             candidates = []
         else:
             best: dict[tuple[int, int], tuple[float, float]] = {}
             with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
-                for result in pool.imap_unordered(_scan_chunk, tasks):
+                for _chunk_id, result in pool.imap_unordered(_scan_chunk, tasks):
                     _merge_into(best, result)
                     pbar.update(1)
             candidates = [(k[0], k[1], v[0], v[1]) for k, v in best.items()]
