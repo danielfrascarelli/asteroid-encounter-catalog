@@ -21,8 +21,8 @@
 
 | # | tarea | sev | estado | depende de | entregable / PR |
 |---|-------|-----|--------|-----------|-----------------|
-| 1 | Fix ventana de refinamiento + regenerar catálogo | B1 | 🔶 código+tests listos; **regen abortada** (Docker Desktop se cayó en chunk 5/35, sin output) — relanzar `run_pipeline` cuando Docker vuelva | — | `src/detect/refine.py`, freeze nuevo |
-| 2 | Root-cause del miss (804)×(733) | B10 | 🔶 aislado re-verificado con refinador fijo (0.013547 AU, 2015-02-12); cierre = presencia en b1fix | 1 | doc en `docs/` |
+| 1 | Fix ventana de refinamiento + regenerar catálogo | B1 | ✅ **REGENERADO**: `encounters_catalog_rebound_005au_b1fix.parquet` (80.072.774 filas); histograma de offset jd_tdb **plano** (pico [1.75,2.25]h: 76%→8.1%); gate 4 cuerpos OK; sidecar escrito | — | `src/detect/refine.py`, freeze nuevo |
+| 2 | Root-cause del miss (804)×(733) | B10 | ✅ **presente en el catálogo b1fix a 0.013547 AU** (coincide JPL 0.0138); causa raíz confirmada = B1 (recorte de ventana) | 1 | doc en `docs/` |
 | 3 | Declarar universo muestral y N + sidecars completos | B2 | 🔶 sidecar `universe` + §2.1 del tex declaran corte a∈[1.5,4.0] y N=449.454; falta rehacer extrapolación N² (post-regen) | 1 | sidecar, §2 del tex |
 | 4 | Diámetros/albedos medidos + regenerar §4 | B3 | 🔶 código+datos SBDB listos (gates Ceres/Nysa/Aegina OK); faltan tablas §4 | 1 | `src/characterize/`, tablas §4 |
 | 5 | Presupuesto de completitud honesto (σ elementos + injection-recovery) | B4 | ⬜ | 1 | `docs/`, §3 del tex |

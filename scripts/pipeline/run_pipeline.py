@@ -383,19 +383,35 @@ def main() -> int:
     )
 
     # --- Top encounters ---
-    if len(results) > 0:
-        logger.info("Top 10 closest encounters:")
-        for row in results.head(10).iter_rows(named=True):
-            t = Time(row["jd_tdb"], format="jd", scale="tdb")
-            logger.info(
-                "  (%d) %-20s — (%d) %-20s  %.6f AU  %s",
-                row["number_1"],
-                row["designation_1"],
-                row["number_2"],
-                row["designation_2"],
-                row["dist_au"],
-                t.utc.iso[:10],
+    # Read the 10 closest from the written catalog rather than from `results`:
+    # in the out-of-core path `results` carries only the gate columns
+    # (number_1/2, dist_au), so it lacks jd_tdb/designations. Reading the file
+    # lazily is robust for both paths and bounded in memory.
+    if len(results) > 0 and cfg.output.format == "parquet":
+        try:
+            top = (
+                pl.scan_parquet(out_path)
+                .select(
+                    ["number_1", "designation_1", "number_2", "designation_2", "jd_tdb", "dist_au"]
+                )
+                .sort("dist_au")
+                .head(10)
+                .collect()
             )
+            logger.info("Top 10 closest encounters:")
+            for row in top.iter_rows(named=True):
+                t = Time(row["jd_tdb"], format="jd", scale="tdb")
+                logger.info(
+                    "  (%d) %-20s — (%d) %-20s  %.6f AU  %s",
+                    row["number_1"],
+                    row["designation_1"],
+                    row["number_2"],
+                    row["designation_2"],
+                    row["dist_au"],
+                    t.utc.iso[:10],
+                )
+        except Exception as exc:  # cosmetic logging only — never fail the run
+            logger.warning("Top-10 logging skipped: %s", exc)
 
     return 0
 
