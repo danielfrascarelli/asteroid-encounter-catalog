@@ -37,11 +37,11 @@
 | # | tarea | sev | estado | depende de |
 |---|-------|-----|--------|-----------|
 | 11 | Corregir explicación de la brecha FM (§3.4) — es ventana temporal | M1,M2 | 🔶 causa corregida en tex y docs; cuantificación por época pendiente | 10 |
-| 12 | Cota de cadencia analítica (no circular) | M3 | ⬜ | 1 |
+| 12 | Cota de cadencia analítica (no circular) | M3 | ✅ §3: d(δ)=√(d_min²+v²δ²) vs r_q → cubre v_rel≤192 km/s (geométrico, no de la distribución del catálogo); injection-recovery citado |
 | 13 | Regenerar Fig. 3 desde cuerpos del catálogo real | M4 | ⬜ | 1 |
 | 14 | Reconocer/justificar asimetría ventana DR3 vs arco FPR | M5 | ⬜ | — |
 | 15 | Tablas §4: fuente, flag boundary, reconciliar FROZEN_RUN | M6 | ⬜ | 1 |
-| 16 | Columna de señal de deflexión por par + estratificación de utilidad | M7 | 🔶 columna `deflection_dv_m_s` implementada+testeada; falta tabla del paper | 1 |
+| 16 | Columna de señal de deflexión por par + estratificación de utilidad | M7 | ✅ columna `deflection_dv_m_s` en el catálogo + §2.4 con ranking por señal (781 pares >1 mm/s, top = Ceres/Vesta) y estratificación | 1 |
 | 17 | Reencuadrar §5 como demo de uso; comparar con Siltala/FM | M8,M9 | 🔶 framing hecho (demo de uso + párrafo Siltala/FM + sin "methodological framework"); falta compresión y números post-regen | 9,10 |
 | 18 | Injection-recovery de detección como test permanente | M10 | ✅ harness + test CI; 200/200, \|Δd\|≤1.2e-10 AU | 1 |
 | 19 | Alinear docs de prefiltro con la corrección 2026-05-31 | M11 | ✅ 2026-07-04 | — |

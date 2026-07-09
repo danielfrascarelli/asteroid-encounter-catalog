@@ -291,6 +291,22 @@ the belt's known structure --- the 3:1, 5:2 and 2:1 Kirkwood gaps appear as
 clear voids --- confirming the sample is the ordinary numbered population, not a
 biased subset.
 
+\paragraph{Ranking by mass-perturbation signal.} Sheer row count is not utility:
+the overwhelming majority of the catalogued pairs are sub-km $\times$ sub-km
+approaches with no measurable dynamical signal. To let users select the subset
+that matters --- as signal-ranked searches such as \citet{ivantsov2018} and
+\citet{fuentesmunoz2025} do --- each row carries a deflection-signal estimate,
+the impulse-approximation velocity kick
+$\Delta v \simeq 2GM_1/(b\,v_{\rm rel})$ imparted by the larger body
+(\texttt{deflection\_dv\_m\_s}; $GM_1$ from the measured diameter and a
+zone-average density). It is a ranking proxy, not a measurement. Ranked by it,
+the catalogue is steeply top-heavy: only 781 pairs exceed $1$\,mm\,s$^{-1}$ and
+$\sim$4\,000 exceed $0.1$\,mm\,s$^{-1}$, and the top of the list is dominated by
+(1) Ceres and (4) Vesta in slow, close passes --- precisely the classical
+mass-determination configuration. This column turns the 80\,M-row bulk into a
+targetable resource; the mass-determination application of
+Sect.~\ref{sec:mass} draws its test bodies from its high-signal tail.
+
 \begin{figure}
   \centering
   \includegraphics[width=\hsize]{fig1_separation_hist.pdf}
@@ -442,14 +458,24 @@ main-belt scale the pair-list prefilter was skipped entirely, so the
 $|\Delta a|$ cut did not actually drop these pairs from the frozen catalogue.
 The 76\,\% figure measures the damage the prefilter \emph{would} cause if
 applied at small $N$, not damage suffered here. Completeness of this freeze is
-instead bounded by the threshold censoring of Sect.~\ref{sec:censoring}. The 12\,h
-coarse cadence does \emph{not} by itself lose encounters up to
-$v_{\rm rel} = v_{\max} = 25$\,km\,s$^{-1}$, because the widened query radius
-(Sect.~\ref{sec:detection}) brackets them; the only encounters it can miss have
-$v_{\rm rel} > 25$\,km\,s$^{-1}$, and just 0.0012\,\% of catalogued encounters
-exceed that (p99.99 $= 20$\,km\,s$^{-1}$, max 68\,km\,s$^{-1}$), so the residual
-cadence-induced incompleteness is $\lesssim 10^{-3}$\,\% --- three orders of
-magnitude below the threshold-censoring term and negligible. For the dynamically cold bulk of the belt (low $e$,
+instead bounded by the threshold censoring of Sect.~\ref{sec:censoring}. The
+12\,h coarse cadence has a \emph{geometric}, distribution-independent bound. A
+pair whose true minimum $d_{\min}$ falls a time $\delta$ from the nearest coarse
+sample has, under near-linear relative motion, a sampled separation
+$d(\delta) = \sqrt{d_{\min}^2 + v_{\rm rel}^2\,\delta^2}$ with $\delta \le
+\Delta t/2$; the pair enters the candidate set whenever
+$d(\Delta t/2) \le r_q$. For $d_{\min} \le 0.05$\,AU this holds for all
+$v_{\rm rel} \le \sqrt{r_q^2 - 0.05^2}\,/\,(\Delta t/2) = 0.0278\,\mathrm{AU}\,/\,
+0.25\,\mathrm{d} \approx 192$\,km\,s$^{-1}$ --- an upper limit set purely by the
+widened radius $r_q = 0.0572$\,AU and the cadence, \emph{not} read off the
+catalogue's own velocity distribution (which would be circular, since the
+catalogue by construction excludes the fast pairs it might have missed). Since
+inter-asteroid encounter velocities never approach $192$\,km\,s$^{-1}$ (physical
+main-belt maxima are a few tens of km\,s$^{-1}$), the cadence loses no encounter.
+A synthetic injection--recovery test kept as a permanent regression guard ---
+minima placed uniformly in phase between coarse samples, at high $v_{\rm rel}$
+and $e$ --- confirms $\ge99$\,\% recovery with unit distance ratio up to
+$v_{\max}$. For the dynamically cold bulk of the belt (low $e$,
 small $\Delta a$) recall is $\sim$99.9\,\%; the incompleteness is a property of
 the high-$e$/high-$i$ tail, which any science touching NEA-crossing or high-$e$
 pairs must cite.
