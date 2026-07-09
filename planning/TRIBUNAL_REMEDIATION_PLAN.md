@@ -43,7 +43,7 @@
 | 12 | Cota de cadencia analítica (no circular) | M3 | ✅ §3: d(δ)=√(d_min²+v²δ²) vs r_q → cubre v_rel≤192 km/s (geométrico, no de la distribución del catálogo); injection-recovery citado |
 | 13 | Regenerar Fig. 3 desde cuerpos del catálogo real | M4 | ✅ fig1-4 regeneradas de b1fix; fig3 usa cuerpos únicos reales (449.213, no 93.010) con caveat de cobertura (solo 92.971 tienen elementos — gaia_orbits no cubre muchos numerados altos, incl. Ceres) | 1 |
 | 14 | Reconocer/justificar asimetría ventana DR3 vs arco FPR | M5 | ✅ §5: la asimetría afecta solo la SELECCIÓN de targets, no el modelo (el perturbador se integra continuo sobre todo el arco); yield = cota inferior conservadora |  — |
-| 15 | Tablas §4: fuente, flag boundary, reconciliar FROZEN_RUN | M6 | ⬜ | 1 |
+| 15 | Tablas §4: fuente, flag boundary, reconciliar FROZEN_RUN | M6 | ✅ dd100/dd50 = todas medidas (declarado); closest/slowest/largeslowclose = captions declaran procedencia por-fila (measured JPL SBDB vs H+albedo) y flag boundary (>130 d del borde); FROZEN_RUN reconciliado (Hispania×Mocia) | 1 |
 | 16 | Columna de señal de deflexión por par + estratificación de utilidad | M7 | ✅ columna `deflection_dv_m_s` en el catálogo + §2.4 con ranking por señal (781 pares >1 mm/s, top = Ceres/Vesta) y estratificación | 1 |
 | 17 | Reencuadrar §5 como demo de uso; comparar con Siltala/FM | M8,M9 | 🔶 framing hecho (demo de uso + párrafo Siltala/FM + sin "methodological framework"); falta compresión y números post-regen | 9,10 |
 | 18 | Injection-recovery de detección como test permanente | M10 | ✅ harness + test CI; 200/200, \|Δd\|≤1.2e-10 AU | 1 |
