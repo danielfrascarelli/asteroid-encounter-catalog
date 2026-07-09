@@ -29,6 +29,7 @@ __all__ = [
     "dynamics_assist",
     "frames",
     "gaia_adapter",
+    "identifiability",
     "kepler",
     "least_squares",
     "mass_determination",

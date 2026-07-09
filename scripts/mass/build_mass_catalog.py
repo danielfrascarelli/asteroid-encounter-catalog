@@ -48,6 +48,12 @@ import json
 import math
 from pathlib import Path
 
+from src.orbdet.identifiability import (
+    delta_chi2_quadratic,
+    false_alarm_probability,
+    threshold_for_nsigma,
+)
+
 _BIG4 = {1, 2, 4, 10}
 
 
@@ -150,6 +156,14 @@ def main() -> int:
         "como medida en vez de cota (F2). Requiere --jackknife en el ajuste",
     )
     ap.add_argument(
+        "--identif-nsigma",
+        type=float,
+        default=3.0,
+        help="significancia (en σ) del criterio de identificabilidad por verosimilitud "
+        "perfilada (M13/T21): umbral Δχ²(M=0) = nσ² (default 3σ → Δχ²=9). Se computa "
+        "en paralelo al snr_jack como criterio alternativo",
+    )
+    ap.add_argument(
         "--min-n-jack",
         type=int,
         default=10,
@@ -180,6 +194,8 @@ def main() -> int:
         )
     )
 
+    delta_chi2_thr = threshold_for_nsigma(args.identif_nsigma)
+
     out_rows = []
     for d in sorted(rows, key=lambda x: x["perturber"]):
         m = d["mass_fit_kg"]
@@ -208,6 +224,20 @@ def main() -> int:
         s_formal = d.get("mass_fit_sigma_formal_kg")
         s_jack = d.get("mass_fit_sigma_jack_kg")
         snr_jack = (m / s_jack) if (s_jack and s_jack > 0) else None
+
+        # M13/T21 — criterio alternativo por verosimilitud perfilada. Δχ²(M=0) es la
+        # curvatura del χ² perfilado sobre la órbita; bajo la aproximación cuadrática
+        # (exacta en el límite lineal-Gaussiano) Δχ² = (M̂/σ_formal)², computable
+        # directo de los JSON sin re-fits. Umbral Δχ² = nσ² (9 ≈ 3σ). Se reporta en
+        # paralelo al snr_jack (no lo reemplaza). σ_formal es el denominador correcto
+        # de la curvatura (a diferencia de σ_jack, que sufre el ~1 gdl efectivo).
+        delta_chi2_m0 = (
+            delta_chi2_quadratic(m, s_formal) if (m > 0 and s_formal and s_formal > 0) else None
+        )
+        p_false_alarm = (
+            false_alarm_probability(delta_chi2_m0) if delta_chi2_m0 is not None else None
+        )
+        identifiable_profile = delta_chi2_m0 is not None and delta_chi2_m0 >= delta_chi2_thr
         lev_top1, s_jack_excl = _jackknife_diagnostics(d.get("jackknife_masses_kg"))
         snr_jack_excl = (m / s_jack_excl) if (s_jack_excl and s_jack_excl > 0) else None
         n_targets = d.get("n_targets") or 0
@@ -252,6 +282,9 @@ def main() -> int:
                 "sigma_total_kg": s_tot,
                 "sigma_total_frac": s_tot / abs(m) if m else None,
                 "snr_jack": snr_jack,
+                "delta_chi2_M0": delta_chi2_m0,
+                "identif_p_false_alarm": p_false_alarm,
+                "identifiable_profile": identifiable_profile,
                 "mass_status": mass_status,
                 "chi2_red": d.get("chi2_red"),
                 "sys_floor_mas": d.get("sys_floor_mas"),
@@ -273,21 +306,24 @@ def main() -> int:
 
     print(
         f"\n{'name':10} {'N':>3} {'mass (kg)':>12} {'σ_tot':>10} {'σ%':>5} "
-        f"{'ratio':>6} {'z_tot':>6} {'snrJ':>5} {'lev1':>5} {'status':>16} {'cal':>4} {'rel':>4}"
+        f"{'ratio':>6} {'z_tot':>6} {'snrJ':>5} {'Δχ²0':>8} {'idP':>4} {'lev1':>5} "
+        f"{'status':>16} {'cal':>4} {'rel':>4}"
     )
     for r in out_rows:
         ztxt = f"{r['z_total']:+.2f}" if r["z_total"] is not None else "  -  "
         rtxt = f"{r['ratio_fit_over_ref']:.3f}" if r["ratio_fit_over_ref"] else "  -  "
         sfrac = f"{r['sigma_total_frac'] * 100:.1f}" if r["sigma_total_frac"] else "-"
         snrtxt = f"{r['snr_jack']:.1f}" if r["snr_jack"] is not None else "  -  "
+        dchtxt = f"{r['delta_chi2_M0']:.1f}" if r["delta_chi2_M0"] is not None else "  -  "
+        idptxt = "Y" if r["identifiable_profile"] else "no"
         levtxt = (
             f"{r['jack_leverage_top1']:.2f}" if r["jack_leverage_top1"] is not None else "  -  "
         )
         print(
             f"{r['name']:10} {r['n_targets'] or 0:>3} {r['mass_fit_kg']:>12.3e} "
             f"{r['sigma_total_kg']:>10.2e} {sfrac:>5} {rtxt:>6} {ztxt:>6} {snrtxt:>5} "
-            f"{levtxt:>5} {r['mass_status']:>16} {'Y' if r['is_calibrator'] else '':>4} "
-            f"{'Y' if r['reliable'] else 'no':>4}"
+            f"{dchtxt:>8} {idptxt:>4} {levtxt:>5} {r['mass_status']:>16} "
+            f"{'Y' if r['is_calibrator'] else '':>4} {'Y' if r['reliable'] else 'no':>4}"
         )
     n_meas = sum(1 for r in out_rows if r["mass_status"] == "measured")
     n_bound = sum(1 for r in out_rows if r["mass_status"] == "not_identifiable")
@@ -313,6 +349,22 @@ def main() -> int:
                 "σ_jack dominada por una réplica (~1 gdl efectivo) — no defendible como σ; "
                 "requiere bootstrap/delete-d o más encuentros"
             )
+
+    # M13/T21 — resumen del criterio de verosimilitud perfilada (paralelo al snr_jack).
+    n_id_prof = sum(1 for r in out_rows if r["identifiable_profile"])
+    n_prof_eval = sum(1 for r in out_rows if r["delta_chi2_M0"] is not None)
+    n_disagree = sum(
+        1
+        for r in out_rows
+        if r["delta_chi2_M0"] is not None
+        and r["identifiable_profile"] != (r["mass_status"] == "measured")
+    )
+    print(
+        f"\n[M13/T21] identificabilidad por verosimilitud perfilada "
+        f"(Δχ²(M=0) = (M̂/σ_formal)² > {delta_chi2_thr:g} ≈ {args.identif_nsigma:g}σ): "
+        f"{n_id_prof}/{n_prof_eval} identificables; "
+        f"{n_disagree} discrepan del veredicto snr_jack (measured)"
+    )
     return 0
 
 
