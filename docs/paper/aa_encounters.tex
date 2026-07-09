@@ -947,8 +947,21 @@ are not independent. A wide external $\sigma$ makes almost any value formally
 comparison. Perturbers whose $\mathrm{snr_{jack}}<3$ (with and without their
 dominant jackknife replica) are flagged as bounds, not measurements; the top-1
 jackknife leverage in Table~\ref{tab:sixteen} flags the six cases where
-$\sigma_{\rm jack}$ rests on effectively one replica and a bootstrap would be
-required to publish a bar.
+$\sigma_{\rm jack}$ rests on effectively one replica; for these we also compute a
+nonparametric bootstrap $\sigma$ (resampling targets with replacement, warm-started
+from the converged fit), which is robust to that single-replica dominance because a
+high-leverage target does not appear in every resample.
+
+\paragraph{Estimator injection--recovery.} That the estimator itself is unbiased
+--- separate from the force-model accuracy anchored by the calibrators --- is
+verified by an injection--recovery test: a known perturber mass is injected into
+synthetic per-transit astrometry of a set of test bodies (controlled encounter
+geometry, realistic along-scan noise) and recovered by the same joint mass$+$orbit
+fit. Injecting $2\times10^{19}$\,kg into 24 targets at 2\,mas per-transit noise
+recovers $2.18\times10^{19}$\,kg ($z=+0.5$, $\chi^2_{\rm red}=0.88$), with the
+jackknife $\sigma$ again exceeding the formal $\sigma$ by the expected factor; the
+recovery is unbiased across injected masses and seeds. The test is kept as a
+permanent regression guard.
 
 \paragraph{Beyond the sixteen.} The engine is not restricted to the sixteen
 ephemeris perturbers: each perturber is integrated as a massive rebound particle

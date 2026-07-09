@@ -31,7 +31,7 @@
 | 5 | Presupuesto de completitud honesto (σ elementos + injection-recovery) | B4 | 🔶 §3 renombrado a pipeline-induced + término de elementos como cota (10³-10⁴ km) + injection-recovery citado; tab:closest/genético marcados no-significativos. Falta propagación MC de covarianzas AstDyS (diferido) | 1 | `docs/`, §3 del tex |
 | 6 | σ de masas defendible (leverage, N mín, bootstrap) | B6 | 🔶 catálogo listo; falta bootstrap | — | `src/orbdet/`, `mass_catalog` |
 | 7 | Cruce FM con potencia + una sola σ oficial | B7 | ✅ §5 reescrito: una sola σ_tot en la tabla; el "10/10" reemplazado por potencia (13-102%) + test de signo (5/6 bajo FM, geom 0.80, p≈0.2) + no-independencia FPR + caveat reinstaurado; anclaje = calibradores | 6 | `docs/mass_crosscheck_jack.md`, §5 |
-| 8 | Validación de calibradores no circular (LOCO) + inyección end-to-end | B8 | 🔶 LOCO hecho y PASA (max \|z\|=1.40); falta ∂M/∂s_c e inyección | 6 | `scripts/mass/`, `docs/` |
+| 8 | Validación de calibradores no circular (LOCO) + inyección end-to-end | B8 | 🔶 LOCO PASA (max \|z\|=1.40); inyección-recuperación del estimador hecha (2e19→2.18e19 kg, z=+0.5, χ²_red=0.88; script + 3 tests) y en §5; falta ∂M/∂s_c | 6 | `scripts/mass/`, `docs/` |
 | 9 | Tabla de 16 masas + schema del catálogo + selección de targets | B9 | ✅ tab:sixteen (16 masas: N, mass, σ_tot, χ²_red, ratio, z, leverage, status) + tabla de schema (Apéndice A); tab:calibrators redundante eliminada. N por perturbador en la tabla | 6,7 | tablas del tex |
 | 10 | Reescribir novedad + bibliografía completa | B5 | ✅ título/abstract/§1 reescritos; 18/18 citas verificadas contra ADS en `references.bib` | — | `aa_encounters.tex`, `references.bib` |
 
