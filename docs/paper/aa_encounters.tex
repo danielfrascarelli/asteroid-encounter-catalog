@@ -76,7 +76,7 @@ completeness budget: the Kepler-to-N-body refinement error (median
 the recall of an orbital prefilter on the adverse tail (76\,\%) is quantified as a
 caveat for prefiltered runs. Applied to mass determination, the
 engine recovers all four calibrator masses (Ceres, Vesta, Pallas, Hygiea) and
-fits sixteen perturbers, eight of which are identifiable; these are broadly
+fits sixteen perturbers, six of which are identifiable; these are broadly
 consistent with recent independent work, though that cross-check is a low-power
 consistency test on shared Gaia FPR data, not a proof of accuracy.}
 % conclusions
@@ -844,11 +844,11 @@ stacking many test bodies; a perturber of $10^{-11}\,M_\odot$
 threshold --- set before any fit --- coincides with what the engine delivers:
 perturbers whose true mass is $\gtrsim2\times10^{19}$\,kg are recovered near
 unity ratio, whereas the lighter ones are driven well below their true value by
-the mass$\leftrightarrow$orbit regression (Sect.~below) and either fall to bounds
-or, as with (88) Thisbe (FM mass $8.8\times10^{18}$\,kg, our fit $6.9\times
-10^{18}$\,kg), survive a naive $\mathrm{snr_{jack}}$ flag only as a
-regression-suppressed estimate. The mass layer does
-not claim sensitivity below this frontier.
+the mass$\leftrightarrow$orbit regression (Sect.~below) and fall to bounds. The
+clearest example is (88) Thisbe (FM mass $8.8\times10^{18}$\,kg, our fit
+$6.9\times10^{18}$\,kg): a naive $\mathrm{snr_{jack}}$ flag would call it measured,
+but the leverage-robust bootstrap $\sigma$ correctly returns it to a bound
+(Sect.~below). The mass layer does not claim sensitivity below this frontier.
 
 \paragraph{Calibrators.} The four calibrator masses (Table~\ref{tab:sixteen})
 are recovered at $|z|<3$ against the literature. With $N\geq20$ test bodies, the
@@ -867,11 +867,11 @@ $C = \mathrm{diag}(\sigma_{\rm AL}^2) + s_c^2\,\mathbf{1}\mathbf{1}^{\mathsf T}$
 the correlated floor $s_c$ calibrated by bisection to $\chi^2_{\rm red} = 1$.
 
 \paragraph{Sixteen perturbers.} The engine returns a fit for all sixteen
-(Table~\ref{tab:sixteen}); eight clear the identifiability criterion below and are
-flagged \emph{measured}, six are \emph{bounds}, one (Davida, $N=6$) is
+(Table~\ref{tab:sixteen}); six clear the identifiability criterion below and are
+flagged \emph{measured}, eight are \emph{bounds}, one (Davida, $N=6$) is
 non-physical (best-fit mass $<0$), and one (Camilla, $N=2$) is unconstrained.
 Only (16) Psyche approaches calibrator-grade precision outside the calibrators
-($\sigma_{\rm tot} = 8$\,\%): ratio 0.95 vs its DE441 seed and 0.95 ($z=-0.68$) vs
+($\sigma_{\rm tot} = 9$\,\%): ratio 0.95 vs its DE441 seed and 0.95 ($z=-0.7$) vs
 the independent \citet{fuentesmunoz2025} FPR fit. Several perturbers whose deflection sits below
 the per-encounter astrometric noise return ratios well under unity: this is the
 mass$\leftrightarrow$orbit degeneracy (the fit reproduces the astrometry with a
@@ -897,7 +897,11 @@ four calibrators, DE441 seed otherwise); $z$ uses $\sigma_{\rm tot}$; lev.\ =
 top-1 jackknife leverage (fraction of the jackknife variance from the single most
 influential replica; $>0.5$ means $\sigma_{\rm jack}$ has $\sim$1 effective
 degree of freedom and is not defensible as a $\sigma$); status from the
-identifiability criterion (measured / bound / non-physical / unconstrained).}
+identifiability criterion (measured / bound / non-physical / unconstrained). For
+the four \emph{measured} cases with lev.\ $>0.5$ (Ceres, Juno, Psyche, Thisbe) the
+quoted $\sigma_{\rm tot}$ and status use the leverage-robust bootstrap $\sigma$
+(text): this leaves Ceres and Psyche measured but demotes Juno and Thisbe to
+bounds.}
 \label{tab:sixteen}
 \centering
 \small
@@ -907,17 +911,17 @@ perturber & $N$ & mass (kg) & $\sigma_{\rm tot}$ & $\chi^2_{\rm red}$ & ratio & 
 \hline
 (1) Ceres        & 28 & $9.0\times10^{20}$  & 6\,\%   & 0.99 & 0.96 & $-0.7$ & 0.68 & measured \\
 (2) Pallas       &  8 & $2.5\times10^{20}$  & 7\,\%   & 0.99 & 1.20 & $+2.2$ & 0.27 & bound \\
-(3) Juno         & 24 & $2.0\times10^{19}$  & 23\,\%  & 0.99 & 0.70 & $-1.9$ & 0.93 & measured \\
+(3) Juno         & 24 & $2.0\times10^{19}$  & 42\,\%  & 0.99 & 0.70 & $-1.0$ & 0.93 & bound \\
 (4) Vesta        & 28 & $2.4\times10^{20}$  & 6\,\%   & 0.97 & 0.94 & $-1.1$ & 0.27 & measured \\
 (7) Iris         & 27 & $7.1\times10^{18}$  & 119\,\% & 0.98 & 0.42 & $-1.2$ & 0.62 & bound \\
 (10) Hygiea      & 26 & $8.2\times10^{19}$  & 7\,\%   & 0.98 & 0.99 & $-0.2$ & 0.43 & measured \\
 (15) Eunomia     & 29 & $2.3\times10^{19}$  & 31\,\%  & 0.98 & 0.77 & $-1.0$ & 0.32 & measured \\
-(16) Psyche      & 26 & $2.3\times10^{19}$  & 8\,\%   & 0.98 & 0.95 & $-0.6$ & 0.64 & measured \\
+(16) Psyche      & 26 & $2.3\times10^{19}$  & 9\,\%   & 0.98 & 0.95 & $-0.6$ & 0.64 & measured \\
 (31) Euphrosyne  & 26 & $2.0\times10^{19}$  & 45\,\%  & 0.99 & 1.26 & $+0.5$ & 0.23 & bound \\
 (52) Europa      & 28 & $2.3\times10^{19}$  & 17\,\%  & 0.98 & 0.58 & $-4.3$ & 0.43 & measured \\
 (65) Cybele      & 15 & $6.1\times10^{19}$  & 60\,\%  & 0.93 & 4.33 & $+1.3$ & 0.41 & bound \\
 (87) Sylvia      & 12 & $3.5\times10^{19}$  & 39\,\%  & 0.99 & 1.06 & $+0.2$ & 0.46 & bound \\
-(88) Thisbe      & 27 & $6.9\times10^{18}$  & 15\,\%  & 0.98 & 0.39 & $-10.6$ & 0.84 & measured \\
+(88) Thisbe      & 27 & $6.9\times10^{18}$  & 57\,\%  & 0.98 & 0.39 & $-2.8$ & 0.84 & bound \\
 (107) Camilla    &  2 & $1.7\times10^{20}$  & 67\,\%  & 0.99 & 8.07 & $+1.3$ & ---  & unconstrained \\
 (511) Davida     &  6 & $-1.1\times10^{20}$ & 50\,\%  & 0.81 & ---  & $-3.1$ & 0.60 & non-physical \\
 (704) Interamnia & 29 & $2.0\times10^{19}$  & 40\,\%  & 0.98 & 0.47 & $-2.8$ & 0.31 & bound \\
@@ -936,10 +940,10 @@ formal $\sigma$ to $|z|<3$ under $\sigma_{\rm tot}$, showing the formal bar is t
 tight. We deliberately do \emph{not} present agreement with
 \citet{fuentesmunoz2025} as a validation of accuracy. That cross-check is
 under-powered: the total error bars of the non-calibrators (8--119\,\%) cannot
-resolve deviations of the size the fits themselves show. Of the five measured
-non-calibrators, all five lie \emph{below} the FM value with a geometric-mean ratio
-of 0.82 --- a coherent $\sim$18\,\% one-sided pull (the regression-toward-zero
-signature; a sign test gives $p\approx0.06$, suggestive but not significant at
+resolve deviations of the size the fits themselves show. Of the three measured
+non-calibrators, all three lie \emph{below} the FM value with a geometric-mean ratio
+of 0.85 --- a coherent $\sim$15\,\% one-sided pull (the regression-toward-zero
+signature; a sign test gives $p\approx0.25$, suggestive but not significant at
 this $N$) --- and FM fit the \emph{same} Gaia FPR astrometry, so the two analyses
 are not independent. A wide external $\sigma$ makes almost any value formally
 ``consistent''; the genuine accuracy anchor is therefore the four calibrators
@@ -947,10 +951,21 @@ are not independent. A wide external $\sigma$ makes almost any value formally
 comparison. Perturbers whose $\mathrm{snr_{jack}}<3$ (with and without their
 dominant jackknife replica) are flagged as bounds, not measurements; the top-1
 jackknife leverage in Table~\ref{tab:sixteen} flags the six cases where
-$\sigma_{\rm jack}$ rests on effectively one replica; for these we also compute a
-nonparametric bootstrap $\sigma$ (resampling targets with replacement, warm-started
-from the converged fit), which is robust to that single-replica dominance because a
-high-leverage target does not appear in every resample.
+$\sigma_{\rm jack}$ rests on effectively one replica. For the four \emph{measured}
+ones among them (Ceres, Juno, Psyche, Thisbe) we recomputed $\sigma$ with a
+nonparametric bootstrap (resampling targets with replacement, warm-started from the
+converged fit), which is robust to single-replica dominance because a high-leverage
+target does not enter every resample. The bootstrap confirms the low-leverage pair
+(Ceres $\sigma_{\rm boot}/\sigma_{\rm jack}=0.94$, Psyche $1.07$; both stay
+$\mathrm{snr}>3$) but shows the jackknife \emph{underestimated} $\sigma$ for the two
+highest-leverage cases: Juno (lev.\ 0.93, $\sigma_{\rm boot}/\sigma_{\rm jack}=1.9$,
+$\mathrm{snr_{boot}}=2.4$) and Thisbe (lev.\ 0.84, ratio $4.0$,
+$\mathrm{snr_{boot}}=1.8$) both fall below the $\mathrm{snr}=3$ identifiability
+threshold and are accordingly demoted from measured to bounds. This is the concrete
+payoff of the leverage diagnostic: two masses that a jackknife-only analysis would
+have published as measurements are, under the robust $\sigma$, only bounds ---
+notably Thisbe, whose apparent $z=-10.6$ against the literature collapses to a
+statistically unremarkable $z=-2.8$ once its uncertainty is honestly sized.
 
 \paragraph{Estimator injection--recovery.} That the estimator itself is unbiased
 --- separate from the force-model accuracy anchored by the calibrators --- is

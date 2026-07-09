@@ -200,6 +200,20 @@ def main() -> int:
     for d in sorted(rows, key=lambda x: x["perturber"]):
         m = d["mass_fit_kg"]
         s_stat = d.get("mass_fit_sigma_kg") or 0.0
+        # B6 — σ leverage-robusta. Cuando el jackknife está dominado por una réplica
+        # (leverage top-1 > max_leverage) y hay σ bootstrap disponible, se usa la mayor
+        # de ambas como σ estadística: el bootstrap no sufre el ~1 gdl efectivo del
+        # jackknife (un objetivo de alto leverage no entra en toda remuestra).
+        lev_top1, s_jack_excl = _jackknife_diagnostics(d.get("jackknife_masses_kg"))
+        s_boot = d.get("mass_fit_sigma_boot_kg")
+        use_boot = (
+            s_boot is not None
+            and s_boot > 0
+            and lev_top1 is not None
+            and lev_top1 > args.max_leverage
+        )
+        if use_boot:
+            s_stat = max(s_stat, s_boot)
         # |m|: con masa ajustada negativa (no física, p. ej. Davida N=3) el piso
         # proporcional debe seguir siendo una σ positiva (bug de signo, B6).
         s_sys = f_sys * abs(m)
@@ -224,6 +238,7 @@ def main() -> int:
         s_formal = d.get("mass_fit_sigma_formal_kg")
         s_jack = d.get("mass_fit_sigma_jack_kg")
         snr_jack = (m / s_jack) if (s_jack and s_jack > 0) else None
+        snr_boot = (m / s_boot) if (use_boot and s_boot and s_boot > 0) else None
 
         # M13/T21 — criterio alternativo por verosimilitud perfilada. Δχ²(M=0) es la
         # curvatura del χ² perfilado sobre la órbita; bajo la aproximación cuadrática
@@ -238,7 +253,6 @@ def main() -> int:
             false_alarm_probability(delta_chi2_m0) if delta_chi2_m0 is not None else None
         )
         identifiable_profile = delta_chi2_m0 is not None and delta_chi2_m0 >= delta_chi2_thr
-        lev_top1, s_jack_excl = _jackknife_diagnostics(d.get("jackknife_masses_kg"))
         snr_jack_excl = (m / s_jack_excl) if (s_jack_excl and s_jack_excl > 0) else None
         n_targets = d.get("n_targets") or 0
         sigma_jack_defensible = (
@@ -255,6 +269,18 @@ def main() -> int:
             mass_status = "non_physical"
         elif s_jack is None:
             mass_status = "unknown"  # ajuste sin --jackknife: identificabilidad no evaluada
+        elif use_boot:
+            # Caso con leverage alto: el bootstrap es la σ defendible; la decisión de
+            # identificabilidad usa snr_boot (no snr_jack, que subestima bajo leverage).
+            mass_status = (
+                "measured"
+                if (
+                    snr_boot is not None
+                    and snr_boot >= args.min_snr_jack
+                    and n_targets >= args.min_n_jack
+                )
+                else "not_identifiable"
+            )
         elif (
             snr_jack is not None
             and snr_jack >= args.min_snr_jack
@@ -278,6 +304,9 @@ def main() -> int:
                 "sigma_jack_excl_top1_kg": s_jack_excl,
                 "snr_jack_excl_top1": snr_jack_excl,
                 "sigma_jack_defensible": sigma_jack_defensible,
+                "sigma_boot_kg": s_boot,
+                "snr_boot": snr_boot,
+                "used_bootstrap_sigma": use_boot,
                 "sigma_sys_kg": s_sys,
                 "sigma_total_kg": s_tot,
                 "sigma_total_frac": s_tot / abs(m) if m else None,
