@@ -864,7 +864,13 @@ independent underestimates $\sigma(\mathrm{mass})$ by a factor 1.66 (effective
 $N\approx0.36\,N$). The measured intra-crossing correlation is ICC $= 0.32$; we
 whiten each crossing with a block covariance
 $C = \mathrm{diag}(\sigma_{\rm AL}^2) + s_c^2\,\mathbf{1}\mathbf{1}^{\mathsf T}$,
-the correlated floor $s_c$ calibrated by bisection to $\chi^2_{\rm red} = 1$.
+the correlated floor $s_c$ calibrated by bisection to $\chi^2_{\rm red} = 1$. This
+calibration is not a hidden fit knob for the mass: refitting the calibrators with
+$s_c$ fixed across $0.5$--$1.1$\,mas (a $>2\times$ range bracketing the calibrated
+value) shifts their masses by $<1.3$\,\% ($\partial\ln M/\partial\ln s_c\approx
+-0.01$ for Ceres, Vesta and Hygiea), far below the $-4$\,\% accuracy bias --- so the
+floor inflates the error bar, not the central mass, and the calibrator anchoring is
+not circular through $s_c$.
 
 \paragraph{Sixteen perturbers.} The engine returns a fit for all sixteen
 (Table~\ref{tab:sixteen}); six clear the identifiability criterion below and are
