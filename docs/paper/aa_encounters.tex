@@ -75,9 +75,10 @@ completeness budget: the Kepler-to-N-body refinement error (median
 (0.70\,\%, symmetric and scatter-dominated) bound this catalogue directly, while
 the recall of an orbital prefilter on the adverse tail (76\,\%) is quantified as a
 caveat for prefiltered runs. Applied to mass determination, the
-engine recovers all four calibrator masses (Ceres, Vesta, Pallas, Hygiea) at
-$|z|<3$ and determines sixteen perturbers, of which ten identifiable masses
-agree with recent independent work.}
+engine recovers all four calibrator masses (Ceres, Vesta, Pallas, Hygiea) and
+fits sixteen perturbers, nine of which are identifiable; these are broadly
+consistent with recent independent work, though that cross-check is a low-power
+consistency test on shared Gaia FPR data, not a proof of accuracy.}
 % conclusions
 {The catalogue is a reusable, defensibly characterised target-selection
 resource for asteroid dynamics and mass determination. It is explicitly not
@@ -768,30 +769,13 @@ fitting layer (observation model, partials, least squares) is implemented in
 this work on top of rebound/ASSIST \citep{rein2012, rein2015ias15, holman2023}
 and astropy \citep{astropy2022}.
 
-\paragraph{Calibrators.} The four calibrator masses are recovered at $|z|<3$
-against the literature (Table~\ref{tab:calibrators}). With $N\geq20$ test bodies,
-the fit/literature ratios of Ceres \citep{park2016}, Vesta
+\paragraph{Calibrators.} The four calibrator masses (Table~\ref{tab:sixteen})
+are recovered at $|z|<3$ against the literature. With $N\geq20$ test bodies, the
+fit/literature ratios of Ceres \citep{park2016}, Vesta
 \citep[DAWN;][]{russell2012} and Hygiea \citep{vernazza2020} fall in
-$[0.943, 0.990]$ (mean bias $-4$\,\%);
-Pallas, limited to 6 encounters in the catalogue, gives ratio 1.240
-($z=+2.67$).
-
-\begin{table}
-\caption{Calibrator masses recovered by the joint orbit+mass fit. The $z$ column
-uses the total (formal $\oplus$ systematic) $\sigma$.}
-\label{tab:calibrators}
-\centering
-\begin{tabular}{lccccc}
-\hline\hline
-body & $N$ & fitted mass (kg) & $\sigma_{\rm tot}$ & ratio fit/lit & $z$ \\
-\hline
-Ceres  & 28 & $8.96\times10^{20}$ & 4.6\,\% & 0.955 & $-1.01$ \\
-Vesta  & 28 & $2.44\times10^{20}$ & 4.6\,\% & 0.943 & $-1.30$ \\
-Hygiea & 20 & $8.22\times10^{19}$ & 5.7\,\% & 0.990 & $-0.13$ \\
-Pallas & 6  & $2.54\times10^{20}$ & 7.0\,\% & 1.240 & $+2.67$ \\
-\hline
-\end{tabular}
-\end{table}
+$[0.94, 0.99]$ (mean bias $-4$\,\%); Pallas, limited to 6 encounters in the
+catalogue, gives ratio 1.24 ($z=+2.7$). The $-4$\,\% mean bias sets the scale of
+the residual systematic (Sect.~\ref{sec:mass}, ``external $\sigma$'' below).
 
 \paragraph{FOV-block covariance.} Each Gaia focal-plane crossing yields $\sim$7
 CCD observations ($\sim$5\,s apart) with correlated residuals. Treating them as
@@ -801,31 +785,83 @@ whiten each crossing with a block covariance
 $C = \mathrm{diag}(\sigma_{\rm AL}^2) + s_c^2\,\mathbf{1}\mathbf{1}^{\mathsf T}$,
 the correlated floor $s_c$ calibrated by bisection to $\chi^2_{\rm red} = 1$.
 
-\paragraph{Sixteen perturbers.} The engine determines all sixteen. Only (16)
-Psyche reaches calibrator-grade precision outside the calibrators:
-$M = 2.43\times10^{19}$\,kg, $\sigma_{\rm stat} = 3.3$\,\%, $N = 36$,
-$\chi^2_{\rm red} = 0.99$, ratio 1.020 vs DE441 and 1.014 ($z=+0.25$) vs the
-independent \citet{fuentesmunoz2025} FPR fit. Six perturbers whose deflection
-sits below the per-encounter astrometric noise return ratios in $[0.39, 0.72]$:
-this is the mass$\leftrightarrow$orbit degeneracy (the fit reproduces the
-astrometry with a smaller mass and a re-adjusted orbit --- regression toward zero
-mass), and for these the formal Fisher $\sigma$ underestimates the error.
+\paragraph{Sixteen perturbers.} The engine returns a fit for all sixteen
+(Table~\ref{tab:sixteen}); nine clear the identifiability criterion below and are
+flagged \emph{measured}, five are \emph{bounds}, one (Davida, $N=3$) is
+non-physical (best-fit mass $<0$), and one (Camilla, $N=2$) is unconstrained.
+Only (16) Psyche reaches calibrator-grade precision outside the calibrators:
+ratio 1.02 vs DE441 and 1.014 ($z=+0.25$) vs the independent
+\citet{fuentesmunoz2025} FPR fit. Several perturbers whose deflection sits below
+the per-encounter astrometric noise return ratios well under unity: this is the
+mass$\leftrightarrow$orbit degeneracy (the fit reproduces the astrometry with a
+smaller mass and a re-adjusted orbit --- regression toward zero mass), and for
+these the formal Fisher $\sigma$ underestimates the error, which is why the
+jackknife $\sigma$ and the identifiability flag below are needed. The target
+lists were selected from the encounter catalogue (its pre-B1 freeze); the masses
+are Gaia-FPR astrometric determinations essentially insensitive to the handful of
+target changes the regeneration induces, so re-selection is a consistency
+refinement, not a correction.
+
+\begin{table*}
+\caption{The sixteen perturber masses from the joint orbit$+$mass fit to Gaia FPR
+astrometry. $N$ = test bodies; $\sigma_{\rm tot}$ = total (formal $\oplus$
+systematic) fractional uncertainty; ratio = fit / reference (literature for the
+four calibrators, DE441 seed otherwise); $z$ uses $\sigma_{\rm tot}$; lev.\ =
+top-1 jackknife leverage (fraction of the jackknife variance from the single most
+influential replica; $>0.5$ means $\sigma_{\rm jack}$ has $\sim$1 effective
+degree of freedom and is not defensible as a $\sigma$); status from the
+identifiability criterion (measured / bound / non-physical / unconstrained).}
+\label{tab:sixteen}
+\centering
+\small
+\begin{tabular}{lrccccccc}
+\hline\hline
+perturber & $N$ & mass (kg) & $\sigma_{\rm tot}$ & $\chi^2_{\rm red}$ & ratio & $z$ & lev. & status \\
+\hline
+(1) Ceres        & 35 & $9.0\times10^{20}$  & 6\,\%   & 0.99 & 0.96 & $-0.7$ & 0.63 & measured \\
+(2) Pallas       &  6 & $2.5\times10^{20}$  & 7\,\%   & 0.99 & 1.24 & $+2.7$ & 0.44 & bound \\
+(3) Juno         & 34 & $2.0\times10^{19}$  & 30\,\%  & 0.99 & 0.69 & $-1.6$ & 0.92 & measured \\
+(4) Vesta        & 35 & $2.4\times10^{20}$  & 5\,\%   & 0.97 & 0.94 & $-1.2$ & 0.22 & measured \\
+(7) Iris         & 37 & $8.1\times10^{18}$  & 102\,\% & 0.99 & 0.47 & $-1.1$ & 0.69 & bound \\
+(10) Hygiea      & 20 & $8.2\times10^{19}$  & 9\,\%   & 0.98 & 0.99 & $-0.1$ & 0.35 & measured \\
+(15) Eunomia     & 38 & $2.2\times10^{19}$  & 26\,\%  & 0.98 & 0.72 & $-1.4$ & 0.24 & measured \\
+(16) Psyche      & 36 & $2.4\times10^{19}$  & 9\,\%   & 0.99 & 1.02 & $+0.2$ & 0.81 & measured \\
+(31) Euphrosyne  & 21 & $2.4\times10^{19}$  & 69\,\%  & 0.99 & 1.50 & $+0.5$ & 0.31 & bound \\
+(52) Europa      & 34 & $2.3\times10^{19}$  & 13\,\%  & 0.98 & 0.57 & $-6.0$ & 0.46 & measured \\
+(65) Cybele      & 11 & $4.1\times10^{19}$  & 34\,\%  & 0.99 & 2.92 & $+1.9$ & 0.57 & bound \\
+(87) Sylvia      & 11 & $3.5\times10^{19}$  & 39\,\%  & 0.98 & 1.07 & $+0.2$ & 0.44 & bound \\
+(88) Thisbe      & 37 & $7.0\times10^{18}$  & 20\,\%  & 0.97 & 0.39 & $-7.8$ & 0.89 & measured \\
+(107) Camilla    &  2 & $1.7\times10^{20}$  & 67\,\%  & 0.99 & 8.08 & $+1.3$ & ---  & unconstrained \\
+(511) Davida     &  3 & $-1.1\times10^{20}$ & 45\,\%  & 0.65 & ---  & $-3.5$ & 0.54 & non-physical \\
+(704) Interamnia & 35 & $2.4\times10^{19}$  & 33\,\%  & 0.99 & 0.57 & $-2.3$ & 0.26 & measured \\
+\hline
+\end{tabular}
+\end{table*}
 
 \paragraph{External $\sigma$ by jackknife.} Because the formal $\sigma$ scales as
 $1/\sqrt{N}$ and ignores the mass$\leftrightarrow$orbit regression seen only by
-leaving encounters out, we report a jackknife $\sigma$ that reincorporates it.
-It is systematically 2--3$\times$ the formal $\sigma$. Its diagnostic value is
-visible in the calibrators themselves: Pallas and Vesta --- whose true masses are
-known --- sit at $|z|>3$ under the formal $\sigma$ but within $|z|<3$ under the
-jackknife $\sigma$, showing the formal bar is genuinely too tight rather than the
-jackknife being permissive. Cross-checking the ten \emph{measured}
-(identifiable, $\mathrm{snr_{jack}}\geq3$) perturbers against
-\citet{fuentesmunoz2025}, 10/10 fall within $|z|<3$ under the jackknife
-$\sigma$, versus 5/10 under the formal $\sigma$ (6/6 vs 3/6 for the
-non-calibrators, the genuinely independent comparison). The remaining perturbers
-are flagged \texttt{not\_identifiable} --- their deflection does not clear the
-per-encounter noise and their masses are reported as explicit bounds, not
-measurements.
+leaving encounters out, we report a leave-one-target-out jackknife $\sigma$ that
+reincorporates it; it is systematically 2--3$\times$ the formal $\sigma$, and its
+combination with the systematic floor is the single $\sigma_{\rm tot}$ quoted in
+Table~\ref{tab:sixteen}. Its diagnostic value is visible in the calibrators
+themselves: Vesta --- whose true mass is known --- moves from $|z|>3$ under the
+formal $\sigma$ to $|z|<3$ under $\sigma_{\rm tot}$, showing the formal bar is too
+tight. We deliberately do \emph{not} present agreement with
+\citet{fuentesmunoz2025} as a validation of accuracy. That cross-check is
+under-powered: the total error bars of the non-calibrators (13--102\,\%) cannot
+resolve deviations of the size the fits themselves show. Of the six measured
+non-calibrators, five lie \emph{below} the FM value with a geometric-mean ratio
+of 0.80 --- a coherent $\sim$20\,\% one-sided pull (the regression-toward-zero
+signature; a sign test gives $p\approx0.2$, suggestive but not significant at
+this $N$) --- and FM fit the \emph{same} Gaia FPR astrometry, so the two analyses
+are not independent. A wide external $\sigma$ makes almost any value formally
+``consistent''; the genuine accuracy anchor is therefore the four calibrators
+(external truth), which carry the $-4$\,\% bias noted above, not the FM
+comparison. Perturbers whose $\mathrm{snr_{jack}}<3$ (with and without their
+dominant jackknife replica) are flagged as bounds, not measurements; the top-1
+jackknife leverage in Table~\ref{tab:sixteen} flags the seven cases where
+$\sigma_{\rm jack}$ rests on effectively one replica and a bootstrap would be
+required to publish a bar.
 
 \paragraph{Beyond the sixteen.} The engine is not restricted to the sixteen
 ephemeris perturbers: each perturber is integrated as a massive rebound particle
