@@ -58,7 +58,7 @@
 |---|-------|-----|--------|
 | 23 | Lote de correcciones de código/comentarios de bajo riesgo | C1–C8 | ✅ C1–C8 hechos |
 | 24 | Lote de correcciones de texto/figuras del paper | C9–C15 | ✅ C9/C10/C11/C12/C13/C15 hechos (C11 def Gaia-observable ya estaba; C12 N(<d)∝d² como diagnóstico de censura; C13 reescrito como software statement). C14 = Tarea 26 |
-| 25 | Reproducibilidad: sidecars, hashes, desempate determinista | C16 | 🔶 desempate hecho |
+| 25 | Reproducibilidad: sidecars, hashes, desempate determinista | C16 | ✅ desempate determinista; hash MPCORB full (64 hex); sidecar b1fix backfilleado (git commit caa533d + deps); writer con fallback .git/HEAD (lee commit sin binario git en el container) + 6 tests |
 | 26 | F3: reformular gate como Δmasa pareada | C14 | ✅ gate = Δmasa pareada PASA (máx 0.23 % < 0.25 %) + cota de escala: cola no modelada ~7e20 kg (>1e5 cuerpos <5e18 kg c/u), acotada muy por debajo del gate; no puede producir el déficit -4 % |
 | 27 | Limpieza de refs y tablas menores del paper | C17–C19 | ✅ C17 (fuentesmunoz2024 eliminada, 0 refs); C18 (columna masa FM25 + texto: cross-check no new-mass); C19 (muestra estratificada, no "representative"; fig3 = subsample sesgado) |
 | 28 | Mecánica de submission (DOI CDS/VizieR, autores, acks, software) | — | ⬜ |

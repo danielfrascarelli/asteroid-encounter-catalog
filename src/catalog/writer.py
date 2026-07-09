@@ -44,6 +44,40 @@ def _dep_versions() -> dict[str, str]:
     return out
 
 
+def _git_commit_from_dotgit() -> str:
+    """Read HEAD commit straight from ``.git`` without invoking the git binary.
+
+    The pipeline runs inside a container that does not ship ``git``, so the
+    subprocess path in :func:`_git_commit_info` returns nothing there. Reading
+    ``.git/HEAD`` (and the referenced packed/loose ref) recovers the commit as
+    long as the repo is bind-mounted, which keeps the provenance sidecar
+    auditable regardless of whether a git binary is present.
+    """
+    # Walk up from CWD to find a .git directory.
+    for base in [Path.cwd(), *Path.cwd().parents]:
+        head = base / ".git" / "HEAD"
+        if not head.exists():
+            continue
+        try:
+            content = head.read_text().strip()
+        except OSError:
+            return ""
+        if content.startswith("ref:"):
+            ref = content.split(" ", 1)[1].strip()
+            ref_file = base / ".git" / ref
+            if ref_file.exists():
+                return ref_file.read_text().strip()
+            # Fall back to packed-refs.
+            packed = base / ".git" / "packed-refs"
+            if packed.exists():
+                for line in packed.read_text().splitlines():
+                    if line.endswith(" " + ref):
+                        return line.split(" ", 1)[0]
+            return ""
+        return content  # detached HEAD: content is the sha directly
+    return ""
+
+
 def _git_commit_info() -> dict[str, str]:
     """Best-effort git commit + dirty flag for provenance. Empty if unavailable."""
     out: dict[str, str] = {}
@@ -57,7 +91,11 @@ def _git_commit_info() -> dict[str, str]:
         ).stdout.strip()
         out["dirty"] = "true" if status else "false"
     except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
+        # No git binary (e.g. inside the container): read the commit from .git.
+        sha = _git_commit_from_dotgit()
+        if sha:
+            out["commit"] = sha
+            out["source"] = "dotgit"  # dirty flag is undeterminable this way
     return out
 
 
