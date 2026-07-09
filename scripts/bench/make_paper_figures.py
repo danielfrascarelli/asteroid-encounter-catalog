@@ -73,8 +73,10 @@ logger = logging.getLogger("make_paper_figures")
 
 OUT_DIR = Path("data/output/figures")
 
-ENCOUNTERS_PARQUET = Path("data/output/encounters_catalog_rebound_005au.parquet")
-CHARACTERIZED_PARQUET = Path("data/output/encounters_characterized_full.parquet")
+# Post-B1-fix regenerated catalogues (80,072,774 rows; see
+# planning/CONTINUATION.md and the B1 remediation notes for context).
+ENCOUNTERS_PARQUET = Path("data/output/encounters_catalog_rebound_005au_b1fix.parquet")
+CHARACTERIZED_PARQUET = Path("data/output/encounters_characterized_b1fix.parquet")
 ORBITS_PARQUET = Path("data/raw/gaia_orbits.parquet")
 KEPLER_NBODY_PARQUET = Path("data/output/kepler_false_negatives/band_refined.parquet")
 
@@ -232,8 +234,24 @@ def figure1_separation_hist() -> list[Path]:
     counts, edges, total = _streaming_histogram(
         ENCOUNTERS_PARQUET, "dist_au", 0.0, THRESHOLD_AU, n_bins
     )
+    logger.info("Figure 1: exact total encounters counted = %d", total)
     centers = 0.5 * (edges[:-1] + edges[1:])
     width = edges[1] - edges[0]
+
+    # Power-law index: log-log least-squares fit of counts(d) vs d over the
+    # populated bins (drop the empty tail near d -> 0 where the histogram is
+    # noise-dominated at this bin width).
+    nonzero = counts > 0
+    log_c = np.log10(centers[nonzero])
+    log_n = np.log10(counts[nonzero])
+    slope, intercept = np.polyfit(log_c, log_n, 1)
+    logger.info(
+        "Figure 1: power-law fit dN/dd ~ d^%.4f (log-log slope, intercept=%.4f, %d/%d bins used)",
+        slope,
+        intercept,
+        int(nonzero.sum()),
+        n_bins,
+    )
 
     fig, ax = plt.subplots(figsize=(6.5, 4.2))
     ax.bar(
@@ -305,6 +323,7 @@ def figure2_relvel_hist() -> list[Path]:
     total = (
         pl.scan_parquet(CHARACTERIZED_PARQUET).select(pl.len()).collect(engine="streaming").item()
     )
+    logger.info("Figure 2: exact total encounters counted = %d, median = %.6f km/s", total, median)
     centers = 0.5 * (edges[:-1] + edges[1:])
     width = edges[1] - edges[0]
 
@@ -350,10 +369,58 @@ def figure2_relvel_hist() -> list[Path]:
 # --------------------------------------------------------------------------- #
 
 
-def figure3_aei_map() -> list[Path]:
-    """Orbital-element map (a vs e coloured by i) of the encounter population."""
-    logger.info("Figure 3: (a, e, i) map from %s", ORBITS_PARQUET)
-    df = pl.read_parquet(ORBITS_PARQUET, columns=["a_au", "e", "i_deg"]).drop_nulls()
+def figure3_aei_map() -> tuple[list[Path], int]:
+    """Orbital-element map (a vs e coloured by i) of the encounter population.
+
+    The population plotted is the set of bodies that actually participate in
+    >=1 detected encounter in :data:`ENCOUNTERS_PARQUET` (union of
+    ``number_1``/``number_2``), joined against the orbit-elements catalogue --
+    *not* every body in the orbit catalogue. A prior version of this figure's
+    caption quoted "93,010 encountering bodies", which was actually just the
+    row count of the full orbit-elements file, not a count of unique bodies
+    with a real encounter. This is fixed here.
+
+    Returns
+    -------
+    written : list of pathlib.Path
+        Paths written.
+    n_encountering_bodies : int
+        Exact count of unique bodies with >=1 encounter in the catalogue
+        (for the caption).
+    """
+    logger.info(
+        "Figure 3: unique encountering bodies from %s, orbits from %s",
+        ENCOUNTERS_PARQUET,
+        ORBITS_PARQUET,
+    )
+    unique_bodies = (
+        pl.concat(
+            [
+                pl.scan_parquet(ENCOUNTERS_PARQUET).select(pl.col("number_1").alias("number")),
+                pl.scan_parquet(ENCOUNTERS_PARQUET).select(pl.col("number_2").alias("number")),
+            ]
+        )
+        .unique()
+        .collect(engine="streaming")
+    )
+    n_encountering_bodies = unique_bodies.height
+    logger.info(
+        "%d unique bodies participate in >=1 encounter (streaming union of number_1/number_2)",
+        n_encountering_bodies,
+    )
+
+    orbits = pl.read_parquet(
+        ORBITS_PARQUET, columns=["number", "a_au", "e", "i_deg"]
+    ).drop_nulls()
+    df = orbits.join(unique_bodies, on="number", how="inner")
+    n_with_orbit = df.height
+    if n_with_orbit != n_encountering_bodies:
+        logger.warning(
+            "%d/%d encountering bodies have no matching orbit-catalogue entry",
+            n_encountering_bodies - n_with_orbit,
+            n_encountering_bodies,
+        )
+
     # Keep the main-belt-ish region for a legible frame; drop extreme outliers.
     df = df.filter(
         (pl.col("a_au") > 1.5)
@@ -362,10 +429,10 @@ def figure3_aei_map() -> list[Path]:
         & (pl.col("e") < 0.5)
         & (pl.col("i_deg") < 40.0)
     )
-    n_total = df.height
-    logger.info("%d bodies in plotted a-e-i window", n_total)
+    n_window = df.height
+    logger.info("%d encountering bodies in plotted a-e-i window", n_window)
 
-    if n_total > MAX_SCATTER:
+    if n_window > MAX_SCATTER:
         df = df.sample(n=MAX_SCATTER, seed=RNG_SEED)
         logger.info("subsampled to %d points for scatter", df.height)
 
@@ -454,12 +521,13 @@ def figure3_aei_map() -> list[Path]:
     ax0.text(
         0.02,
         0.97,
-        f"{n_total:,} bodies" + (f" ({df.height:,} shown)" if df.height < n_total else ""),
+        f"{n_encountering_bodies:,} encountering bodies"
+        + (f" ({df.height:,} shown in window)" if df.height < n_encountering_bodies else ""),
         transform=ax0.transAxes,
         fontsize=8,
         va="top",
     )
-    return _save(fig, "fig3_aei_map")
+    return _save(fig, "fig3_aei_map"), n_encountering_bodies
 
 
 # --------------------------------------------------------------------------- #
@@ -620,9 +688,10 @@ def main() -> None:
     logger.info("Output directory: %s", OUT_DIR.resolve())
     figure1_separation_hist()
     figure2_relvel_hist()
-    figure3_aei_map()
+    _, n_encountering_bodies = figure3_aei_map()
     _, real = figure4_kepler_nbody_threshold()
     logger.info("Figure 4 used %s data", "REAL" if real else "SCHEMATIC")
+    logger.info("SUMMARY: n_encountering_bodies (fig3) = %d", n_encountering_bodies)
     logger.info("Done.")
 
 
