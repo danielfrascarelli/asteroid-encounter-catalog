@@ -67,7 +67,7 @@ subset. Perturber masses come from a joint mass$+$orbit least-squares fit to
 Gaia FPR astrometry.}
 % results
 {The catalogue records the minimum physical 3D separation --- a genuine spatial
-approach, not a sky-plane co-location --- for 72\,236\,904 candidate pairs within
+approach, not a sky-plane co-location --- for 80\,072\,774 candidate pairs within
 0.05\,AU, with encounter epoch, relative velocity, geometry, and estimated
 physical properties. Its distinguishing feature is a \emph{measured}
 completeness budget: the Kepler-to-N-body refinement error (median
@@ -241,10 +241,24 @@ sampling). The hybrid catalogue carries
 $\mathrm{refinement\_method}\in\{\mathrm{kepler},\mathrm{nbody}\}$ per row
 together with the Kepler and N-body values and their residuals, so users needing
 sub-mAU geometry on high-$e$ / NEA-crossing pairs can cite it directly.
-Universal N-body refinement of all 72\,M pairs ($\sim$400 CPU-days) is
+Universal N-body refinement of all 80\,M pairs ($\sim$400 CPU-days) is
 explicitly out of scope: the median error outside the fragile subset is already
 below 1\,mAU (Sect.~\ref{sec:refineerror}), so the marginal gain does not
 justify the cost.
+
+\emph{Membership rule (mixed propagators).} Catalogue membership is defined by
+the \emph{Kepler} distance $<0.05$\,AU: a pair enters if its two-body refinement
+places it below threshold. In the hybrid product, therefore, the reported
+$\mathrm{dist\_au}$ mixes propagators (two-body for the bulk, N-body for the
+fragile subset), and a small fraction of hybrid rows have an N-body distance
+slightly \emph{above} 0.05\,AU (the upward threshold crossings of
+Sect.~\ref{sec:censoring}). Analyses that require a homogeneous selection
+function should filter on a single propagator --- either use the Kepler
+$\mathrm{dist\_au}$ throughout, or restrict to $\mathrm{refinement\_method} =
+\mathrm{nbody}$ --- rather than mixing the two.
+% TODO(Stage B / b1fix): the hybrid product itself is being regenerated from the
+% B1-fixed catalogue; the fragile-subset counts and the upward-crossing figure
+% will be refreshed from that run before submission.
 
 \subsection{Characterisation}
 \label{sec:characterisation}
@@ -257,8 +271,8 @@ the window are not catalogued separately. A body is flagged
 \emph{Gaia-observable} at the encounter when its solar elongation exceeds
 $45\degr$ (outside Gaia's solar-exclusion zone) \emph{and} its apparent $V$
 magnitude is brighter than 21 (the faint limit); the pair-level flag is the
-logical OR of the two bodies. Of the 72\,236\,904 encounters, 13\,640\,870
-(18.9\,\%) satisfy this for at least one body.
+logical OR of the two bodies. Of the 80\,072\,774 encounters, 15\,251\,039
+(19.0\,\%) satisfy this for at least one body.
 
 Physical properties are attached to both bodies. Diameters use direct
 measurements (IRAS/AKARI/NEOWISE/occultations, via the JPL Small-Body Database)
@@ -312,7 +326,7 @@ Sect.~\ref{sec:mass} draws its test bodies from its high-signal tail.
   \centering
   \includegraphics[width=\hsize]{fig1_separation_hist.pdf}
   \caption{Distribution of minimum 3D separations for the
-  $72.2\times10^{6}$ catalogued encounters (log count per bin). The dashed line
+  $80.1\times10^{6}$ catalogued encounters (log count per bin). The dashed line
   marks the 0.05\,AU detection threshold.}
   \label{fig:sep}
 \end{figure}
@@ -921,19 +935,21 @@ confirmation.
 \label{sec:data}
 
 The primary product is the Kepler-refined candidate catalogue,
-\texttt{encounters\_catalog\_rebound\_005au.parquet} (72\,236\,904 rows, SHA-256
-\texttt{b0272be7\ldots}), a typed Parquet file with a machine-readable
-provenance sidecar recording the MPCORB snapshot hash, the frozen configuration,
-and the pipeline parameters. The derived \emph{hybrid} catalogue,
-\texttt{encounters\_catalog\_hybrid\_stageb.parquet}, carries per-row
-$\mathrm{refinement\_method}\in\{\mathrm{kepler},\mathrm{nbody}\}$ and both the
-Kepler and N-body distances, epochs, velocities, and their residuals; it should
-be cited for any science depending on sub-mAU geometry. The characterised
-catalogue, \texttt{encounters\_characterized\_full.parquet}, adds observability,
-solar elongation, magnitudes, diameters, and taxonomic classes for the full
-72\,M rows. Anything derived from the catalogue must cite both the freeze
-(catalog SHA \texttt{b0272be7\ldots}) and the code commit at its own generation
-time.
+\texttt{encounters\_catalog\_rebound\_005au\_b1fix.parquet} (80\,072\,774 rows),
+a typed Parquet file with a machine-readable provenance sidecar recording the
+MPCORB snapshot hash (full SHA-256), the frozen configuration, and the pipeline
+parameters. The characterised catalogue,
+\texttt{encounters\_characterized\_b1fix.parquet}, adds observability, solar
+elongation, magnitudes, measured/estimated diameters (with a per-row provenance
+flag), a dynamical class, and a deflection-signal estimate for all 80\,M rows
+(schema in Appendix~\ref{sec:schema}). A derived \emph{hybrid} catalogue carrying
+per-row $\mathrm{refinement\_method}\in\{\mathrm{kepler},\mathrm{nbody}\}$ and
+both Kepler and N-body geometry on the fragile subset --- for science depending
+on sub-mAU distances --- is regenerated from the same freeze. The catalogue and
+its input hashes (MPCORB snapshot and the JPL SBDB physical-data snapshot) are
+recorded in the sidecars; anything derived downstream must cite the catalogue
+SHA-256 and the code commit at its generation time. SHA-256 digests of the
+deposited files are listed with the archive record.
 % TODO(author): register the catalogue in a public archive (Zenodo/VizieR) and
 % insert the DOI here before submission.
 
@@ -941,7 +957,7 @@ time.
 \section{Conclusions}
 \label{sec:conclusions}
 
-We have built and characterised a systematic catalogue of 72\,236\,904 real 3D
+We have built and characterised a systematic catalogue of 80\,072\,774 real 3D
 close encounters ($<0.05$\,AU) between numbered asteroids during the Gaia DR3
 observation window. Unlike prior encounter-based work, which selects individual
 events by hand, the catalogue is exhaustive over the numbered population and ---
