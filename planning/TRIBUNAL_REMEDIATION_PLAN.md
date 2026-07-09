@@ -36,9 +36,9 @@
 
 | # | tarea | sev | estado | depende de |
 |---|-------|-----|--------|-----------|
-| 11 | Corregir explicación de la brecha FM (§3.4) — es ventana temporal | M1,M2 | 🔶 causa corregida en tex y docs; cuantificación por época pendiente | 10 |
+| 11 | Corregir explicación de la brecha FM (§3.4) — es ventana temporal | M1,M2 | ✅ cuantificado: 83.8% [80.3,86.8]% de los pares FM no recuperados tienen su encuentro <0.05 AU fuera de la ventana DR3 (muestra 500 propagados 1990-2024); confirma que la brecha es temporal, no de umbral | 10 |
 | 12 | Cota de cadencia analítica (no circular) | M3 | ✅ §3: d(δ)=√(d_min²+v²δ²) vs r_q → cubre v_rel≤192 km/s (geométrico, no de la distribución del catálogo); injection-recovery citado |
-| 13 | Regenerar Fig. 3 desde cuerpos del catálogo real | M4 | ⬜ | 1 |
+| 13 | Regenerar Fig. 3 desde cuerpos del catálogo real | M4 | ✅ fig1-4 regeneradas de b1fix; fig3 usa cuerpos únicos reales (449.213, no 93.010) con caveat de cobertura (solo 92.971 tienen elementos — gaia_orbits no cubre muchos numerados altos, incl. Ceres) | 1 |
 | 14 | Reconocer/justificar asimetría ventana DR3 vs arco FPR | M5 | ⬜ | — |
 | 15 | Tablas §4: fuente, flag boundary, reconciliar FROZEN_RUN | M6 | ⬜ | 1 |
 | 16 | Columna de señal de deflexión por par + estratificación de utilidad | M7 | ✅ columna `deflection_dv_m_s` en el catálogo + §2.4 con ranking por señal (781 pares >1 mm/s, top = Ceres/Vesta) y estratificación | 1 |
@@ -46,7 +46,7 @@
 | 18 | Injection-recovery de detección como test permanente | M10 | ✅ harness + test CI; 200/200, \|Δd\|≤1.2e-10 AU | 1 |
 | 19 | Alinear docs de prefiltro con la corrección 2026-05-31 | M11 | ✅ 2026-07-04 | — |
 | 20 | Documentar mezcla de propagadores en `dist_au` (híbrido) | M12 | ⬜ | 1 |
-| 21 | Criterio de identificabilidad por verosimilitud perfilada | M13 | ⬜ | 6 |
+| 21 | Criterio de identificabilidad por verosimilitud perfilada | M13 | ✅ `src/orbdet/identifiability.py` (Δχ²(M=0) cuadrático+perfil exacto, false_alarm_probability con frontera M≥0); en build_mass_catalog en paralelo al snr_jack; 10 tests. Perfil marca 13/15 vs 9 por jack → confirma que son cantidades distintas | 6 |
 | 22 | Cuenta a priori de S/N de deflexión en el paper | M14 | ⬜ | — |
 
 ### Menores
