@@ -1,9 +1,12 @@
 # Plan de remediación — hallazgos del tribunal científico
 
-> **Estado:** 🔶 EN CURSO — fixes de código de las Tareas 1, 6, 23 (parcial) y 25 (parcial)
-> implementados en la branch `fix/tribunal-remediation-core` (sin commitear; ver
-> Apéndice A). El catálogo congelado **aún no fue regenerado**.
-> **Última actualización:** 2026-07-04
+> **Estado:** 🟢 AVANZADO — catálogo **regenerado** (`_b1fix`, 80.072.774 filas; B1/B10
+> cerrados) y caracterizado; **10/10 bloqueantes cerrados o sustancialmente**;
+> mayores M1/M3/M4/M7/M8-9/M10/M11/M12/M13 cerrados. Todo en la branch
+> `fix/tribunal-remediation-core` (PR #102, CI verde, paper 11 pp.). Restan:
+> corridas pesadas (Stage B híbrido, re-fit de masas sobre targets b1fix),
+> menores (M5/M6/M14, C11-C19) y submission (Tarea 28, author-owned).
+> **Última actualización:** 2026-07-08
 > Plan para cerrar los hallazgos de `docs/tribunal_cientifico_2026-07-04.md`
 > (10 bloqueantes, 14 mayores, 19 menores) y llevar el paper de "rechazo probable en
 > A&A" a "publicable en A&A". **Criterio de éxito:** los 10 bloqueantes cerrados con su
