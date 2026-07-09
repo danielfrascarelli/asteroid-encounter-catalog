@@ -26,7 +26,7 @@
 |---|-------|-----|--------|-----------|-----------------|
 | 1 | Fix ventana de refinamiento + regenerar catálogo | B1 | ✅ **REGENERADO**: `encounters_catalog_rebound_005au_b1fix.parquet` (80.072.774 filas); histograma de offset jd_tdb **plano** (pico [1.75,2.25]h: 76%→8.1%); gate 4 cuerpos OK; sidecar escrito | — | `src/detect/refine.py`, freeze nuevo |
 | 2 | Root-cause del miss (804)×(733) | B10 | ✅ **presente en el catálogo b1fix a 0.013547 AU** (coincide JPL 0.0138); causa raíz confirmada = B1 (recorte de ventana) | 1 | doc en `docs/` |
-| 3 | Declarar universo muestral y N + sidecars completos | B2 | 🔶 sidecar `universe` + §2.1 del tex declaran corte a∈[1.5,4.0] y N=449.454; falta rehacer extrapolación N² (post-regen) | 1 | sidecar, §2 del tex |
+| 3 | Declarar universo muestral y N + sidecars completos | B2 | ✅ sidecar `universe` + §2.1 declaran corte a∈[1.5,4.0] y N=449.454; extrapolación N² reanclada explícitamente en N=449.454 (factor (449454/10000)²≈2e3 × 17.469 pares → ~3.5e7 → 1.5-2.5e5 censurados), verificable | 1 | sidecar, §2 del tex |
 | 4 | Diámetros/albedos medidos + regenerar §4 | B3 | ✅ catálogo caracterizado b1fix con diámetros medidos (27.9M measured); tab:dd100 (2→12 pares) y tab:dd50 regeneradas; claim "no new large-large" corregido en abstract/§4.1/§4.5/§7. Iris×Nysa SALE, Nemausa×Aegina ENTRA (confirmado). tab:closest/slowest → con Tarea 5 (σ) | 1 | `src/characterize/`, tablas §4 |
 | 5 | Presupuesto de completitud honesto (σ elementos + injection-recovery) | B4 | 🔶 §3 renombrado a pipeline-induced + término de elementos como cota (10³-10⁴ km) + injection-recovery citado; tab:closest/genético marcados no-significativos. Falta propagación MC de covarianzas AstDyS (diferido) | 1 | `docs/`, §3 del tex |
 | 6 | σ de masas defendible (leverage, N mín, bootstrap) | B6 | 🔶 catálogo listo; falta bootstrap | — | `src/orbdet/`, `mass_catalog` |
@@ -59,7 +59,7 @@
 | 23 | Lote de correcciones de código/comentarios de bajo riesgo | C1–C8 | ✅ C1–C8 hechos |
 | 24 | Lote de correcciones de texto/figuras del paper | C9–C15 | ✅ C9/C10/C11/C12/C13/C15 hechos (C11 def Gaia-observable ya estaba; C12 N(<d)∝d² como diagnóstico de censura; C13 reescrito como software statement). C14 = Tarea 26 |
 | 25 | Reproducibilidad: sidecars, hashes, desempate determinista | C16 | 🔶 desempate hecho |
-| 26 | F3: reformular gate como Δmasa pareada | C14 | 🔶 gate reformulado y PASA (máx 0.23 % < 0.25 %); falta cota de escala |
+| 26 | F3: reformular gate como Δmasa pareada | C14 | ✅ gate = Δmasa pareada PASA (máx 0.23 % < 0.25 %) + cota de escala: cola no modelada ~7e20 kg (>1e5 cuerpos <5e18 kg c/u), acotada muy por debajo del gate; no puede producir el déficit -4 % |
 | 27 | Limpieza de refs y tablas menores del paper | C17–C19 | ✅ C17 (fuentesmunoz2024 eliminada, 0 refs); C18 (columna masa FM25 + texto: cross-check no new-mass); C19 (muestra estratificada, no "representative"; fig3 = subsample sesgado) |
 | 28 | Mecánica de submission (DOI CDS/VizieR, autores, acks, software) | — | ⬜ |
 
