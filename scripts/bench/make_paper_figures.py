@@ -409,9 +409,7 @@ def figure3_aei_map() -> tuple[list[Path], int]:
         n_encountering_bodies,
     )
 
-    orbits = pl.read_parquet(
-        ORBITS_PARQUET, columns=["number", "a_au", "e", "i_deg"]
-    ).drop_nulls()
+    orbits = pl.read_parquet(ORBITS_PARQUET, columns=["number", "a_au", "e", "i_deg"]).drop_nulls()
     df = orbits.join(unique_bodies, on="number", how="inner")
     n_with_orbit = df.height
     if n_with_orbit != n_encountering_bodies:
