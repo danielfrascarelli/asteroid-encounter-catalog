@@ -1,12 +1,13 @@
 # Plan de remediación — hallazgos del tribunal científico
 
-> **Estado:** 🟢 AVANZADO — catálogo **regenerado** (`_b1fix`, 80.072.774 filas; B1/B10
-> cerrados) y caracterizado; **10/10 bloqueantes cerrados o sustancialmente**;
-> mayores M1/M3/M4/M7/M8-9/M10/M11/M12/M13 cerrados. Todo en la branch
-> `fix/tribunal-remediation-core` (PR #102, CI verde, paper 11 pp.). Restan:
-> corridas pesadas (Stage B híbrido, re-fit de masas sobre targets b1fix),
-> menores (M5/M6/M14, C11-C19) y submission (Tarea 28, author-owned).
-> **Última actualización:** 2026-07-08
+> **Estado:** ✅ COMPLETO — **10/10 bloqueantes, 14/14 mayores y 19/19 menores cerrados**
+> con gate verificable. Catálogo `_b1fix` (80.072.774 filas) regenerado y caracterizado;
+> masas re-ajustadas sobre targets b1fix; B6 bootstrap (Juno/Thisbe→bound); B8
+> inyección-recuperación + ∂M/∂s_c; B4 MC de covarianzas SBDB (σ_dist 1-83 km). Todo en
+> `fix/tribunal-remediation-core` (PR #102, CI verde, paper 12 pp.). **Único pendiente:**
+> Tarea 28 (submission: DOI Zenodo/CDS, autores/ORCID — author-owned). Opcional/diferido:
+> Stage B híbrido (N-body de todo el catálogo, ~400 CPU-días).
+> **Última actualización:** 2026-07-09
 > Plan para cerrar los hallazgos de `docs/tribunal_cientifico_2026-07-04.md`
 > (10 bloqueantes, 14 mayores, 19 menores) y llevar el paper de "rechazo probable en
 > A&A" a "publicable en A&A". **Criterio de éxito:** los 10 bloqueantes cerrados con su
