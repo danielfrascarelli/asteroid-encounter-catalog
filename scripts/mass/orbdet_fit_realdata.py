@@ -85,6 +85,7 @@ from src.orbdet.gaia_adapter import (
 from src.orbdet.kepler import KeplerElements
 from src.orbdet.mass_determination import (
     TargetObservations,
+    bootstrap_mass_sigma,
     calibrate_sys_floor,
     determine_shared_mass,
     jackknife_mass_sigma,
@@ -898,6 +899,46 @@ def _run_perturber(
             time.time() - t0,
         )
 
+    # B6 — σ por bootstrap no paramétrico (resampleo de objetivos con reemplazo).
+    # Robusta al leverage extremo que hace a σ_jack depender de ~1 réplica; se
+    # reporta como diagnóstico junto a σ_jack (no la reemplaza en la σ oficial).
+    sigma_boot_kg = math.nan
+    boot_ci95_kg = None
+    boot_n_failed = None
+    if getattr(args, "bootstrap", 0):
+        t0 = time.time()
+        boot = bootstrap_mass_sigma(
+            targets_final,
+            mass_msun,
+            fitted,
+            perturber_elements,
+            common_epoch,
+            n_boot=int(args.bootstrap),
+            seed=int(getattr(args, "seed", 42)),
+            perturber_name=pname,
+            background_perturbers=background,
+            backend="assist",
+            gr=True,
+            sys_floor_mas=sys_floor,
+            max_iter=args.max_iter,
+            n_workers=args.workers,
+        )
+        sigma_boot_kg = float(boot.sigma_boot_msun * M_SUN_KG)
+        boot_n_failed = int(boot.n_failed)
+        if math.isfinite(boot.ci95_msun[0]):
+            boot_ci95_kg = [
+                float(boot.ci95_msun[0] * M_SUN_KG),
+                float(boot.ci95_msun[1] * M_SUN_KG),
+            ]
+        logger.info(
+            "bootstrap (B=%d, %d fallidas): σ_boot=%.3e kg vs σ_jack=%.3e kg (%.0fs)",
+            int(args.bootstrap),
+            boot_n_failed,
+            sigma_boot_kg,
+            sigma_jack_kg,
+            time.time() - t0,
+        )
+
     # σ reportada = mayor entre formal y jackknife (cuando esta última está disponible).
     sigma_candidates = [s for s in (sigma_formal_kg, sigma_jack_kg) if math.isfinite(s) and s > 0]
     sigma_kg = max(sigma_candidates) if sigma_candidates else math.nan
@@ -924,6 +965,9 @@ def _run_perturber(
         "mass_fit_sigma_jack_kg": (sigma_jack_kg if math.isfinite(sigma_jack_kg) else None),
         "jackknife_n_failed": jack_n_failed,
         "jackknife_masses_kg": jack_masses_kg,
+        "mass_fit_sigma_boot_kg": (sigma_boot_kg if math.isfinite(sigma_boot_kg) else None),
+        "bootstrap_ci95_kg": boot_ci95_kg,
+        "bootstrap_n_failed": boot_n_failed,
         "mass_fit_msun": float(mass_msun),
         "chi2": float(result.chi2),
         "dof": int(result.dof),
@@ -1076,6 +1120,21 @@ def main() -> int:
         action="store_true",
         help="estima σ(masa) externa por jackknife dejar-un-objetivo-fuera (F1); "
         "reporta max(σ_formal, σ_jack). Coste: ~N ajustes tibios extra por perturbador",
+    )
+    parser.add_argument(
+        "--bootstrap",
+        type=int,
+        default=0,
+        metavar="B",
+        help="estima σ(masa) por bootstrap no paramétrico con B muestras (B6); "
+        "robusta al leverage extremo que domina σ_jack. Coste: ~B ajustes tibios "
+        "extra por perturbador (0 = desactivado)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="semilla del RNG para el resampleo bootstrap (reproducibilidad)",
     )
     parser.add_argument("--out", type=Path, default=None, help="JSON de salida (perturbador único)")
     parser.add_argument(

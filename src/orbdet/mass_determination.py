@@ -680,6 +680,31 @@ class JackknifeResult:
     n_failed: int
 
 
+@dataclass(frozen=True)
+class BootstrapResult:
+    """Resultado del bootstrap no paramétrico (resampleo de objetivos) sobre σ(masa).
+
+    A diferencia del jackknife (``N`` réplicas dejar-uno-fuera, sensible a que una
+    sola réplica domine la varianza cuando hay leverage extremo — B6 del tribunal),
+    el bootstrap resamplea los ``N`` objetivos **con reemplazo** ``B`` veces y
+    re-ajusta la masa en cada muestra. Un objetivo de alto leverage no está en todas
+    las muestras, así que su influencia se promedia: la σ y el intervalo percentil
+    resultantes son robustos al problema de ~1 grado de libertad efectivo.
+
+    ``sigma_boot_msun`` es la desviación estándar de las masas bootstrap;
+    ``ci95_msun`` es el intervalo percentil (2.5, 97.5); ``masses_msun`` las ``B``
+    masas; ``mean_msun``/``median_msun`` sus estadísticos; ``n_failed`` las muestras
+    con masa no finita (excluidas).
+    """
+
+    sigma_boot_msun: float
+    ci95_msun: tuple[float, float]
+    masses_msun: np.ndarray
+    mean_msun: float
+    median_msun: float
+    n_failed: int
+
+
 def jackknife_mass_sigma(
     targets: list[TargetObservations],
     mass_msun: float,
@@ -799,11 +824,122 @@ def jackknife_mass_sigma(
     )
 
 
+def bootstrap_mass_sigma(
+    targets: list[TargetObservations],
+    mass_msun: float,
+    fitted_elements: list[KeplerElements],
+    perturber_elements: KeplerElements,
+    epoch_jd_tdb: float,
+    *,
+    n_boot: int = 200,
+    seed: int = 42,
+    perturber_name: str = "perturber",
+    background_perturbers: tuple[AsteroidPerturber, ...] = (),
+    perturbers: tuple[str, ...] = DEFAULT_PERTURBERS,
+    integrator: str = "ias15",
+    dt_days: float = 1.0,
+    n_lighttime_iter: int = 3,
+    gm_rel_delta: float = 1e-3,
+    backend: str = "assist",
+    gr: bool = True,
+    sys_floor_mas: float = 0.0,
+    max_iter: int = 40,
+    n_workers: int = 1,
+    **lm_kwargs,
+) -> BootstrapResult:
+    """σ(masa) por bootstrap no paramétrico resampleando objetivos con reemplazo.
+
+    Cierra el hueco B6: cuando ``σ_jack`` queda dominada por una sola réplica
+    (leverage top-1 > 0.5, ~1 gdl efectivo), el bootstrap da una σ y un intervalo
+    percentil que no dependen de un único encuentro. Cada muestra bootstrap toma
+    ``N`` objetivos con reemplazo del conjunto ajustado y re-ajusta la masa
+    compartida con **warm-start** (semilla ``mass_msun`` y los ``fitted_elements``),
+    así que cada re-ajuste converge en pocas iteraciones LM.
+
+    Parameters
+    ----------
+    n_boot
+        Número de muestras bootstrap (default 200).
+    seed
+        Semilla del RNG numpy para reproducibilidad (config.seed).
+
+    Returns
+    -------
+    BootstrapResult
+        Requiere ``N ≥ 3``; con menos, ``sigma_boot_msun`` es ``nan``.
+    """
+    n = len(targets)
+    if n != len(fitted_elements):
+        raise ValueError("targets y fitted_elements deben tener la misma longitud")
+    warm = [dataclasses.replace(t, initial_elements=el) for t, el in zip(targets, fitted_elements)]
+    if n < 3:
+        return BootstrapResult(
+            sigma_boot_msun=float("nan"),
+            ci95_msun=(float("nan"), float("nan")),
+            masses_msun=np.array([], dtype=float),
+            mean_msun=float("nan"),
+            median_msun=float("nan"),
+            n_failed=0,
+        )
+
+    rng = np.random.default_rng(seed)
+    replicate_masses: list[float] = []
+    n_failed = 0
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        sample = [warm[j] for j in idx]
+        m_b, _fitted_b, _result_b = determine_shared_mass(
+            sample,
+            float(mass_msun),
+            perturber_elements,
+            epoch_jd_tdb,
+            perturber_name=perturber_name,
+            background_perturbers=background_perturbers,
+            perturbers=perturbers,
+            integrator=integrator,
+            dt_days=dt_days,
+            n_lighttime_iter=n_lighttime_iter,
+            gm_rel_delta=gm_rel_delta,
+            backend=backend,
+            gr=gr,
+            sys_floor_mas=sys_floor_mas,
+            max_iter=max_iter,
+            n_workers=n_workers,
+            **lm_kwargs,
+        )
+        if not np.isfinite(m_b):
+            n_failed += 1
+            continue
+        replicate_masses.append(float(m_b))
+
+    masses = np.asarray(replicate_masses, dtype=float)
+    if masses.size < 3:
+        return BootstrapResult(
+            sigma_boot_msun=float("nan"),
+            ci95_msun=(float("nan"), float("nan")),
+            masses_msun=masses,
+            mean_msun=float(masses.mean()) if masses.size else float("nan"),
+            median_msun=float(np.median(masses)) if masses.size else float("nan"),
+            n_failed=n_failed,
+        )
+    lo, hi = np.percentile(masses, [2.5, 97.5])
+    return BootstrapResult(
+        sigma_boot_msun=float(masses.std(ddof=1)),
+        ci95_msun=(float(lo), float(hi)),
+        masses_msun=masses,
+        mean_msun=float(masses.mean()),
+        median_msun=float(np.median(masses)),
+        n_failed=n_failed,
+    )
+
+
 __all__ = [
     "TargetObservations",
     "JackknifeResult",
+    "BootstrapResult",
     "determine_mass_and_orbit",
     "determine_shared_mass",
     "calibrate_sys_floor",
     "jackknife_mass_sigma",
+    "bootstrap_mass_sigma",
 ]
