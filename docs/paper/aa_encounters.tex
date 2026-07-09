@@ -373,17 +373,23 @@ censoring, prefilter recall) all compare the \emph{same} input elements under
 different force models or cuts, so they quantify \emph{pipeline-induced}
 incompleteness, not the physical completeness of the true encounter set. A
 fourth term --- the uncertainty of the input osculating elements themselves ---
-is \emph{not} propagated here and is treated as a bound: for numbered main-belt
-asteroids the along-track error grows with $|t-t_{\rm epoch}|$ and, over the
-$\pm1.4$\,yr window, ranges from sub-km for long-arc bodies to $10^3$--$10^4$\,km
-for short-arc, faint, high-number ones. It does not affect the completeness
-\emph{fractions} below (those are pipeline-internal) but it does bound the
+we quantify directly by Monte Carlo for the bodies of the extreme-event tables:
+for each we draw $3000$ orbits from its full JPL SBDB covariance, propagate them
+under the \emph{same} two-body model the catalogue uses, and take the scatter of
+the resulting mutual distance. The propagated $1\sigma$ is small --- 1--83\,km
+(median $\approx32$\,km) over the $\pm1.4$\,yr window --- because the catalogue's
+universe is \emph{numbered} asteroids, whose multi-opposition orbits are secure;
+the $10^3$--$10^4$\,km one would fear applies to short-arc objects, which are not
+in the sample. This term does not affect the completeness \emph{fractions} below
+(those are pipeline-internal), and it now sets, rather than merely bounds, the
 physical significance of individual tabulated distances (Sect.~\ref{sec:extreme},
-Sect.~\ref{sec:family}). A full propagation of AstDyS/JPL element covariances is
-deferred to a future release. Each measured term is reproducible from a dedicated
-script; a synthetic injection--recovery test (minima placed uniformly between
-coarse samples, high $v_{\rm rel}$ and $e$) is a permanent regression guard on
-the detection layer.
+Sect.~\ref{sec:family}): the closest approaches are significant to $\sim$2--8\,\%
+and the wider extreme events to $\ll1$\,\%. These are formal SBDB covariances,
+which can be optimistic by a factor of a few for the faintest bodies; even so the
+conclusion (tens of km, not $10^3$--$10^4$) is unchanged. Each measured term is
+reproducible from a dedicated script; a synthetic injection--recovery test (minima
+placed uniformly between coarse samples, high $v_{\rm rel}$ and $e$) is a permanent
+regression guard on the detection layer.
 
 \subsection{Kepler vs N-body refinement error}
 \label{sec:refineerror}
@@ -632,17 +638,16 @@ body 1 & body 2 & date (UTC) & dist (AU) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
 \label{sec:extreme}
 
 The absolute closest approaches in the catalogue are between small bodies, at
-separations of $\sim$1000--2000\,km (Table~\ref{tab:closest}). These separations
-are \emph{geometric values under the frozen input elements}: the along-track
-uncertainty of the osculating elements is not propagated here, and for the
-short-arc, faint, high-number bodies involved it can reach $10^3$--$10^4$\,km
-over the $\pm1.4$\,yr propagation from the snapshot epoch --- comparable to or
-larger than the tabulated separations. The tabulated distances are therefore
-\emph{not significant to the quoted precision}; they identify candidate very-close
-approaches whose reality requires per-object orbit refinement, and the sub-mAU
-figures should be read as order-of-magnitude, not measurements. Two-body
-propagation is also most fragile here, so these are precisely the events most in
-need of N-body revalidation.
+separations of $\sim$1000--2000\,km (Table~\ref{tab:closest}). We propagated each
+body's JPL SBDB covariance by Monte Carlo (Sect.~\ref{sec:completeness}) to attach
+an input-element $1\sigma$ to these distances (last column): they are $32$--$83$\,km,
+i.e.\ $\sim$2--8\,\% of the separation, so the closest approaches are significant
+well below their own value --- not the order-of-magnitude figures a short-arc
+population would give. The two remaining caveats are that these are formal
+covariances (optimistic by up to a few$\times$ for the faintest bodies) and that
+two-body propagation is most fragile at the smallest separations, so N-body
+revalidation (Sect.~\ref{sec:refineerror}) is still advisable before any individual
+approach is claimed as physical.
 
 The slowest encounters (relative velocity down to $\sim$4\,m/s, with at least
 one body $D\gtrsim5$\,km; Table~\ref{tab:slowest}) are the natural targets for
@@ -657,27 +662,28 @@ of the highest physical interest, being the configuration that maximises
 measurable deflection.
 
 \begin{table*}
-\caption{The five closest approaches in the catalogue. Distances are geometric
-under the frozen input elements; the input-element uncertainty (unpropagated,
-$\sim$$10^3$--$10^4$\,km for these short-arc bodies) is not significant to the
-quoted precision (see text). All bodies here are small, high-number objects with
-no measured size: the tabulated diameters are derived from the absolute
-magnitude $H$ and an assumed (zone or default) albedo, not measured
+\caption{The five closest approaches in the catalogue. $\sigma_d$ is the
+input-element $1\sigma$ on the separation, from a Monte-Carlo propagation of each
+body's JPL SBDB covariance under the catalogue's two-body model
+(Sect.~\ref{sec:completeness}); at 2--8\,\% of the distance it leaves the closest
+approaches significant well below their own value. All bodies here are small,
+high-number objects with no measured size: the tabulated diameters are derived from
+the absolute magnitude $H$ and an assumed (zone or default) albedo, not measured
 (Sect.~\ref{sec:characterisation}). Every event lies $>130$\,d from either window
 edge, so none is a boundary-truncation artefact.}
 \label{tab:closest}
 \centering
 \small
-\begin{tabular}{llccccc}
+\begin{tabular}{llcccccc}
 \hline\hline
-body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
-       &        &            &           & (km/s)        & (km)  & (km)  \\
+body 1 & body 2 & date (UTC) & dist (km) & $\sigma_d$ (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
+       &        &            &           &                 & (km/s)        & (km)  & (km)  \\
 \hline
-(153222) 2000 YD43  & (238587) 2004 YX3   & 2016-03-11 & 1094 & 6.90 & 2.8 & 1.8 \\
-(279617) 2011 EP37  & (219812) 2002 AM193 & 2016-06-16 & 1109 & 2.60 & 2.2 & 1.9 \\
-(238813) 2005 NT70  & (391704) 2008 BB44  & 2017-03-13 & 1320 & 5.95 & 5.1 & 2.2 \\
-(305032) 2007 TT418 & (393772) 2005 GV146 & 2016-07-12 & 1457 & 3.46 & 1.6 & 1.3 \\
-(73282) 2002 JH61   & (261459) 2005 VP69  & 2015-04-01 & 1719 & 1.48 & 2.0 & 2.0 \\
+(153222) 2000 YD43  & (238587) 2004 YX3   & 2016-03-11 & 1094 & 83 & 6.90 & 2.8 & 1.8 \\
+(279617) 2011 EP37  & (219812) 2002 AM193 & 2016-06-16 & 1109 & 50 & 2.60 & 2.2 & 1.9 \\
+(238813) 2005 NT70  & (391704) 2008 BB44  & 2017-03-13 & 1320 & 56 & 5.95 & 5.1 & 2.2 \\
+(305032) 2007 TT418 & (393772) 2005 GV146 & 2016-07-12 & 1457 & 39 & 3.46 & 1.6 & 1.3 \\
+(73282) 2002 JH61   & (261459) 2005 VP69  & 2015-04-01 & 1719 & 32 & 1.48 & 2.0 & 2.0 \\
 \hline
 \end{tabular}
 \end{table*}
@@ -740,10 +746,11 @@ elements, and flags rather than confirms family membership. The closest such
 pair, (200764) 2001 XP3 $\times$ (131597) 2001 XT2, passed within
 $\sim$$5\times10^4$\,km on 2014-08-13 with nearly identical $(a, e, i)$ ---
 $a\approx2.29$\,AU, $e\approx0.19$, $i\approx25\degr$ for both --- a plausible
-genetic pair worth follow-up in proper-element space. As for the closest
-approaches, this separation is geometric under the frozen elements and carries an
-unpropagated element uncertainty of comparable order, so it is not significant to
-better than order-of-magnitude.
+genetic pair worth follow-up in proper-element space. The Monte-Carlo
+input-element $1\sigma$ on this separation (Sect.~\ref{sec:completeness}) is only
+$\sim$1\,km against the $\sim$$5\times10^4$\,km approach, so unlike the sub-1000\,km
+extreme approaches this separation is well determined; the caveat here is the proper
+-vs-osculating element distinction, not the distance precision.
 
 \subsection{Candidate perturbers beyond the studied sixteen}
 \label{sec:candperturbers}
