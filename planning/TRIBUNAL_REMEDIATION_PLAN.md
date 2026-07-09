@@ -25,7 +25,7 @@
 | 2 | Root-cause del miss (804)×(733) | B10 | ✅ **presente en el catálogo b1fix a 0.013547 AU** (coincide JPL 0.0138); causa raíz confirmada = B1 (recorte de ventana) | 1 | doc en `docs/` |
 | 3 | Declarar universo muestral y N + sidecars completos | B2 | 🔶 sidecar `universe` + §2.1 del tex declaran corte a∈[1.5,4.0] y N=449.454; falta rehacer extrapolación N² (post-regen) | 1 | sidecar, §2 del tex |
 | 4 | Diámetros/albedos medidos + regenerar §4 | B3 | ✅ catálogo caracterizado b1fix con diámetros medidos (27.9M measured); tab:dd100 (2→12 pares) y tab:dd50 regeneradas; claim "no new large-large" corregido en abstract/§4.1/§4.5/§7. Iris×Nysa SALE, Nemausa×Aegina ENTRA (confirmado). tab:closest/slowest → con Tarea 5 (σ) | 1 | `src/characterize/`, tablas §4 |
-| 5 | Presupuesto de completitud honesto (σ elementos + injection-recovery) | B4 | ⬜ | 1 | `docs/`, §3 del tex |
+| 5 | Presupuesto de completitud honesto (σ elementos + injection-recovery) | B4 | 🔶 §3 renombrado a pipeline-induced + término de elementos como cota (10³-10⁴ km) + injection-recovery citado; tab:closest/genético marcados no-significativos. Falta propagación MC de covarianzas AstDyS (diferido) | 1 | `docs/`, §3 del tex |
 | 6 | σ de masas defendible (leverage, N mín, bootstrap) | B6 | 🔶 catálogo listo; falta bootstrap | — | `src/orbdet/`, `mass_catalog` |
 | 7 | Cruce FM con potencia + una sola σ oficial | B7 | 🔶 script con potencia+test de signo+z_total; falta σ oficial y doc/§5 | 6 | `docs/mass_crosscheck_jack.md`, §5 |
 | 8 | Validación de calibradores no circular (LOCO) + inyección end-to-end | B8 | 🔶 LOCO hecho y PASA (max \|z\|=1.40); falta ∂M/∂s_c e inyección | 6 | `scripts/mass/`, `docs/` |

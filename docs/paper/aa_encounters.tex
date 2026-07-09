@@ -323,8 +323,23 @@ biased subset.
 
 The value of this catalogue is not that it detects encounters --- that is a bulk
 propagation --- but that it states, with measured numbers, what it \emph{misses}
-and how large the Kepler-vs-N-body distortion is. Three quantities are measured;
-each is reproducible from a dedicated script.
+and how large the Kepler-vs-N-body distortion is. We stress the scope: the three
+\emph{measured} terms below (Kepler-vs-N-body refinement error, threshold
+censoring, prefilter recall) all compare the \emph{same} input elements under
+different force models or cuts, so they quantify \emph{pipeline-induced}
+incompleteness, not the physical completeness of the true encounter set. A
+fourth term --- the uncertainty of the input osculating elements themselves ---
+is \emph{not} propagated here and is treated as a bound: for numbered main-belt
+asteroids the along-track error grows with $|t-t_{\rm epoch}|$ and, over the
+$\pm1.4$\,yr window, ranges from sub-km for long-arc bodies to $10^3$--$10^4$\,km
+for short-arc, faint, high-number ones. It does not affect the completeness
+\emph{fractions} below (those are pipeline-internal) but it does bound the
+physical significance of individual tabulated distances (Sect.~\ref{sec:extreme},
+Sect.~\ref{sec:family}). A full propagation of AstDyS/JPL element covariances is
+deferred to a future release. Each measured term is reproducible from a dedicated
+script; a synthetic injection--recovery test (minima placed uniformly between
+coarse samples, high $v_{\rm rel}$ and $e$) is a permanent regression guard on
+the detection layer.
 
 \subsection{Kepler vs N-body refinement error}
 \label{sec:refineerror}
@@ -552,31 +567,39 @@ body 1 & body 2 & date (UTC) & dist (AU) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
 \end{tabular}
 \end{table*}
 
-% TODO(Tarea 5/M6): tab:closest, tab:slowest, tab:largeslowclose below still
-% carry values from the pre-B1 frozen catalogue (row 1 of tab:closest matches the
-% b1fix regen at 1094 km; rows 2-5 differ). Regenerate from
-% encounters_characterized_b1fix.parquet AND attach a per-row / per-stratum
-% sigma(d_min) from the input-element covariance (tribunal B4), plus a
-% boundary_minimum flag (M6), before submission.
 \subsection{Extreme events}
 \label{sec:extreme}
 
 The absolute closest approaches in the catalogue are between small bodies, at
-separations of $\sim$1000--7000\,km (Table~\ref{tab:closest}). At these
-separations two-body propagation is most fragile, so these are precisely the
-events most in need of N-body revalidation; those that survive are the
-geometrically most striking events in the dataset.
+separations of $\sim$1000--2000\,km (Table~\ref{tab:closest}). These separations
+are \emph{geometric values under the frozen input elements}: the along-track
+uncertainty of the osculating elements is not propagated here, and for the
+short-arc, faint, high-number bodies involved it can reach $10^3$--$10^4$\,km
+over the $\pm1.4$\,yr propagation from the snapshot epoch --- comparable to or
+larger than the tabulated separations. The tabulated distances are therefore
+\emph{not significant to the quoted precision}; they identify candidate very-close
+approaches whose reality requires per-object orbit refinement, and the sub-mAU
+figures should be read as order-of-magnitude, not measurements. Two-body
+propagation is also most fragile here, so these are precisely the events most in
+need of N-body revalidation.
 
-The slowest encounters (relative velocity down to $\sim$6\,m/s, with at least
+The slowest encounters (relative velocity down to $\sim$4\,m/s, with at least
 one body $D\gtrsim5$\,km; Table~\ref{tab:slowest}) are the natural targets for
 future mass determination, since a low $v_{\rm rel}$ prolongs the gravitational
-interaction and enlarges the deflection. The combined ``large\,+\,slow\,+\,close''
-set (one body $D\gtrsim50$\,km, $v_{\rm rel}\leq1$\,km/s, dist $\leq10^6$\,km;
-Table~\ref{tab:largeslowclose}) is of the highest physical interest, being the
-configuration that maximises measurable deflection.
+interaction and enlarges the deflection. All entries lie well inside the
+observation window ($>130$\,d from either edge), so none is a window-boundary
+truncation artefact --- a failure mode of the pre-2026-07 catalogue that the
+refinement-window fix (Sect.~\ref{sec:method}) removed. The combined
+``large\,+\,slow\,+\,close'' set (one body $D\gtrsim50$\,km,
+$v_{\rm rel}\leq1$\,km/s, dist $\leq10^6$\,km; Table~\ref{tab:largeslowclose}) is
+of the highest physical interest, being the configuration that maximises
+measurable deflection.
 
 \begin{table*}
-\caption{The five closest approaches in the catalogue.}
+\caption{The five closest approaches in the catalogue. Distances are geometric
+under the frozen input elements; the input-element uncertainty (unpropagated,
+$\sim$$10^3$--$10^4$\,km for these short-arc bodies) is not significant to the
+quoted precision (see text).}
 \label{tab:closest}
 \centering
 \small
@@ -585,11 +608,11 @@ configuration that maximises measurable deflection.
 body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
        &        &            &           & (km/s)        & (km)  & (km)  \\
 \hline
-(153222) 2000 YD43 & (238587) 2004 YX3  & 2016-03-11 & 1094 & 6.90 & 2.82 & 1.78 \\
-(15072) Landolt    & (387599) 2001 XF180 & 2014-12-08 & 1760 & 5.87 & 3.24 & 1.62 \\
-(270730) 2002 QE130 & (366918) 2005 UC211 & 2016-05-29 & 2291 & 3.10 & 1.62 & 1.18 \\
-(117065) 2004 KD9  & (439086) 2011 QP5  & 2015-07-27 & 2535 & 8.25 & 3.72 & 1.86 \\
-(52249) 1981 EK21  & (408138) 2013 CL75 & 2016-11-17 & 2590 & 3.16 & 3.39 & 1.41 \\
+(153222) 2000 YD43  & (238587) 2004 YX3   & 2016-03-11 & 1094 & 6.90 & 2.8 & 1.8 \\
+(279617) 2011 EP37  & (219812) 2002 AM193 & 2016-06-16 & 1109 & 2.60 & 2.2 & 1.9 \\
+(238813) 2005 NT70  & (391704) 2008 BB44  & 2017-03-13 & 1320 & 5.95 & 5.1 & 2.2 \\
+(305032) 2007 TT418 & (393772) 2005 GV146 & 2016-07-12 & 1457 & 3.46 & 1.6 & 1.3 \\
+(73282) 2002 JH61   & (261459) 2005 VP69  & 2015-04-01 & 1719 & 1.48 & 2.0 & 2.0 \\
 \hline
 \end{tabular}
 \end{table*}
@@ -604,11 +627,11 @@ body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
 body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
        &        &            &           & (km/s)        & (km)  & (km)  \\
 \hline
-(3791) Marci    & (110964) 2001 UW170  & 2017-01-18 & $5.85\times10^6$ & 0.006 & 13.5 & 2.46 \\
-(47042) 1998 WP3 & (99861) Tscharnuter & 2014-07-27 & $6.03\times10^6$ & 0.015 & 5.63 & 3.24 \\
-(7203) Sigeki   & (73664) 1981 EE34    & 2015-02-28 & $7.07\times10^6$ & 0.031 & 8.14 & 1.48 \\
-(3384) Daliya   & (309262) 2007 RZ93   & 2016-12-20 & $4.44\times10^6$ & 0.031 & 6.17 & 1.23 \\
-(7479) 1994 EC1 & (14954) 1996 DL      & 2017-05-12 & $7.10\times10^6$ & 0.032 & 6.46 & 3.09 \\
+(141098) 2001 XO52 & (304642) 2006 WL5   & 2015-05-04 & $5.27\times10^6$ & 0.004 & 5.7  & 4.5 \\
+(3791) Marci       & (110964) 2001 UW170 & 2017-01-17 & $5.85\times10^6$ & 0.005 & 11.7 & 2.5 \\
+(7203) Sigeki      & (73664) 1981 EE34   & 2015-03-01 & $7.07\times10^6$ & 0.029 & 5.8  & 1.5 \\
+(136707) 1995 TE6  & (340823) 2006 UY131 & 2015-01-30 & $5.09\times10^6$ & 0.031 & 5.5  & 2.1 \\
+(3384) Daliya      & (309262) 2007 RZ93  & 2016-12-21 & $4.44\times10^6$ & 0.031 & 6.2  & 1.2 \\
 \hline
 \end{tabular}
 \end{table*}
@@ -624,14 +647,12 @@ $v_{\rm rel}\leq1$\,km/s, dist $\leq10^6$\,km).}
 body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
        &        &            &           & (km/s)        & (km)  & (km)  \\
 \hline
-(135) Hertha      & (281202) 2007 FE47  & 2016-09-18 & $4.56\times10^5$ & 0.579 & 80.3 & 1.02 \\
-(371) Bohemia     & (14711) 2000 CG36   & 2016-05-14 & $5.92\times10^5$ & 0.982 & 64.0 & 5.90 \\
-(83) Beatrix      & (170676) 2003 YE180 & 2014-09-18 & $6.10\times10^5$ & 0.684 & 65.8 & 2.14 \\
-(678) Fredegundis & (200373) 2000 QH89  & 2015-03-13 & $6.27\times10^5$ & 0.964 & 55.8 & 2.04 \\
-(9) Metis         & (345254) 2005 UT477 & 2016-10-30 & $7.14\times10^5$ & 0.979 & 197  & 1.23 \\
-(639) Latona      & (10793) Quito       & 2014-12-18 & $7.27\times10^5$ & 0.604 & 81.4 & 10.7 \\
-(16) Psyche       & (139485) 2001 PT14  & 2015-01-19 & $9.66\times10^5$ & 0.869 & 235  & 2.57 \\
-(7) Iris          & (153539) 2001 SD101 & 2015-08-17 & $9.97\times10^5$ & 0.806 & 281  & 2.35 \\
+(223) Rosa    & (315162) 2007 FL24  & 2016-07-01 & $3.55\times10^5$ & 0.133 & 79.8 & 1.7 \\
+(66) Maja     & (271017) 2003 AV10  & 2016-10-13 & $3.87\times10^5$ & 0.564 & 71.8 & 1.9 \\
+(135) Hertha  & (281202) 2007 FE47  & 2016-09-18 & $4.56\times10^5$ & 0.579 & 79.2 & 1.0 \\
+(371) Bohemia & (14711) 2000 CG36   & 2016-05-14 & $5.91\times10^5$ & 0.982 & 53.0 & 4.2 \\
+(83) Beatrix  & (170676) 2003 YE180 & 2014-09-18 & $6.09\times10^5$ & 0.684 & 110  & 2.1 \\
+(9) Metis     & (345254) 2005 UT477 & 2016-10-30 & $7.14\times10^5$ & 0.979 & 190  & 1.2 \\
 \hline
 \end{tabular}
 \end{table*}
@@ -644,10 +665,13 @@ $\Delta e\leq0.02$, $\Delta i\leq1\degr$) \emph{and} that had a physical close
 approach are candidate co-orbital / same-family associations. This is a
 proximity proxy in \emph{osculating} elements, not a classification in proper
 elements, and flags rather than confirms family membership. The closest such
-pair, (200764) 2001 XP3 $\times$ (131597) 2001 XT2, passed within 49\,511\,km on
-2014-08-13 with nearly identical $(a, e, i)$ --- $a\approx2.29$\,AU,
-$e\approx0.19$, $i\approx25\degr$ for both --- a plausible genetic pair worth
-follow-up in proper-element space.
+pair, (200764) 2001 XP3 $\times$ (131597) 2001 XT2, passed within
+$\sim$$5\times10^4$\,km on 2014-08-13 with nearly identical $(a, e, i)$ ---
+$a\approx2.29$\,AU, $e\approx0.19$, $i\approx25\degr$ for both --- a plausible
+genetic pair worth follow-up in proper-element space. As for the closest
+approaches, this separation is geometric under the frozen elements and carries an
+unpropagated element uncertainty of comparable order, so it is not significant to
+better than order-of-magnitude.
 
 \subsection{Candidate perturbers beyond the studied sixteen}
 \label{sec:candperturbers}
