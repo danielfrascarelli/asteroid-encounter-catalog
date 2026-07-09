@@ -782,12 +782,37 @@ single out-of-sixteen perturber with $\sim$50 Gaia-FPR targets yields only a
 coarse determination. Perturber mass is obtained by a joint least-squares
 fit of the perturber's mass and the orbits of its test bodies --- those with a
 $<0.05$\,AU encounter drawn directly from the catalogue --- over the full arc of
-Gaia FPR astrometry \citep{gaiafpr2023}. The force model is ASSIST
-\citep{holman2023} on the JPL DE440 ephemeris \citep{park2021}, with EIH
-relativistic corrections and sixteen massive asteroid perturbers; the
+Gaia FPR astrometry \citep{gaiafpr2023}. A window asymmetry is worth noting: the
+catalogue spans the DR3 window (2014--2017) whereas the fit uses the full FPR arc
+(through $\sim$2020), so a test body's most informative approach could fall
+outside the catalogued window. This asymmetry affects only \emph{target
+selection}, not the model: the perturber is integrated as a massive body
+continuously over the whole arc, so its deflection is modelled at every epoch
+regardless of when the catalogued encounter occurred; the catalogue merely
+identifies which bodies are worth fitting. A test body whose deepest approach is
+post-2017 is therefore not mis-modelled --- at worst it is a good target the
+DR3-window selection misses, making the yield a conservative lower bound. The
+force model is ASSIST \citep{holman2023} on the JPL DE440 ephemeris
+\citep{park2021}, with EIH relativistic corrections and sixteen massive asteroid
+perturbers; the
 fitting layer (observation model, partials, least squares) is implemented in
 this work on top of rebound/ASSIST \citep{rein2012, rein2015ias15, holman2023}
 and astropy \citep{astropy2022}.
+
+\paragraph{A-priori determinability.} The astrometric signature of a perturber
+is the along-scan deflection it imprints on a test body, of order
+$\Delta\theta \sim GM/(b\,v_{\rm rel}\,\Delta)$ for impact parameter $b$,
+relative velocity $v_{\rm rel}$, and geocentric distance $\Delta$. For a
+$\sim$0.02\,AU encounter at a few km\,s$^{-1}$, a perturber of
+$10^{-12}\,M_\odot$ ($\approx2\times10^{18}$\,kg) produces a per-transit
+deflection at or below Gaia's per-CCD along-scan precision, so its
+signal-to-noise is $\lesssim1$ \emph{per target} and it is recoverable only by
+stacking many test bodies; a perturber of $10^{-11}\,M_\odot$
+($\approx2\times10^{19}$\,kg) is individually determinable. This a-priori
+threshold --- set before any fit --- coincides with what the engine delivers:
+the identifiable masses in Table~\ref{tab:sixteen} are all $\gtrsim2\times
+10^{19}$\,kg, while the lighter perturbers fall to bounds. The mass layer does
+not claim sensitivity below this frontier.
 
 \paragraph{Calibrators.} The four calibrator masses (Table~\ref{tab:sixteen})
 are recovered at $|z|<3$ against the literature. With $N\geq20$ test bodies, the
