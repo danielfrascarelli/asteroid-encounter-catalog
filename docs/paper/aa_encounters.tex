@@ -298,8 +298,12 @@ encounter itself.
 The parent population and the encounter statistics are summarised in
 Figs.~\ref{fig:sep}--\ref{fig:aei}. The minimum-separation distribution
 (Fig.~\ref{fig:sep}) rises toward the 0.05\,AU threshold roughly as
-$\mathrm{d}N \propto d^{1.0}$ (log-log histogram slope $1.01$), consistent with a
-near-uniform spatial density of encounter geometries; the relative-velocity
+$\mathrm{d}N \propto d^{1.0}$ (log-log histogram slope $1.01$), so the cumulative
+count grows as $N(<d)\propto d^{2}$ --- exactly the exponent expected for a
+uniform-density planar impact-parameter process (annulus area $\propto d^{2}$).
+The absence of any roll-over as $d\to0.05$\,AU is a free censoring diagnostic: a
+selection function that truncated encounters near the threshold would depress the
+slope in the outermost bin, and none is seen. The relative-velocity
 distribution (Fig.~\ref{fig:relvel}) peaks near its median of
 4.28\,km\,s$^{-1}$, typical of main-belt crossing velocities. The catalogue
 involves 449\,213 distinct encountering bodies; the orbital distribution of the
@@ -348,9 +352,12 @@ Sect.~\ref{sec:mass} draws its test bodies from its high-signal tail.
   inclination, with the inclination marginal at right. Of the 449\,213 distinct
   encountering bodies, osculating elements are available (and plotted, within the
   window shown) for 92\,971; the remainder --- mostly high-number, recently
-  numbered objects absent from the orbital-elements source --- are not shown, so
-  this panel is a representative subsample, not the full population. The 3:1, 5:2
-  and 2:1 mean-motion resonances (Kirkwood gaps) are marked.}
+  numbered objects absent from the orbital-elements source --- are not shown. The
+  omitted subset is \emph{systematically} distinct (fainter, higher-number, and
+  skewed toward the outer belt), so this panel is a biased subsample of the parent
+  population, not a random draw, and the resonance structure it shows is
+  qualitative. The 3:1, 5:2 and 2:1 mean-motion resonances (Kirkwood gaps) are
+  marked.}
   \label{fig:aei}
 \end{figure}
 
@@ -412,8 +419,10 @@ written, so its downward crossing \emph{cannot be observed}. The apparent
 one-sided ``no false negatives'' is therefore censoring, not measurement.
 
 We measured the missing side directly. Re-running Kepler detection at a widened
-0.06\,AU threshold over 10\,000 numbered bodies --- drawn to span the belt in
-$(a, e, i)$ and so representative of the propagated population --- and isolating
+0.06\,AU threshold over 10\,000 numbered bodies --- a \emph{stratified} sample
+drawn to span the belt's $(a, e, i)$ range rather than a density-weighted random
+draw, so the crossing rate estimates the effect uniformly across the belt rather
+than its population-weighted mean --- and isolating
 the 17\,469 pairs with Kepler distance in $[0.05, 0.06)$\,AU --- exactly the band a 0.05\,AU
 catalogue discards --- then re-refining each under full N-body, 0.70\,\%
 [95\,\% CI 0.59--0.83\,\%] cross \emph{downward} below 0.05\,AU (a conservative
@@ -740,28 +749,35 @@ and dist $\leq3\times10^6$\,km) yields the best prospects for a mass
 determination the frozen mass runs have not yet attempted
 (Table~\ref{tab:candperturbers}). (9) Metis heads the list with 37 useful events
 and a best pair at $v_{\rm rel} = 0.38$\,km/s; (29) Amphitrite is the largest
-($D\approx240$\,km) with a close $3.2\times10^5$\,km approach. These candidates
+($D\approx240$\,km) with a close $3.2\times10^5$\,km approach. All ten already
+carry a published mass from \citet{fuentesmunoz2025} (final column), so they are
+validation opportunities rather than genuinely new masses; their appeal is the
+favourable encounter geometry the catalogue surfaces, which would let an
+independent determination be checked against an existing value. These candidates
 directly informed the F4 mass determination of Sect.~\ref{sec:mass}.
 
 \begin{table*}
-\caption{Large bodies outside the studied sixteen, ranked by useful encounters.}
+\caption{Large bodies outside the studied sixteen, ranked by useful encounters.
+The final column gives the published mass of \citet{fuentesmunoz2025} where
+available: all ten already have a determination, so these are cross-check rather
+than new-mass targets.}
 \label{tab:candperturbers}
 \centering
 \small
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccc}
 \hline\hline
-body & $D$ (km) & class & useful & best dist (km) & min $v_{\rm rel}$ (km/s) \\
+body & $D$ (km) & class & useful & best dist (km) & min $v_{\rm rel}$ (km/s) & FM25 mass (kg) \\
 \hline
-(9) Metis       & 197 & MBA & 37 & $7.14\times10^5$ & 0.378 \\
-(30) Urania     & 109 & --  & 36 & $4.40\times10^5$ & 0.817 \\
-(40) Harmonia   & 141 & --  & 36 & $6.58\times10^5$ & 1.028 \\
-(19) Fortuna    & 133 & MBA & 32 & $7.43\times10^5$ & 0.678 \\
-(21) Lutetia    & 120 & --  & 30 & $8.18\times10^5$ & 0.609 \\
-(64) Angelina   & 104 & MBA & 30 & $8.73\times10^5$ & 0.992 \\
-(44) Nysa       & 140 & --  & 30 & $8.95\times10^5$ & 0.961 \\
-(20) Massalia   & 178 & --  & 28 & $8.78\times10^5$ & 0.514 \\
-(29) Amphitrite & 240 & --  & 27 & $3.17\times10^5$ & 0.643 \\
-(27) Euterpe    & 141 & --  & 26 & $4.63\times10^5$ & 0.847 \\
+(9) Metis       & 197 & MBA & 37 & $7.14\times10^5$ & 0.378 & $6.5\times10^{18}$ \\
+(30) Urania     & 109 & --  & 36 & $4.40\times10^5$ & 0.817 & $8.2\times10^{17}$ \\
+(40) Harmonia   & 141 & --  & 36 & $6.58\times10^5$ & 1.028 & $2.0\times10^{18}$ \\
+(19) Fortuna    & 133 & MBA & 32 & $7.43\times10^5$ & 0.678 & $8.5\times10^{18}$ \\
+(21) Lutetia    & 120 & --  & 30 & $8.18\times10^5$ & 0.609 & $1.7\times10^{18}$ \\
+(64) Angelina   & 104 & MBA & 30 & $8.73\times10^5$ & 0.992 & --                 \\
+(44) Nysa       & 140 & --  & 30 & $8.95\times10^5$ & 0.961 & $5.8\times10^{17}$ \\
+(20) Massalia   & 178 & --  & 28 & $8.78\times10^5$ & 0.514 & $4.3\times10^{18}$ \\
+(29) Amphitrite & 240 & --  & 27 & $3.17\times10^5$ & 0.643 & $1.4\times10^{19}$ \\
+(27) Euterpe    & 141 & --  & 26 & $4.63\times10^5$ & 0.847 & $1.5\times10^{18}$ \\
 \hline
 \end{tabular}
 \end{table*}

@@ -48,7 +48,7 @@
 | 17 | Reencuadrar §5 como demo de uso; comparar con Siltala/FM | M8,M9 | 🔶 framing hecho (demo de uso + párrafo Siltala/FM + sin "methodological framework"); falta compresión y números post-regen | 9,10 |
 | 18 | Injection-recovery de detección como test permanente | M10 | ✅ harness + test CI; 200/200, \|Δd\|≤1.2e-10 AU | 1 |
 | 19 | Alinear docs de prefiltro con la corrección 2026-05-31 | M11 | ✅ 2026-07-04 | — |
-| 20 | Documentar mezcla de propagadores en `dist_au` (híbrido) | M12 | ⬜ | 1 |
+| 20 | Documentar mezcla de propagadores en `dist_au` (híbrido) | M12 | ✅ §2.2 párrafo "Membership rule (mixed propagators)": dist_au mezcla two-body (bulk) + N-body (subset frágil); membership = Kepler<0.05; recomendación de filtrar por un solo propagador (refinement_method). Refresh de conteos atado a Stage B b1fix (pendiente) | 1 |
 | 21 | Criterio de identificabilidad por verosimilitud perfilada | M13 | ✅ `src/orbdet/identifiability.py` (Δχ²(M=0) cuadrático+perfil exacto, false_alarm_probability con frontera M≥0); en build_mass_catalog en paralelo al snr_jack; 10 tests. Perfil marca 13/15 vs 9 por jack → confirma que son cantidades distintas | 6 |
 | 22 | Cuenta a priori de S/N de deflexión en el paper | M14 | ✅ §5 párrafo "A-priori determinability": Δθ~GM/(b·v·Δ); 10⁻¹² M☉ S/N≲1/target, 10⁻¹¹ M☉ determinable — coincide con el corte observado (measured ≳2e19 kg) | — |
 
@@ -57,10 +57,10 @@
 | # | tarea | sev | estado |
 |---|-------|-----|--------|
 | 23 | Lote de correcciones de código/comentarios de bajo riesgo | C1–C8 | ✅ C1–C8 hechos |
-| 24 | Lote de correcciones de texto/figuras del paper | C9–C15 | 🔶 C9/C10/C15 hechos; faltan C11–C14 (Fig.1 ley de potencias, etc.) |
+| 24 | Lote de correcciones de texto/figuras del paper | C9–C15 | ✅ C9/C10/C11/C12/C13/C15 hechos (C11 def Gaia-observable ya estaba; C12 N(<d)∝d² como diagnóstico de censura; C13 reescrito como software statement). C14 = Tarea 26 |
 | 25 | Reproducibilidad: sidecars, hashes, desempate determinista | C16 | 🔶 desempate hecho |
 | 26 | F3: reformular gate como Δmasa pareada | C14 | 🔶 gate reformulado y PASA (máx 0.23 % < 0.25 %); falta cota de escala |
-| 27 | Limpieza de refs y tablas menores del paper | C17–C19 | ⬜ |
+| 27 | Limpieza de refs y tablas menores del paper | C17–C19 | ✅ C17 (fuentesmunoz2024 eliminada, 0 refs); C18 (columna masa FM25 + texto: cross-check no new-mass); C19 (muestra estratificada, no "representative"; fig3 = subsample sesgado) |
 | 28 | Mecánica de submission (DOI CDS/VizieR, autores, acks, software) | — | ⬜ |
 
 **Regla de orden:** nada de tocar números del paper (tareas 3–5, 11–16, 24) antes de
