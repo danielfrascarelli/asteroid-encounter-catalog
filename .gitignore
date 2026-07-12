@@ -42,3 +42,6 @@ htmlcov/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+# LaTeX latexmk build state
+*.fdb_latexmk
+*.fls
