@@ -24,9 +24,10 @@ memory whole (there was a prior OOM on this dataset with only ~4 GB free). All
 per-row statistics for figures 1 and 2 are computed as **streaming histogram
 aggregations** with polars lazy + ``engine="streaming"``: we bin ``dist_au`` /
 ``rel_vel_km_s`` inside the query and only pull back the (small) bin-count table.
-The orbital-elements file (fig 3) is tiny (~130 k bodies) and is loaded directly,
-then subsampled to <=100 k points for scatter rendering. Figure 4 uses a small
-validation parquet loaded whole.
+The orbital elements (fig 3) are parsed from the frozen MPCORB snapshot (~449 k
+numbered bodies, full coverage of the encountering universe), joined to the
+encountering bodies, then subsampled to <=100 k points for scatter rendering.
+Figure 4 uses a small validation parquet loaded whole.
 
 Environment notes
 -----------------
@@ -77,7 +78,11 @@ OUT_DIR = Path("data/output/figures")
 # planning/CONTINUATION.md and the B1 remediation notes for context).
 ENCOUNTERS_PARQUET = Path("data/output/encounters_catalog_rebound_005au_b1fix.parquet")
 CHARACTERIZED_PARQUET = Path("data/output/encounters_characterized_b1fix.parquet")
-ORBITS_PARQUET = Path("data/raw/gaia_orbits.parquet")
+# Fig. 3 sources (a,e,i) from the SAME frozen MPCORB snapshot the catalogue was
+# propagated from, so every encountering body has elements (100% coverage). The
+# Gaia DR3 sso_orbits file used previously covered only ~94k bodies (~21%),
+# leaving Fig. 3 a biased subsample (tribunal R2, M5).
+MPCORB_SNAPSHOT = Path("data/raw/mpcorb_archive/MPCORB_20160217.DAT")
 KEPLER_NBODY_PARQUET = Path("data/output/kepler_false_negatives/band_refined.parquet")
 
 THRESHOLD_AU = 0.05
@@ -374,11 +379,13 @@ def figure3_aei_map() -> tuple[list[Path], int]:
 
     The population plotted is the set of bodies that actually participate in
     >=1 detected encounter in :data:`ENCOUNTERS_PARQUET` (union of
-    ``number_1``/``number_2``), joined against the orbit-elements catalogue --
-    *not* every body in the orbit catalogue. A prior version of this figure's
-    caption quoted "93,010 encountering bodies", which was actually just the
-    row count of the full orbit-elements file, not a count of unique bodies
-    with a real encounter. This is fixed here.
+    ``number_1``/``number_2``). Elements come from the frozen MPCORB snapshot
+    (:data:`MPCORB_SNAPSHOT`) that the catalogue was propagated from, so every
+    encountering body has ``(a, e, i)`` and the panel is the full population, not
+    a subsample. An earlier version sourced elements from the Gaia DR3
+    ``sso_orbits`` file, which held only ~94k bodies (~21% of the ~449k
+    encountering universe) and made the panel a biased subsample (tribunal R2,
+    M5); that is fixed here.
 
     Returns
     -------
@@ -389,9 +396,9 @@ def figure3_aei_map() -> tuple[list[Path], int]:
         (for the caption).
     """
     logger.info(
-        "Figure 3: unique encountering bodies from %s, orbits from %s",
+        "Figure 3: unique encountering bodies from %s, elements from %s",
         ENCOUNTERS_PARQUET,
-        ORBITS_PARQUET,
+        MPCORB_SNAPSHOT,
     )
     unique_bodies = (
         pl.concat(
@@ -409,13 +416,25 @@ def figure3_aei_map() -> tuple[list[Path], int]:
         n_encountering_bodies,
     )
 
-    orbits = pl.read_parquet(ORBITS_PARQUET, columns=["number", "a_au", "e", "i_deg"]).drop_nulls()
+    # Elements from the frozen MPCORB snapshot (the propagated source), so every
+    # encountering body has (a,e,i): 100% coverage, no biased subsample.
+    from src.ingest.mpcorb import parse_mpcorb
+
+    orbits = (
+        parse_mpcorb(str(MPCORB_SNAPSHOT)).select(["number", "a_au", "e", "i_deg"]).drop_nulls()
+    )
     df = orbits.join(unique_bodies, on="number", how="inner")
     n_with_orbit = df.height
     if n_with_orbit != n_encountering_bodies:
         logger.warning(
-            "%d/%d encountering bodies have no matching orbit-catalogue entry",
+            "%d/%d encountering bodies absent from the MPCORB snapshot",
             n_encountering_bodies - n_with_orbit,
+            n_encountering_bodies,
+        )
+    else:
+        logger.info(
+            "Full coverage: elements for %d/%d encountering bodies",
+            n_with_orbit,
             n_encountering_bodies,
         )
 

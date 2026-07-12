@@ -46,13 +46,29 @@ _BODY_NAMES = {1: "Ceres", 2: "Pallas", 4: "Vesta", 10: "Hygiea"}
 
 
 def _supplement_elements(elements: pl.DataFrame, mpcorb: pl.DataFrame) -> pl.DataFrame:
-    """Add major bodies missing from gaia_orbits using MPCORB elements."""
+    """Fill orbital elements for every numbered body missing from gaia_orbits.
+
+    The encounter catalogue is built by propagating the frozen MPCORB snapshot,
+    so osculating elements exist for 100\\% of the ~449k encountering bodies, but
+    Gaia DR3 ``sso_orbits`` (:data:`gaia_orbits.parquet`) covers only the ~93k
+    bodies Gaia produced orbits for. Sourcing ``a/e/i`` only from the Gaia file
+    left ~79\\% of bodies with null elements and hence dynamical class ``Other``,
+    which corrupted ``class_1/class_2`` and Fig. 3 of the paper (tribunal R2,
+    B1/M5). We therefore back-fill *all* missing bodies from the same MPCORB
+    snapshot that was propagated, so class and the (a,e,i) map have full
+    coverage. Gaia solutions are kept where available (they are the observed
+    orbit); MPCORB fills the remainder.
+    """
     present = set(elements["number"].to_list())
-    missing = [n for n in _REQUIRED_BODIES if n not in present]
-    if not missing:
+    supplement = mpcorb.filter(~pl.col("number").is_in(present)).select(elements.columns)
+    if supplement.height == 0:
         return elements
-    logger.info("Supplementing elements from MPCORB for bodies: %s", missing)
-    supplement = mpcorb.filter(pl.col("number").is_in(missing)).select(elements.columns)
+    logger.info(
+        "Supplementing elements from MPCORB for %d bodies missing from gaia_orbits "
+        "(gaia_orbits had %d; full coverage restored)",
+        supplement.height,
+        len(present),
+    )
     return pl.concat([supplement, elements])
 
 
