@@ -186,8 +186,12 @@ def main() -> int:
         logger.info("Loading candidate perturber rows from %s", args.in_csv)
         rows = _load_csv_rows(args.in_csv)
 
-    logger.info("Checking bulk density plausibility (%.1f < rho < %.1f g/cm^3) for %d rows",
-                _RHO_MIN_G_CM3, _RHO_MAX_G_CM3, len(rows))
+    logger.info(
+        "Checking bulk density plausibility (%.1f < rho < %.1f g/cm^3) for %d rows",
+        _RHO_MIN_G_CM3,
+        _RHO_MAX_G_CM3,
+        len(rows),
+    )
 
     results, all_pass = check_rows(rows)
     print_table(results)

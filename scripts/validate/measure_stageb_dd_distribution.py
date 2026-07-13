@@ -143,7 +143,9 @@ def _log_stats(label: str, stats: dict, margin_au: float) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
         "--shards-glob",
         type=str,
@@ -213,9 +215,7 @@ def main() -> int:
     overall = _stats_query(con, args.shards_glob, extra_where="TRUE")
     _log_stats("ALL converged", overall, MARGIN_AU)
 
-    near_where = (
-        f"dist_au_kepler >= {args.near_lo_au!r} AND dist_au_kepler < {args.near_hi_au!r}"
-    )
+    near_where = f"dist_au_kepler >= {args.near_lo_au!r} AND dist_au_kepler < {args.near_hi_au!r}"
     near = _stats_query(con, args.shards_glob, extra_where=near_where)
     _log_stats(
         f"near-threshold [{args.near_lo_au},{args.near_hi_au})",
@@ -223,7 +223,10 @@ def main() -> int:
         MARGIN_AU,
     )
 
-    logger.info("PRELIMINARY result -- partial shard set (%d files); re-run once Stage-B completes.", n_files)
+    logger.info(
+        "PRELIMINARY result -- partial shard set (%d files); re-run once Stage-B completes.",
+        n_files,
+    )
     return 0
 
 
