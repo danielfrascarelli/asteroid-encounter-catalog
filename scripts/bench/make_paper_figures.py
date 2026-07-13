@@ -24,9 +24,10 @@ memory whole (there was a prior OOM on this dataset with only ~4 GB free). All
 per-row statistics for figures 1 and 2 are computed as **streaming histogram
 aggregations** with polars lazy + ``engine="streaming"``: we bin ``dist_au`` /
 ``rel_vel_km_s`` inside the query and only pull back the (small) bin-count table.
-The orbital-elements file (fig 3) is tiny (~130 k bodies) and is loaded directly,
-then subsampled to <=100 k points for scatter rendering. Figure 4 uses a small
-validation parquet loaded whole.
+The orbital elements (fig 3) are parsed from the frozen MPCORB snapshot (~449 k
+numbered bodies, full coverage of the encountering universe), joined to the
+encountering bodies, then subsampled to <=100 k points for scatter rendering.
+Figure 4 uses a small validation parquet loaded whole.
 
 Environment notes
 -----------------
@@ -73,9 +74,15 @@ logger = logging.getLogger("make_paper_figures")
 
 OUT_DIR = Path("data/output/figures")
 
-ENCOUNTERS_PARQUET = Path("data/output/encounters_catalog_rebound_005au.parquet")
-CHARACTERIZED_PARQUET = Path("data/output/encounters_characterized_full.parquet")
-ORBITS_PARQUET = Path("data/raw/gaia_orbits.parquet")
+# Post-B1-fix regenerated catalogues (80,072,774 rows; see
+# planning/CONTINUATION.md and the B1 remediation notes for context).
+ENCOUNTERS_PARQUET = Path("data/output/encounters_catalog_rebound_005au_b1fix.parquet")
+CHARACTERIZED_PARQUET = Path("data/output/encounters_characterized_b1fix.parquet")
+# Fig. 3 sources (a,e,i) from the SAME frozen MPCORB snapshot the catalogue was
+# propagated from, so every encountering body has elements (100% coverage). The
+# Gaia DR3 sso_orbits file used previously covered only ~94k bodies (~21%),
+# leaving Fig. 3 a biased subsample (tribunal R2, M5).
+MPCORB_SNAPSHOT = Path("data/raw/mpcorb_archive/MPCORB_20160217.DAT")
 KEPLER_NBODY_PARQUET = Path("data/output/kepler_false_negatives/band_refined.parquet")
 
 THRESHOLD_AU = 0.05
@@ -232,8 +239,24 @@ def figure1_separation_hist() -> list[Path]:
     counts, edges, total = _streaming_histogram(
         ENCOUNTERS_PARQUET, "dist_au", 0.0, THRESHOLD_AU, n_bins
     )
+    logger.info("Figure 1: exact total encounters counted = %d", total)
     centers = 0.5 * (edges[:-1] + edges[1:])
     width = edges[1] - edges[0]
+
+    # Power-law index: log-log least-squares fit of counts(d) vs d over the
+    # populated bins (drop the empty tail near d -> 0 where the histogram is
+    # noise-dominated at this bin width).
+    nonzero = counts > 0
+    log_c = np.log10(centers[nonzero])
+    log_n = np.log10(counts[nonzero])
+    slope, intercept = np.polyfit(log_c, log_n, 1)
+    logger.info(
+        "Figure 1: power-law fit dN/dd ~ d^%.4f (log-log slope, intercept=%.4f, %d/%d bins used)",
+        slope,
+        intercept,
+        int(nonzero.sum()),
+        n_bins,
+    )
 
     fig, ax = plt.subplots(figsize=(6.5, 4.2))
     ax.bar(
@@ -305,6 +328,7 @@ def figure2_relvel_hist() -> list[Path]:
     total = (
         pl.scan_parquet(CHARACTERIZED_PARQUET).select(pl.len()).collect(engine="streaming").item()
     )
+    logger.info("Figure 2: exact total encounters counted = %d, median = %.6f km/s", total, median)
     centers = 0.5 * (edges[:-1] + edges[1:])
     width = edges[1] - edges[0]
 
@@ -350,10 +374,70 @@ def figure2_relvel_hist() -> list[Path]:
 # --------------------------------------------------------------------------- #
 
 
-def figure3_aei_map() -> list[Path]:
-    """Orbital-element map (a vs e coloured by i) of the encounter population."""
-    logger.info("Figure 3: (a, e, i) map from %s", ORBITS_PARQUET)
-    df = pl.read_parquet(ORBITS_PARQUET, columns=["a_au", "e", "i_deg"]).drop_nulls()
+def figure3_aei_map() -> tuple[list[Path], int]:
+    """Orbital-element map (a vs e coloured by i) of the encounter population.
+
+    The population plotted is the set of bodies that actually participate in
+    >=1 detected encounter in :data:`ENCOUNTERS_PARQUET` (union of
+    ``number_1``/``number_2``). Elements come from the frozen MPCORB snapshot
+    (:data:`MPCORB_SNAPSHOT`) that the catalogue was propagated from, so every
+    encountering body has ``(a, e, i)`` and the panel is the full population, not
+    a subsample. An earlier version sourced elements from the Gaia DR3
+    ``sso_orbits`` file, which held only ~94k bodies (~21% of the ~449k
+    encountering universe) and made the panel a biased subsample (tribunal R2,
+    M5); that is fixed here.
+
+    Returns
+    -------
+    written : list of pathlib.Path
+        Paths written.
+    n_encountering_bodies : int
+        Exact count of unique bodies with >=1 encounter in the catalogue
+        (for the caption).
+    """
+    logger.info(
+        "Figure 3: unique encountering bodies from %s, elements from %s",
+        ENCOUNTERS_PARQUET,
+        MPCORB_SNAPSHOT,
+    )
+    unique_bodies = (
+        pl.concat(
+            [
+                pl.scan_parquet(ENCOUNTERS_PARQUET).select(pl.col("number_1").alias("number")),
+                pl.scan_parquet(ENCOUNTERS_PARQUET).select(pl.col("number_2").alias("number")),
+            ]
+        )
+        .unique()
+        .collect(engine="streaming")
+    )
+    n_encountering_bodies = unique_bodies.height
+    logger.info(
+        "%d unique bodies participate in >=1 encounter (streaming union of number_1/number_2)",
+        n_encountering_bodies,
+    )
+
+    # Elements from the frozen MPCORB snapshot (the propagated source), so every
+    # encountering body has (a,e,i): 100% coverage, no biased subsample.
+    from src.ingest.mpcorb import parse_mpcorb
+
+    orbits = (
+        parse_mpcorb(str(MPCORB_SNAPSHOT)).select(["number", "a_au", "e", "i_deg"]).drop_nulls()
+    )
+    df = orbits.join(unique_bodies, on="number", how="inner")
+    n_with_orbit = df.height
+    if n_with_orbit != n_encountering_bodies:
+        logger.warning(
+            "%d/%d encountering bodies absent from the MPCORB snapshot",
+            n_encountering_bodies - n_with_orbit,
+            n_encountering_bodies,
+        )
+    else:
+        logger.info(
+            "Full coverage: elements for %d/%d encountering bodies",
+            n_with_orbit,
+            n_encountering_bodies,
+        )
+
     # Keep the main-belt-ish region for a legible frame; drop extreme outliers.
     df = df.filter(
         (pl.col("a_au") > 1.5)
@@ -362,10 +446,10 @@ def figure3_aei_map() -> list[Path]:
         & (pl.col("e") < 0.5)
         & (pl.col("i_deg") < 40.0)
     )
-    n_total = df.height
-    logger.info("%d bodies in plotted a-e-i window", n_total)
+    n_window = df.height
+    logger.info("%d encountering bodies in plotted a-e-i window", n_window)
 
-    if n_total > MAX_SCATTER:
+    if n_window > MAX_SCATTER:
         df = df.sample(n=MAX_SCATTER, seed=RNG_SEED)
         logger.info("subsampled to %d points for scatter", df.height)
 
@@ -454,12 +538,13 @@ def figure3_aei_map() -> list[Path]:
     ax0.text(
         0.02,
         0.97,
-        f"{n_total:,} bodies" + (f" ({df.height:,} shown)" if df.height < n_total else ""),
+        f"{n_encountering_bodies:,} encountering bodies"
+        + (f" ({df.height:,} shown in window)" if df.height < n_encountering_bodies else ""),
         transform=ax0.transAxes,
         fontsize=8,
         va="top",
     )
-    return _save(fig, "fig3_aei_map")
+    return _save(fig, "fig3_aei_map"), n_encountering_bodies
 
 
 # --------------------------------------------------------------------------- #
@@ -620,9 +705,10 @@ def main() -> None:
     logger.info("Output directory: %s", OUT_DIR.resolve())
     figure1_separation_hist()
     figure2_relvel_hist()
-    figure3_aei_map()
+    _, n_encountering_bodies = figure3_aei_map()
     _, real = figure4_kepler_nbody_threshold()
     logger.info("Figure 4 used %s data", "REAL" if real else "SCHEMATIC")
+    logger.info("SUMMARY: n_encountering_bodies (fig3) = %d", n_encountering_bodies)
     logger.info("Done.")
 
 

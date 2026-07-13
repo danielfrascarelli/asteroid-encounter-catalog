@@ -17,6 +17,7 @@ import logging
 import multiprocessing as mp
 import os
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,11 @@ from tqdm import tqdm
 from src.detect.kdtree_scan import scan_time_grid
 
 logger = logging.getLogger(__name__)
+
+# Above this pickled size, the elements DataFrame is spilled to a Parquet
+# tempfile instead of passed through the forkserver initargs pipe (which
+# deadlocks at production scale). Module-level so tests can force the spill.
+_ELEMENTS_SPILL_BYTES = 1_000_000
 
 # Per-worker globals — set once by the pool initializer, never mutated.
 _G_ELEMENTS: pl.DataFrame | None = None
@@ -67,7 +73,8 @@ class _PositionsWindow:
 
 
 def _init_worker(
-    elements: pl.DataFrame,
+    elements: pl.DataFrame | None,
+    elements_path: str | None,
     pairs: np.ndarray | None,
     pairs_path: str | None,
     positions: np.ndarray | None,
@@ -76,9 +83,13 @@ def _init_worker(
 ) -> None:
     """Initialise per-worker globals.
 
-    Large objects (``pairs`` array, ``positions`` trajectory) are passed by
-    path when their pickle size would otherwise overwhelm the multiprocessing
-    queue.  ``pairs_path`` points to an ``.npy`` file with the prefilter pair
+    Large objects (``elements`` DataFrame, ``pairs`` array, ``positions``
+    trajectory) are passed by path when their pickle size would otherwise
+    overwhelm the multiprocessing queue.  ``elements_path`` points to a Parquet
+    file with the orbital elements (the full numbered population is ~32 MB —
+    passing it through forkserver ``initargs`` to every worker deadlocks the
+    forkserver pipe; observed at production scale hanging the scan at ~5/35
+    chunks). ``pairs_path`` points to an ``.npy`` file with the prefilter pair
     indices; ``positions_memmap`` is the ``(filename, shape, dtype)`` triple
     used to re-open a disk-backed memmap; ``positions_zarr_path`` is a Zarr
     DirectoryStore path opened through :func:`src.propagate.cache.
@@ -87,7 +98,7 @@ def _init_worker(
     shares the underlying chunk files across processes via the page cache.
     """
     global _G_ELEMENTS, _G_PAIRS, _G_POSITIONS
-    _G_ELEMENTS = elements
+    _G_ELEMENTS = pl.read_parquet(elements_path) if elements_path is not None else elements
     if pairs_path is not None:
         _G_PAIRS = np.load(pairs_path, mmap_mode="r")
     else:
@@ -105,9 +116,17 @@ def _init_worker(
 
 def _scan_chunk(
     args: tuple[np.ndarray, np.ndarray, float, int, float],
-) -> list[tuple[int, int, float, float]]:
+) -> tuple[int, list[tuple[int, int, float, float]]]:
+    """Scan one chunk; return ``(chunk_id, rows)``.
+
+    ``chunk_id`` is the chunk's first grid-step index — a stable identity used to
+    name the out-of-core shard so the scan is resumable (a re-run skips chunks
+    whose shard already exists). ``imap_unordered`` loses input order, so the id
+    must travel back with the result.
+    """
     chunk_times, chunk_indices, threshold_au, leaf_size, query_radius_au = args
     assert _G_ELEMENTS is not None
+    chunk_id = int(chunk_indices[0])
     positions_chunk: Any | None = None
     if _G_POSITIONS is not None:
         positions_chunk = _PositionsWindow(
@@ -115,7 +134,7 @@ def _scan_chunk(
             int(chunk_indices[0]),
             int(chunk_indices[-1]) + 1,
         )
-    return scan_time_grid(
+    rows = scan_time_grid(
         _G_ELEMENTS,
         chunk_times,
         _G_PAIRS,
@@ -124,6 +143,7 @@ def _scan_chunk(
         positions=positions_chunk,
         query_radius_au=query_radius_au,
     )
+    return chunk_id, rows
 
 
 def _make_chunks(
@@ -139,16 +159,35 @@ def _make_chunks(
     return chunks
 
 
+def _merge_into(
+    best: dict[tuple[int, int], tuple[float, float]],
+    chunk_result: list[tuple[int, int, float, float]],
+) -> None:
+    """Fold one chunk's candidates into the running ``best`` dict in place.
+
+    Keeps the minimum-distance epoch per pair, breaking ties on distance by the
+    earlier epoch (lexicographic ``(dist, t)``) so the result is deterministic
+    regardless of chunk arrival order (``imap_unordered``).
+    """
+    for idx_i, idx_j, t_jd, dist in chunk_result:
+        key = (idx_i, idx_j)
+        if key not in best or (dist, t_jd) < (best[key][1], best[key][0]):
+            best[key] = (t_jd, dist)
+
+
 def _merge_candidates(
     results: list[list[tuple[int, int, float, float]]],
 ) -> list[tuple[int, int, float, float]]:
-    """Merge per-chunk lists, keeping the minimum-distance epoch per pair."""
+    """Merge per-chunk lists, keeping the minimum-distance epoch per pair.
+
+    Ties on distance are broken by the earlier epoch (lexicographic (dist, t)),
+    so the merge is deterministic regardless of chunk arrival order
+    (``imap_unordered``): float-equal distances at two epochs previously kept
+    whichever chunk happened to arrive first.
+    """
     best: dict[tuple[int, int], tuple[float, float]] = {}
     for chunk_result in results:
-        for idx_i, idx_j, t_jd, dist in chunk_result:
-            key = (idx_i, idx_j)
-            if key not in best or dist < best[key][1]:
-                best[key] = (t_jd, dist)
+        _merge_into(best, chunk_result)
     return [(k[0], k[1], v[0], v[1]) for k, v in best.items()]
 
 
@@ -169,6 +208,8 @@ def scan_parallel(
     chunk_size_days: float = 30.0,
     positions: np.ndarray | None = None,
     query_radius_au: float | None = None,
+    on_chunk: Callable[[int, list[tuple[int, int, float, float]]], None] | None = None,
+    skip_chunk_ids: set[int] | None = None,
 ) -> list[tuple[int, int, float, float]]:
     """Parallel drop-in replacement for :func:`~src.detect.kdtree_scan.scan_time_grid`.
 
@@ -206,10 +247,24 @@ def scan_parallel(
     nw = resolve_n_workers(n_workers)
     chunks = _make_chunks(time_grid, chunk_size_days)
     qr = query_radius_au if query_radius_au is not None else threshold_au
+    # Resume: drop chunks whose shard already exists (id = first grid-step index).
+    if skip_chunk_ids:
+        n_before = len(chunks)
+        chunks = [c for c in chunks if int(c[1][0]) not in skip_chunk_ids]
+        logger.info(
+            "Resume: skipping %d/%d chunks already scanned; %d remaining",
+            n_before - len(chunks),
+            n_before,
+            len(chunks),
+        )
     tasks = [
         (chunk_times, chunk_indices, threshold_au, leaf_size, qr)
         for chunk_times, chunk_indices in chunks
     ]
+    if not tasks:
+        # All chunks already scanned (resume) — nothing to dispatch.
+        logger.info("All chunks already scanned; skipping the pool")
+        return []
 
     # Memmap-backed trajectories (cache hits) are passed as (filename, shape,
     # dtype) so each worker re-opens its own read-only map.  Zarr-backed caches
@@ -267,6 +322,27 @@ def scan_parallel(
             pairs_path,
         )
 
+    # The elements DataFrame is passed to every worker. At production scale the
+    # full numbered population is ~32 MB, and pickling it once per worker through
+    # the forkserver initargs pipe deadlocks the forkserver (observed hanging the
+    # scan at ~5/35 chunks with all workers idle in futex_wait). Spill it to a
+    # Parquet tempfile and let each worker read it locally, mirroring the pairs
+    # spill above. Workers only need `elements` for propagation in the streaming
+    # path; the positions (cache) path ignores it, but spilling is correct for both.
+    elements_path: str | None = None
+    elements_inmem: pl.DataFrame | None = elements
+    elements_tmp_dir: tempfile.TemporaryDirectory[str] | None = None
+    if elements.estimated_size() > _ELEMENTS_SPILL_BYTES:  # spill above threshold
+        elements_tmp_dir = tempfile.TemporaryDirectory(prefix="gaia_elements_")
+        elements_path = str(Path(elements_tmp_dir.name) / "elements.parquet")
+        elements.write_parquet(elements_path)
+        elements_inmem = None
+        logger.info(
+            "Elements DataFrame (%.1f MB) spilled to tempfile %s for worker sharing",
+            elements.estimated_size() / 1e6,
+            elements_path,
+        )
+
     logger.info(
         "Parallel scan: %d workers | %d chunks (~%.0f days each) | %d total steps | positions=%s",
         nw,
@@ -286,18 +362,30 @@ def scan_parallel(
         "OPENBLAS_NUM_THREADS",
         "MKL_NUM_THREADS",
         "NUMEXPR_MAX_THREADS",
+        # Polars/Arrow keeps its own Rust (rayon) thread pool that OMP/BLAS vars
+        # do NOT control. Pin it to 1 per worker: 20 workers × a multi-thread
+        # polars pool oversubscribes, and the pool is not fork-safe.
+        "POLARS_MAX_THREADS",
     ):
         os.environ.setdefault(_var, "1")
 
-    # "forkserver" avoids the deadlock risk from forking a multi-threaded
-    # parent (polars uses Arrow thread pools) while still being faster than
-    # "spawn" on repeated runs inside Docker.
-    ctx = mp.get_context("forkserver")
+    # Start method = "spawn". forkserver preloads ``__main__`` (run_pipeline),
+    # which imports numpy/scipy/polars and initialises their native thread pools
+    # in the forkserver process; forked workers then inherit those pools with
+    # their locks held by threads that no longer exist → every worker deadlocks
+    # in futex_wait the moment it touches polars/BLAS (observed at production
+    # scale: the scan froze at ~5-6/35 chunks, all workers idle in futex_wait,
+    # CPU ~0 %). "spawn" starts each worker as a fresh interpreter that imports
+    # the libraries itself, so no locked thread pool is inherited. initargs are
+    # small now (elements/pairs/positions are passed by path, not value), so
+    # spawn's per-worker pickling cost is negligible against a multi-hour scan.
+    ctx = mp.get_context("spawn")
     with ctx.Pool(
         processes=nw,
         initializer=_init_worker,
         initargs=(
-            elements,
+            elements_inmem,
+            elements_path,
             pairs_inmem,
             pairs_path,
             positions_inmem,
@@ -305,14 +393,31 @@ def scan_parallel(
             positions_zarr_path,
         ),
     ) as pool:
-        all_results: list[list[tuple[int, int, float, float]]] = []
-        with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
-            for result in pool.imap_unordered(_scan_chunk, tasks):
-                all_results.append(result)
-                pbar.update(1)
-
-    candidates = _merge_candidates(all_results)
+        # Two accumulation modes:
+        #  - sink (on_chunk given): hand each chunk to the caller and keep NOTHING
+        #    in the parent. Used by the out-of-core path, which spills chunks to
+        #    disk and dedups with DuckDB — the only way the full numbered
+        #    population fits, since even the deduped unique-pair dict (~15-20 GB)
+        #    plus the trajectory working set overflows a 24 GB VM (OOM-kill /
+        #    ExitCode 137 observed at ~40/104 chunks).
+        #  - in-memory (default): fold each chunk into the running best-dict as it
+        #    arrives (bounds memory to the unique-pair count; fine for small runs).
+        if on_chunk is not None:
+            with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
+                for chunk_id, result in pool.imap_unordered(_scan_chunk, tasks):
+                    on_chunk(chunk_id, result)
+                    pbar.update(1)
+            candidates = []
+        else:
+            best: dict[tuple[int, int], tuple[float, float]] = {}
+            with tqdm(total=len(chunks), desc="Scanning chunks", unit="chunk") as pbar:
+                for _chunk_id, result in pool.imap_unordered(_scan_chunk, tasks):
+                    _merge_into(best, result)
+                    pbar.update(1)
+            candidates = [(k[0], k[1], v[0], v[1]) for k, v in best.items()]
     logger.info("Parallel scan complete: %d candidate pairs", len(candidates))
     if pairs_tmp_dir is not None:
         pairs_tmp_dir.cleanup()
+    if elements_tmp_dir is not None:
+        elements_tmp_dir.cleanup()
     return candidates

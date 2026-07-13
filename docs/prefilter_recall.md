@@ -153,18 +153,25 @@ already encodes the physics.
 
 ## Impact on the frozen catalog and on caveat #2
 
-- The frozen catalog (`encounters_catalog_rebound_005au.parquet`) was built with
-  the current prefilter, so **≥143,229 real adverse-tail encounters are missing
-  from it** (lower bound; adverse–normal pairs not measured). The deficit is
-  concentrated in high-e / large-Δa crossing orbits.
-- For the dynamically cold bulk of the belt (low e, small Δa) recall is
-  ~99.9 %; the incompleteness is a property of the **high-e/high-i tail**, not
-  the catalog as a whole. But the word "complete" must still not be used, and
-  any science touching high-e or NEA-crossing pairs must cite this deficit.
-- **Caveat #2 is now quantified, not closed.** Closing it requires re-running
-  detection with the radial-overlap prefilter (or widened thresholds). That is a
-  full-catalog re-run and is out of scope here; this document is the measurement
-  + recommendation deliverable.
+> **Corrección (2026-05-31, reafirmada 2026-07-04):** el pair-list prefilter
+> solo se construye para N ≤ 5.000; el freeze corrió a escala de cinturón
+> (449.454 cuerpos), así que `compatible_pairs` fue **saltado**
+> (`prefilter.effective = "skipped_large_n"` en el sidecar) y solo se aplicó la
+> query espacial del KD-tree. Las cifras de recall de este documento son
+> **contrafactuales para el freeze**: miden el daño que el prefiltro causaría
+> *si se aplicara a N chico*, no un déficit sufrido por el catálogo congelado.
+
+- El freeze **no** perdió los 143.229 encuentros adversos por el prefiltro (el
+  corte `|Δa|≤0.5` no le dio forma a ese catálogo). Su incompletitud real viene
+  de otras fuentes: cadencia gruesa de 12 h, censura del umbral Kepler 0.05 AU
+  (0.70 % medido) y — hasta la regeneración post-B1 — el recorte de ventana de
+  refinamiento (`docs/tribunal_cientifico_2026-07-04.md`, B1).
+- Las cifras de esta medición aplican a cualquier corrida futura con
+  N ≤ 5.000 y prefiltro activo (p. ej. subsets de validación): ahí el
+  radial-overlap con pad es el criterio recomendado (recall 100 % medido).
+- **Caveat #2 sigue abierto pero por las causas de arriba**, no por el
+  prefiltro. Cerrarlo = presupuesto de completitud de la Tarea 5 del plan de
+  remediación (`planning/TRIBUNAL_REMEDIATION_PLAN.md`).
 
 ## Artifacts
 

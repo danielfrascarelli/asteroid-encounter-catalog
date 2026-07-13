@@ -61,3 +61,44 @@ def test_scan_parallel_with_spilled_pairs() -> None:
     # hanging on the pickle-via-initargs deadlock the spill path is meant to
     # avoid.
     assert isinstance(result, list)
+
+
+def test_scan_parallel_spills_elements(monkeypatch) -> None:
+    """The elements DataFrame must spill to Parquet above the threshold and
+    produce results identical to the in-memory path.
+
+    Regression for the production hang: the full numbered population (~32 MB)
+    passed through forkserver initargs deadlocked the scan at ~5/35 chunks with
+    every worker idle in futex_wait. Spilling elements to a tempfile fixes it.
+    """
+    import src.detect.parallel as par
+
+    n_ast = 40
+    elements = _make_elements(n_ast)
+    time_grid = np.linspace(2457200.5, 2457210.5, 11)
+
+    baseline = scan_parallel(
+        elements,
+        time_grid,
+        pairs=None,
+        threshold_au=0.5,
+        leaf_size=10,
+        n_workers=2,
+        chunk_size_days=5.0,
+        positions=None,
+    )
+
+    # Force the spill on this tiny DataFrame by dropping the threshold to 0.
+    monkeypatch.setattr(par, "_ELEMENTS_SPILL_BYTES", 0)
+    spilled = scan_parallel(
+        elements,
+        time_grid,
+        pairs=None,
+        threshold_au=0.5,
+        leaf_size=10,
+        n_workers=2,
+        chunk_size_days=5.0,
+        positions=None,
+    )
+
+    assert sorted(baseline) == sorted(spilled)

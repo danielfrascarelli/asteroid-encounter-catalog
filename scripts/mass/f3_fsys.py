@@ -83,11 +83,38 @@ def main() -> int:
             f"{e.get('chi2', float('nan')):>6.3f}  {str(e.get('n_background','')):>4}"
         )
     print("-" * 60)
-    print(f"f_sys (fondo 16, N calib={len(base_ratios)}):  {_rms(base_ratios)*100:.3f} %")
+    print(
+        f"f_sys (fondo 16, N calib={len(base_ratios)}):  {_rms(base_ratios)*100:.3f} % (informativo)"
+    )
     if ext_ratios:
-        print(f"f_sys (fondo EXT, N calib={len(ext_ratios)}): {_rms(ext_ratios)*100:.3f} %")
-    print("gate: f_sys < 4.2 %")
-    return 0
+        print(
+            f"f_sys (fondo EXT, N calib={len(ext_ratios)}): {_rms(ext_ratios)*100:.3f} % (informativo)"
+        )
+
+    # Gate (reformulado 2026-07-04, tribunal menor 14): la comparación de f_sys
+    # de 3 puntos (±41 % de incertidumbre relativa) no puede resolver el efecto
+    # del fondo extendido — 4.158 % vs 4.257 % es ruido de redondeo. El test con
+    # potencia es la **Δmasa pareada por calibrador**: mismo calibrador, mismos
+    # datos, solo cambia el fondo. Si extender el fondo moviera la masa, se ve
+    # acá directamente.
+    print()
+    deltas: list[tuple[str, float]] = []
+    for num in sorted(_CALIBRATORS_N20):
+        b, e = base.get(num), ext.get(num)
+        if not b or not e or e.get("ratio") is None:
+            continue
+        m16 = b["ratio"] * b["ref_kg"]
+        mext = e["ratio"] * b["ref_kg"]
+        delta = abs(mext - m16) / m16
+        deltas.append((b["name"], delta))
+        print(f"Δmasa pareada {b['name']:<10}: {delta*100:.4f} %")
+    if deltas:
+        worst = max(d for _, d in deltas)
+        ok = worst < 0.0025
+        print(f"gate: max Δmasa pareada = {worst*100:.4f} % < 0.25 % → {'PASS' if ok else 'FAIL'}")
+        return 0 if ok else 1
+    print("gate: sin pares base/EXT comparables — no evaluado")
+    return 1
 
 
 if __name__ == "__main__":

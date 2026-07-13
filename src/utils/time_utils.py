@@ -5,8 +5,8 @@ Conversions from/to other scales happen only at I/O boundaries.
 
 Scale relationships (approximate, for context):
 - TDB vs TCB: TCB runs faster by L_B = 1.550519768e-8. Over one year the
-  accumulated difference is ~1.8 s (≈ 1.6 ms/day). MPCORB uses TDB;
-  Gaia DR3 epoch column uses TCB.
+  accumulated difference is ~1.8 s (≈ 1.6 ms/day). MPCORB epochs are TT
+  (converted to TDB on ingest); Gaia DR3 epoch column uses TCB.
 - TDB vs TT: differ by periodic terms only, max amplitude ~1.7 ms. For the
   purposes of this pipeline (detection threshold 0.01 AU) TDB ≈ TT is fine,
   but we use the proper astropy conversion regardless.

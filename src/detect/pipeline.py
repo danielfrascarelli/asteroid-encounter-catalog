@@ -6,6 +6,7 @@ Public entry point: :func:`detect_encounters`.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import numpy as np
 import polars as pl
@@ -56,6 +57,52 @@ _SCHEMA = {
     "rel_vel_au_day": pl.Float64,
 }
 
+# Coarse-scan checkpoint: candidate tuples (idx_i, idx_j, t_coarse_jd, d_coarse_au)
+# where idx_* are row indices into the *elements* DataFrame used for the scan.
+# Persisted between the scan and the (long, memory-heavy) refinement so a crash in
+# refinement does not lose the scan; a resume run reads it and refines directly.
+# The indices are only valid for the SAME elements/subset that produced them.
+_SCAN_CKPT_SCHEMA = {
+    "idx_i": pl.Int64,
+    "idx_j": pl.Int64,
+    "t_coarse_jd": pl.Float64,
+    "d_coarse_au": pl.Float64,
+}
+
+
+def write_scan_checkpoint(
+    candidates: list[tuple[int, int, float, float]], path: str | Path
+) -> None:
+    """Persist coarse-scan candidates so refinement can be resumed after a crash."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if candidates:
+        idx_i, idx_j, t_c, d_c = zip(*candidates)
+    else:
+        idx_i, idx_j, t_c, d_c = (), (), (), ()
+    pl.DataFrame(
+        {
+            "idx_i": pl.Series(idx_i, dtype=pl.Int64),
+            "idx_j": pl.Series(idx_j, dtype=pl.Int64),
+            "t_coarse_jd": pl.Series(t_c, dtype=pl.Float64),
+            "d_coarse_au": pl.Series(d_c, dtype=pl.Float64),
+        },
+        schema=_SCAN_CKPT_SCHEMA,
+    ).write_parquet(path, compression="zstd")
+
+
+def load_scan_checkpoint(path: str | Path) -> list[tuple[int, int, float, float]]:
+    """Load coarse-scan candidates written by :func:`write_scan_checkpoint`."""
+    df = pl.read_parquet(path)
+    return list(
+        zip(
+            df["idx_i"].to_list(),
+            df["idx_j"].to_list(),
+            df["t_coarse_jd"].to_list(),
+            df["d_coarse_au"].to_list(),
+        )
+    )
+
 
 def detect_encounters(
     elements: pl.DataFrame,
@@ -74,6 +121,8 @@ def detect_encounters(
     positions: np.ndarray | None = None,
     query_radius_au: float | None = None,
     force_kepler_refine: bool = False,
+    scan_checkpoint_path: str | Path | None = None,
+    resume_from_scan: str | Path | None = None,
 ) -> pl.DataFrame:
     """Detect close asteroid encounters over a time grid.
 
@@ -106,6 +155,17 @@ def detect_encounters(
         Optional ``(T, N, 3)`` pre-computed positions (e.g. from the N-body
         propagator or cache).  When supplied the coarse scan reads positions
         directly instead of re-propagating from Kepler elements.
+    scan_checkpoint_path:
+        If given, the coarse-scan candidates are written to this Parquet path
+        *before* refinement (insurance: refinement is long and memory-heavy, so a
+        crash there would otherwise lose the whole scan).  Ignored when resuming.
+    resume_from_scan:
+        If given, the prefilter and coarse scan are **skipped** and candidates are
+        loaded from this checkpoint (written by a previous run's
+        ``scan_checkpoint_path``); refinement then runs on them.  ``elements`` and
+        ``time_grid`` must match the run that produced the checkpoint (the stored
+        indices are row indices into ``elements``).  Lets a killed refinement be
+        resumed later with a different ``n_workers``.
 
     Returns
     -------
@@ -122,6 +182,47 @@ def detect_encounters(
         len(time_grid),
         threshold_au,
     )
+
+    # --- Config validation (tribunal B1) ---
+    # The Kepler refiner samples ±window_hours around each coarse sample. The
+    # true minimum can be up to half a coarse step away from the nearest grid
+    # point; a narrower window clips the epoch at the window edge and biases
+    # the distance high (~60 % of the pre-2026-07 frozen catalog).
+    if refinement_enabled and len(time_grid) > 1:
+        grid_step_hours = float(time_grid[1] - time_grid[0]) * 24.0
+        uses_kepler_refiner = force_kepler_refine or positions is None
+        if uses_kepler_refiner and window_hours < grid_step_hours / 2.0:
+            raise ValueError(
+                f"detection.refinement.window_hours={window_hours:g} h is smaller than "
+                f"half the coarse grid step ({grid_step_hours:g} h / 2 = "
+                f"{grid_step_hours / 2.0:g} h): true minima between coarse samples "
+                "would be clipped at the window edge (B1). Increase window_hours to "
+                f"≥ {grid_step_hours / 2.0:g}."
+            )
+
+    # --- Resume path: skip prefilter + scan, load candidates from checkpoint ---
+    if resume_from_scan is not None:
+        candidates = load_scan_checkpoint(resume_from_scan)
+        logger.info(
+            "Resumed %d coarse candidates from scan checkpoint %s (prefilter + scan skipped)",
+            len(candidates),
+            resume_from_scan,
+        )
+        from src.detect.parallel import resolve_n_workers
+
+        nw = resolve_n_workers(n_workers)
+        return _refine_and_finalize(
+            elements,
+            candidates,
+            threshold_au=threshold_au,
+            fine_step_seconds=fine_step_seconds,
+            window_hours=window_hours,
+            refinement_enabled=refinement_enabled,
+            nw=nw,
+            positions=positions,
+            time_grid=time_grid,
+            force_kepler_refine=force_kepler_refine,
+        )
 
     # --- Step 1: prefilter ---
     pairs: np.ndarray | None
@@ -184,10 +285,55 @@ def detect_encounters(
         )
     logger.info("%d coarse candidates after KD-tree scan", len(candidates))
 
+    # --- Checkpoint: persist the scan before the long/memory-heavy refinement ---
+    if scan_checkpoint_path is not None:
+        write_scan_checkpoint(candidates, scan_checkpoint_path)
+        logger.info(
+            "Scan checkpoint written: %d candidates → %s (refinement resumable via "
+            "resume_from_scan)",
+            len(candidates),
+            scan_checkpoint_path,
+        )
+
     if not candidates:
         return pl.DataFrame(schema=_SCHEMA)
 
     # --- Step 3: refinement ---
+    return _refine_and_finalize(
+        elements,
+        candidates,
+        threshold_au=threshold_au,
+        fine_step_seconds=fine_step_seconds,
+        window_hours=window_hours,
+        refinement_enabled=refinement_enabled,
+        nw=nw,
+        positions=positions,
+        time_grid=time_grid,
+        force_kepler_refine=force_kepler_refine,
+    )
+
+
+def _refine_and_finalize(
+    elements: pl.DataFrame,
+    candidates: list[tuple[int, int, float, float]],
+    *,
+    threshold_au: float,
+    fine_step_seconds: float,
+    window_hours: float,
+    refinement_enabled: bool,
+    nw: int,
+    positions: np.ndarray | None,
+    time_grid: np.ndarray | None,
+    force_kepler_refine: bool,
+) -> pl.DataFrame:
+    """Refine coarse candidates (or pass them through) and return the sorted catalog.
+
+    Shared by the normal path and the ``resume_from_scan`` path so both produce
+    identical output.
+    """
+    if not candidates:
+        return pl.DataFrame(schema=_SCHEMA)
+
     if refinement_enabled:
         # When the bulk cache is coarse (Strategy A), the quadratic-over-cache
         # refinement loses precision (3-point parabola over 12 h grid is way

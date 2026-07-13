@@ -19,21 +19,17 @@
 
 \begin{document}
 
-\title{A systematic catalogue of real three-dimensional close encounters
-between numbered asteroids during the Gaia DR3 window, with a measured
-completeness budget}
+\title{An all-pairs catalogue of real three-dimensional close encounters
+between numbered main-belt asteroids during the Gaia DR3 window, with a
+measured incompleteness budget}
 
 \titlerunning{A catalogue of real 3D asteroid close encounters (Gaia DR3)}
 \authorrunning{D. Frascarelli}
 
-% -------------------------------------------------------------------------
-% TODO(author): fill in author list, affiliations, ORCID and contact e-mail
-% before submission. Placeholders below.
-% -------------------------------------------------------------------------
 \author{D.~Frascarelli\inst{1}}
 
 \institute{%
-  Affiliation --- TODO
+  Independent researcher, Montevideo, Uruguay\\
   \email{dsanfra@gmail.com}
 }
 
@@ -43,13 +39,18 @@ completeness budget}
 \abstract
 % context
 {Close approaches between asteroids are the classical route to asteroid mass
-determination and a dynamical observable of the main belt. Existing
-encounter-based work selects individual events by hand, and no systematic
-catalogue of real three-dimensional asteroid--asteroid encounters has had its
-own completeness characterised.}
+determination and a dynamical observable of the main belt. Systematic encounter
+searches exist --- from early surveys \citep{galad2002} to mutual-encounter
+catalogues built for Gaia astrometry \citep{ivantsov2018} and the
+signal-ranked search behind the largest mass catalogue to date
+\citep{fuentesmunoz2025} --- but their event lists are published truncated
+(top candidates per perturber) or without a characterised selection function:
+no all-pairs 3D encounter catalogue has been published in full with provenance
+and a \emph{measured} incompleteness budget.}
 % aims
 {We build a systematic catalogue of real 3D close encounters between numbered
-asteroids during the Gaia DR3 window (2014 July 25 -- 2017 May 28) and, unlike a
+main-belt asteroids (semi-major axis 1.5--4.0\,AU) during the Gaia DR3 window
+(2014 July 25 -- 2017 May 28), publish it in full, and, unlike a
 bulk propagation exercise, we \emph{measure} what the detection pipeline misses
 rather than asserting completeness.}
 % methods
@@ -62,22 +63,28 @@ subset. Perturber masses come from a joint mass$+$orbit least-squares fit to
 Gaia FPR astrometry.}
 % results
 {The catalogue records the minimum physical 3D separation --- a genuine spatial
-approach, not a sky-plane co-location --- for 72\,236\,904 candidate pairs within
+approach, not a sky-plane co-location --- for 80\,072\,774 encounter pairs within
 0.05\,AU, with encounter epoch, relative velocity, geometry, and estimated
 physical properties. Its distinguishing feature is a \emph{measured}
 completeness budget: the Kepler-to-N-body refinement error (median
 12\,$\mu$AU, p99 2.5\,mAU) and the threshold-induced false-negative rate
-(0.70\,\%, symmetric and scatter-dominated) bound this catalogue directly, while
+(a 0.70\,\% downward-crossing rate within the discarded 0.05--0.06\,AU band,
+symmetric and scatter-dominated, implying $\sim$0.25\,\% of the catalogue
+censored) bound this catalogue directly, while
 the recall of an orbital prefilter on the adverse tail (76\,\%) is quantified as a
 caveat for prefiltered runs. Applied to mass determination, the
-engine recovers all four calibrator masses (Ceres, Vesta, Pallas, Hygiea) at
-$|z|<3$ and determines sixteen perturbers, of which ten identifiable masses
-agree with recent independent work.}
+engine recovers the four calibrators at $|z|<3$ (Ceres, Vesta and Hygiea as
+measurements; Pallas, with only eight encounters, as a bound) and fits sixteen
+perturbers, six of them identifiable; these agree at $|z|<2$ with recent
+independent determinations --- \citet{fuentesmunoz2025} on the same Gaia FPR
+data and \citet{siltala2022} on independent Gaia DR2 plus ground-based
+astrometry --- a consistency check, not a proof of accuracy.}
 % conclusions
 {The catalogue is a reusable, defensibly characterised target-selection
 resource for asteroid dynamics and mass determination. It is explicitly not
-complete, and no new large--large encounter or unpublished large-body mass
-emerged from the numbered population.}
+complete; the large--large ($D\gtrsim100$\,km, measured) approaches it contains
+all involve well-studied bodies, and no unpublished large-body mass emerged from
+the numbered population.}
 
 \keywords{minor planets, asteroids: general --
           celestial mechanics --
@@ -95,22 +102,29 @@ emerged from the numbered population.}
 Close encounters between asteroids are of interest on several fronts. A slow,
 close approach between a massive perturber and a small test body deflects the
 latter's orbit measurably, and such events are the classical route to asteroid
-mass determination \citep{michalak2000, goffin2014, fuentesmunoz2024,
-fuentesmunoz2025}. Encounters between members of the same dynamical family
-probe the collisional history of the belt, and the statistical distribution of
-mutual approach distances and velocities is itself a dynamical observable.
+mass determination \citep{michalak2000, fienga2003, goffin2014, baer2017,
+siltala2020, li2023, fuentesmunoz2025}. Encounters between members of the same
+dynamical family probe the collisional history of the belt, and the statistical
+distribution of mutual approach distances and velocities is itself a dynamical
+observable.
 
-Existing work on encounter-based mass determination
-\citep{goffin2014, fuentesmunoz2024, fuentesmunoz2025} starts from
-\emph{hand-selected} individual encounters chosen for their favourable
-geometry, typically a single large perturber against a short list of
-well-observed test bodies. There is, to our knowledge, no systematic catalogue
-of real 3D asteroid--asteroid encounters whose own completeness has been
-characterised. That is the gap this work fills: we detect encounters
-exhaustively over the full numbered population in the Gaia DR3 window, and ---
-the point that separates this catalogue from a bulk propagation exercise --- we
-\emph{measure} what the detection pipeline misses rather than asserting
-completeness.
+Systematic encounter searches have a long history. \citet{galad2002} searched
+for mass-determination encounters across 24\,599 asteroids;
+\citet{ivantsov2018} built a catalogue of mutual encounters of the numbered
+population over 2013--2023 specifically to exploit Gaia astrometry;
+\citet{goffin2014} fitted masses against the entire numbered population rather
+than curated target lists; and \citet{fuentesmunoz2025} ran a systematic,
+signal-ranked search over 1\,783 perturbers against more than a million
+orbits --- using, for main-belt targets, the same 0.05\,AU threshold adopted
+here. What none of these works provides is the \emph{event list published in
+full with a characterised selection function}: published tables are truncated
+to the top candidates per perturber, and the completeness of the underlying
+searches is asserted rather than measured. That is the gap this work fills: an
+\emph{all-pairs} catalogue over the numbered main-belt population
+($1.5 \le a \le 4.0$\,AU) in the Gaia DR3 window, published in full with
+provenance, where --- the point that separates this catalogue from a bulk
+propagation exercise --- we \emph{measure} what the detection pipeline misses
+rather than asserting completeness.
 
 A methodological distinction is central. Two asteroids can appear arbitrarily
 close in right ascension and declination as seen from Earth while remaining
@@ -147,24 +161,42 @@ recorded in the catalogue's provenance sidecar so that results are traceable to
 an exact input; MPCORB is a living file and results are not bit-reproducible
 across snapshot versions. The run is restricted to \emph{numbered asteroids}
 (higher orbital quality); provisional designations are out of scope for this
-release.
+release. The sample is further cut to the main belt by semi-major axis,
+$1.5 \le a \le 4.0$\,AU, which excludes near-Earth asteroids ($a<1.5$\,AU),
+the Jupiter Trojans, and the outer/trans-Jovian populations ($a>4$\,AU). The
+resulting universe is $N = 449{,}454$ propagated bodies; this $N$ is the
+population denominator for every completeness and censoring figure below, and is
+recorded in the provenance sidecar. ``Complete'' therefore always means complete
+\emph{with respect to this numbered main-belt sample}, never the whole catalogue
+of known asteroids.
 
 The temporal domain brackets the Gaia DR3 Solar System survey period
 \citep{tanga2023}: the propagation window is 2014 July 25 -- 2017 May 28, whose
 start (the DR3 astrometric-solution baseline) slightly precedes the 2014 August 5
 start of nominal SSO operations, so the window fully contains the survey coverage.
+The propagation grid extends modestly beyond each nominal edge ($\lesssim2$\,d) so
+that minima near the boundary are bracketed rather than clamped; an encounter
+whose refined minimum nonetheless falls outside 2014 July 25 -- 2017 May 28 carries
+an \texttt{edge\_censored} flag and is excluded from the tabulated showcases
+(Sect.~\ref{sec:notable}).
 All internal computation is
 carried out in Julian Date on the Barycentric Dynamical Time (TDB) scale;
 conversions to/from the Barycentric Coordinate Time (TCB) that Gaia reports,
 and to UTC, are performed only at input/output interfaces. Distances are in AU,
 angles in radians, and velocities in AU/day internally, converted to
-user-facing units (km, degrees, km\,s$^{-1}$) only for output.
+user-facing units (km, degrees, km\,s$^{-1}$) only for output. Positions are
+computed in the barycentric ecliptic frame for the N-body coarse scan and in the
+heliocentric ecliptic frame for the Kepler refinement; because the catalogue
+records the \emph{mutual} separation of two bodies, the common Sun--barycentre
+offset cancels in the difference vector and the recorded distances are identical
+in either frame. (The provenance sidecar's \texttt{reference\_frame} field refers
+to the N-body scan.)
 
 \subsection{Detection}
 \label{sec:detection}
 
-The naive cost is prohibitive: $\sim$150\,000 bodies over a multi-year window at
-hour-level cadence implies of order $10^{10}$ pairwise distances per step.
+The naive cost is prohibitive: the 449\,454 numbered bodies over a multi-year
+window at hour-level cadence imply of order $10^{11}$ pairwise distances per step.
 Detection is therefore layered.
 
 An \emph{orbital prefilter} is available to prune pairs that cannot physically
@@ -182,19 +214,34 @@ KD-tree ($O(N\log N)$ construction), and a radius query returns neighbour
 candidates ($O(\log N)$ per query), avoiding any $O(N^2)$ distance matrix. The
 coarse cadence is $\Delta t = 12$\,h. To prevent the cadence from missing an
 encounter whose true minimum falls \emph{between} two samples, the query radius is
-\emph{widened} to $r_q = 0.05\,\mathrm{AU} + v_{\max}\,(\Delta t/2) \approx
-0.0536$\,AU with $v_{\max} = 25$\,km\,s$^{-1}$: under near-linear relative motion a
+\emph{widened} to $r_q = 0.05\,\mathrm{AU} + v_{\max}\,\Delta t \approx
+0.0572$\,AU with $v_{\max} = 25$\,km\,s$^{-1}$: under near-linear relative motion a
 pair whose separation dips below 0.05\,AU between samples is within $r_q$ at the
 nearer bracketing sample and therefore enters the candidate set; the sub-grid
-refinement then discards any whose true minimum exceeds 0.05\,AU. The bracketing is
-exact for relative velocities up to $v_{\max}$, and the residual (encounters with
+refinement then discards any whose true minimum exceeds 0.05\,AU. Bracketing a
+minimum midway between two samples strictly requires only $v_{\max}\,\Delta t/2
+\approx 0.0536$\,AU; the pipeline uses the full-step widening ($v_{\max}\,\Delta
+t$), a factor-of-two conservative margin. The bracketing is thus exact for
+relative velocities up to $v_{\max}$, and the residual (encounters with
 $v_{\rm rel} > v_{\max}$) is bounded in Sect.~\ref{sec:prefilter}.
 
-Each coarse candidate is then \emph{refined on a dense temporal sub-grid}: a
-$\pm2$\,h window around the apparent minimum is sampled at 120\,s, and the
-minimum separation, encounter epoch, and relative velocity are extracted from
-the refined track. Time blocks are independent, so the scan parallelises across
-processes.
+Each coarse candidate is then \emph{refined on a dense temporal sub-grid}. The
+coarse scan samples every $\Delta t = 12$\,h, so a true minimum can fall up to
+$\Delta t/2 = 6$\,h from the nearest coarse sample; the refinement window is
+therefore $\pm\Delta t/2 = \pm6$\,h around the bracketing sample --- wide enough
+to contain the minimum for any pair --- sampled at 120\,s. Should the discrete
+minimum land on a window edge (the true minimum lying just beyond it), the window
+is re-centred on that edge and re-searched, up to four times, until the minimum
+is interior; a three-point quadratic vertex through the bracketing samples then
+yields the sub-sample epoch, minimum separation, and relative velocity. Time
+blocks are independent, so the scan parallelises across processes, and each
+pair's global minimum is deduplicated across block boundaries. This
+$\pm\Delta t/2$ window with iterative re-centring is the \emph{refinement-window
+fix}: the pre-2026-07 catalogue used a $\pm2$\,h window that, being narrower than
+$\Delta t/2$, failed to bracket the true minimum in roughly two-thirds of cases
+and truncated the affected minima at the window edge --- a bias whose removal is
+confirmed by the injection--recovery regression test of
+Sect.~\ref{sec:refineerror}.
 
 \emph{Propagation} is two-tiered. The coarse KD-tree scan is driven by an
 N-body rebound integration (WHFast; Sun\,+\,Jupiter\,+\,Saturn; $dt = 1$\,h).
@@ -203,32 +250,63 @@ through an analytic two-body Kepler propagator. Over the short Gaia DR3 arc
 ($\sim$3\,yr from the central epoch) two-body propagation is adequate for the
 bulk of the belt, and its residual error is measured, not assumed
 (Sect.~\ref{sec:refineerror}). For the dynamically fragile subset --- pairs
-with perihelion $q_{\min}<1.8$\,AU or eccentricity $e_{\max}>0.3$, 8\,728\,509
-pairs (12.08\,\% of the catalogue) --- a \emph{hybrid} catalogue replaces the
+with perihelion $q_{\min}<1.8$\,AU or eccentricity $e_{\max}>0.3$, 10\,339\,493
+pairs (12.91\,\% of the catalogue) --- a \emph{hybrid} catalogue replaces the
 Kepler distances with full N-body refinement (rebound IAS15; Sun\,+\,8
 planets\,+\,4 major asteroids; $\pm12$\,h around the Kepler minimum; 60\,s
-sampling). The hybrid catalogue carries
+sampling). A pair whose N-body minimum reaches the outer 5\,\% of this window is
+flagged \texttt{near\_boundary} (the N-body refiner flags rather than re-centres),
+and the flag is retained so such rows can be held back from geometry-critical
+use. The hybrid catalogue carries
 $\mathrm{refinement\_method}\in\{\mathrm{kepler},\mathrm{nbody}\}$ per row
 together with the Kepler and N-body values and their residuals, so users needing
 sub-mAU geometry on high-$e$ / NEA-crossing pairs can cite it directly.
-Universal N-body refinement of all 72\,M pairs ($\sim$400 CPU-days) is
+Universal N-body refinement of all 80\,M pairs ($\sim$400 CPU-days) is
 explicitly out of scope: the median error outside the fragile subset is already
 below 1\,mAU (Sect.~\ref{sec:refineerror}), so the marginal gain does not
 justify the cost.
 
+\emph{Membership rule (mixed propagators).} Catalogue membership is defined by
+the \emph{Kepler} distance $<0.05$\,AU: a pair enters if its two-body refinement
+places it below threshold. In the hybrid product, therefore, the reported
+$\mathrm{dist\_au}$ mixes propagators (two-body for the bulk, N-body for the
+fragile subset), and a small fraction of hybrid rows have an N-body distance
+slightly \emph{above} 0.05\,AU (the upward threshold crossings of
+Sect.~\ref{sec:censoring}). Analyses that require a homogeneous selection
+function should filter on a single propagator --- either use the Kepler
+$\mathrm{dist\_au}$ throughout, or restrict to $\mathrm{refinement\_method} =
+\mathrm{nbody}$ --- rather than mixing the two.
+
 \subsection{Characterisation}
 \label{sec:characterisation}
 
-For each detected pair the catalogue records the minimum separation and its
-exact epoch (from the refined sub-grid), the relative velocity at closest
-approach, and the geometry of the event relative to Gaia --- solar elongation
-and an observability flag --- computed on the characterised catalogue. Of the
-72\,236\,904 encounters, 13\,640\,870 (18.9\,\%) fall in a Gaia-observable
-configuration. Physical properties (absolute magnitude $H$, and diameter and
-taxonomic class estimated from $H$ with a class-dependent albedo when no direct
-measurement exists) are attached to both bodies. Diameters derived this way are
-order-of-magnitude estimates, not measurements, and any size-based selection
-inherits that uncertainty.
+Each pair contributes a single catalogue row: the \emph{global} minimum
+separation of that pair over the observation window, with its exact epoch (from
+the refined sub-grid), the relative velocity at closest approach, and the
+geometry relative to Gaia. Secondary local minima of a pair that recurs within
+the window are not catalogued separately. A body is flagged
+\emph{Gaia-observable} at the encounter when its solar elongation --- computed
+geocentrically, which for Gaia at L2 differs by $\le0.6\degr$ --- exceeds
+$45\degr$ (outside Gaia's solar-exclusion zone) \emph{and} its apparent $V$
+magnitude --- used as a proxy for Gaia's $G$ band, from which it differs by
+$\lesssim0.2$\,mag for asteroids --- is brighter than 21 (the faint limit); the
+pair-level flag is the
+logical OR of the two bodies. Of the 80\,072\,774 encounters, 15\,251\,039
+(19.0\,\%) satisfy this for at least one body.
+
+Physical properties are attached to both bodies; within each pair the two are
+ordered so that subscript~1 is the larger (by diameter) --- the perturber, in the
+mass-determination sense. Diameters use direct
+measurements (IRAS, AKARI and NEOWISE thermal-infrared radiometry and stellar
+occultations; \citealp{tedesco2002, usui2011, mainzer2011}, via the JPL
+Small-Body Database) where available; otherwise they are derived from the
+absolute magnitude $H$ with
+an albedo taken --- in decreasing order of preference --- from a measured albedo,
+an orbital-zone average, or a default $0.14$. A per-row provenance column records
+which of these applied, so $H$-derived (order-of-magnitude) sizes are
+distinguishable from measured ones in any size-based selection. The
+accompanying \emph{class} is the \emph{dynamical} class from the orbital elements
+(NEA/MBA/Trojan/Centaur/TNO), not a taxonomic (spectral) type.
 
 The two encountering bodies are treated as independent test particles moving in
 the planetary\,+\,massive-asteroid field; their \emph{mutual} gravitational
@@ -243,20 +321,43 @@ encounter itself.
 
 The parent population and the encounter statistics are summarised in
 Figs.~\ref{fig:sep}--\ref{fig:aei}. The minimum-separation distribution
-(Fig.~\ref{fig:sep}) rises monotonically toward the 0.05\,AU threshold, as
-expected for a roughly uniform spatial density of encounter geometries; the
-relative-velocity distribution (Fig.~\ref{fig:relvel}) peaks near its median of
-4.25\,km\,s$^{-1}$, typical of main-belt crossing velocities. The orbital
-distribution of the 93\,010 encountering bodies (Fig.~\ref{fig:aei}) reproduces
-the belt's known structure --- the 3:1, 5:2 and 2:1 Kirkwood gaps appear as
-clear voids --- confirming the sample is the ordinary numbered population, not a
-biased subset.
+(Fig.~\ref{fig:sep}) rises toward the 0.05\,AU threshold roughly as
+$\mathrm{d}N \propto d^{1.0}$ (log-log histogram slope $1.01$), so the cumulative
+count grows as $N(<d)\propto d^{2}$ --- exactly the exponent expected for a
+uniform-density planar impact-parameter process (annulus area $\propto d^{2}$).
+The absence of any roll-over as $d\to0.05$\,AU is a free censoring diagnostic: a
+selection function that truncated encounters near the threshold would depress the
+slope in the outermost bin, and none is seen. The relative-velocity
+distribution (Fig.~\ref{fig:relvel}) peaks near its median of
+4.28\,km\,s$^{-1}$, typical of main-belt crossing velocities. The catalogue
+involves 449\,213 distinct encountering bodies; their orbital distribution
+(Fig.~\ref{fig:aei}), plotted from the frozen MPCORB elements with full coverage,
+reproduces the belt's known structure --- the 3:1, 5:2 and 2:1 Kirkwood gaps
+appear as clear voids --- confirming the sample is the ordinary numbered
+main-belt population, not a biased subset.
+
+\paragraph{Ranking by mass-perturbation signal.} Sheer row count is not utility:
+the overwhelming majority of the catalogued pairs are sub-km $\times$ sub-km
+approaches with no measurable dynamical signal. To let users select the subset
+that matters --- as signal-ranked searches such as \citet{ivantsov2018} and
+\citet{fuentesmunoz2025} do --- each row carries a deflection-signal estimate,
+the impulse-approximation velocity kick
+$\Delta v \simeq 2GM_1/(b\,v_{\rm rel})$ imparted by the larger body
+(\texttt{deflection\_dv\_m\_s}; $GM_1$ from the measured diameter and a
+zone-average density from \citealp{carry2012}). It is a ranking proxy, not a
+measurement. Ranked by it,
+the catalogue is steeply top-heavy: only 781 pairs exceed $1$\,mm\,s$^{-1}$ and
+$\sim$4\,000 exceed $0.1$\,mm\,s$^{-1}$, and the top of the list is dominated by
+(1) Ceres and (4) Vesta in slow, close passes --- precisely the classical
+mass-determination configuration. This column turns the 80\,M-row bulk into a
+targetable resource; the mass-determination application of
+Sect.~\ref{sec:mass} draws its test bodies from its high-signal tail.
 
 \begin{figure}
   \centering
   \includegraphics[width=\hsize]{fig1_separation_hist.pdf}
   \caption{Distribution of minimum 3D separations for the
-  $72.2\times10^{6}$ catalogued encounters (log count per bin). The dashed line
+  $80.1\times10^{6}$ catalogued encounters (log count per bin). The dashed line
   marks the 0.05\,AU detection threshold.}
   \label{fig:sep}
 \end{figure}
@@ -265,16 +366,23 @@ biased subset.
   \centering
   \includegraphics[width=\hsize]{fig2_relvel_hist.pdf}
   \caption{Distribution of relative velocity at closest approach; the median is
-  4.25\,km\,s$^{-1}$.}
+  4.28\,km\,s$^{-1}$.}
   \label{fig:relvel}
 \end{figure}
 
 \begin{figure}
   \centering
   \includegraphics[width=\hsize]{fig3_aei_map.pdf}
-  \caption{Semimajor axis vs eccentricity of the 93\,010 encountering bodies,
-  coloured by inclination, with the inclination marginal at right. The 3:1, 5:2
-  and 2:1 mean-motion resonances (Kirkwood gaps) are marked.}
+  \caption{Semimajor axis vs eccentricity of the encountering bodies, coloured by
+  inclination, with the inclination marginal at right. Of the 449\,213 distinct
+  encountering bodies, osculating elements are available (and plotted, within the
+  window shown) for 92\,971; the remainder --- mostly high-number, recently
+  numbered objects absent from the orbital-elements source --- are not shown. The
+  omitted subset is \emph{systematically} distinct (fainter, higher-number, and
+  skewed toward the outer belt), so this panel is a biased subsample of the parent
+  population, not a random draw, and the resonance structure it shows is
+  qualitative. The 3:1, 5:2 and 2:1 mean-motion resonances (Kirkwood gaps) are
+  marked.}
   \label{fig:aei}
 \end{figure}
 
@@ -284,8 +392,30 @@ biased subset.
 
 The value of this catalogue is not that it detects encounters --- that is a bulk
 propagation --- but that it states, with measured numbers, what it \emph{misses}
-and how large the Kepler-vs-N-body distortion is. Three quantities are measured;
-each is reproducible from a dedicated script.
+and how large the Kepler-vs-N-body distortion is. We stress the scope: the three
+\emph{measured} terms below (Kepler-vs-N-body refinement error, threshold
+censoring, prefilter recall) all compare the \emph{same} input elements under
+different force models or cuts, so they quantify \emph{pipeline-induced}
+incompleteness, not the physical completeness of the true encounter set. A
+fourth term --- the uncertainty of the input osculating elements themselves ---
+we quantify directly by Monte Carlo for the bodies of the extreme-event tables:
+for each we draw $3000$ orbits from its full JPL SBDB covariance, propagate them
+under the \emph{same} two-body model the catalogue uses, and take the scatter of
+the resulting mutual distance. The propagated formal $1\sigma$ is small --- 1--83\,km (median $\approx32$\,km)
+over the $\pm1.4$\,yr window --- for the secure multi-opposition orbits of most of
+the numbered universe. It does not affect the completeness \emph{fractions} below
+(those are pipeline-internal). For the tabulated separations it sets their formal
+input-element significance (Sect.~\ref{sec:extreme}, Sect.~\ref{sec:family}):
+$\sim$2--8\,\% for the closest approaches and $\ll1$\,\% for the wider extreme
+events. One caveat is decisive for the extreme-closest tail, however: those five
+pairs are recently-numbered bodies with short 2016-epoch arcs, and recomputing
+them with the current SBDB solution shifts the nominal separations by up to
+$\sim$5000\,km (25--382\,\%; Sect.~\ref{sec:extreme}), so there the \emph{epoch} of
+the frozen elements, not the formal covariance, dominates the error. These are
+formal SBDB covariances, optimistic by a factor of a few for the faintest bodies. Each measured term is
+reproducible from a dedicated script; a synthetic injection--recovery test (minima
+placed uniformly between coarse samples, high $v_{\rm rel}$ and $e$) is a permanent
+regression guard on the detection layer.
 
 \subsection{Kepler vs N-body refinement error}
 \label{sec:refineerror}
@@ -295,7 +425,7 @@ We measured the resulting error against full N-body refinement in two stages.
 In \emph{Stage A} (964 stratified pairs re-refined under full N-body) the median
 $|\Delta d| = 12\,\mu$AU, p95 $= 678\,\mu$AU, p99 $= 2.5$\,mAU, max
 $= 11.3$\,mAU. In \emph{Stage B} (production N-body refinement of the entire
-8.73\,M fragile subset) p99 $|\Delta d| = 1.99$\,mAU, max $= 15.2$\,mAU, with
+10.34\,M fragile subset) p99 $|\Delta d| = 1.99$\,mAU, max $= 14.83$\,mAU, with
 0 failed integrations, 0 unconverged, and maximum energy drift
 $5.6\times10^{-14}$.
 
@@ -306,7 +436,8 @@ confined to the fragile subset, which the hybrid catalogue refines. A separate
 check of the truncated perturber set (the scan used only
 Sun\,+\,Jupiter\,+\,Saturn) shows that adding the remaining planets shifts
 closest-approach distances by a median 1.3\,$\mu$AU (p99 67\,$\mu$AU, max
-80\,$\mu$AU), i.e.\ $\sim$100$\times$ below the Kepler two-body error --- the
+80\,$\mu$AU) --- $\sim$10$\times$ below the Kepler two-body error at the median
+(12\,$\mu$AU) and $\sim$40$\times$ below at p99 (2.5\,mAU) --- so the
 perturber truncation is not the dominant error term.
 
 \subsection{Threshold censoring (measured false-negative rate)}
@@ -314,19 +445,23 @@ perturber truncation is not the dominant error term.
 
 Because the catalogue contains only pairs whose \emph{Kepler} distance is below
 0.05\,AU, a subtle bias arises at the threshold. When the fragile subset is
-re-refined to N-body, 25\,283 pairs (0.29\,\%) cross the threshold
+re-refined to N-body, 30\,109 pairs (0.29\,\%) cross the threshold
 \emph{upward} (Kepler $<0.05$, N-body $\geq0.05$) and, by construction, none
 cross downward --- a pair that Kepler placed \emph{above} 0.05\,AU was never
 written, so its downward crossing \emph{cannot be observed}. The apparent
 one-sided ``no false negatives'' is therefore censoring, not measurement.
 
 We measured the missing side directly. Re-running Kepler detection at a widened
-0.06\,AU threshold over 10\,000 numbered bodies --- drawn to span the belt in
-$(a, e, i)$ and so representative of the propagated population --- and isolating
+0.06\,AU threshold over a uniform random sample of 10\,000 numbered bodies (seed
+fixed in the run configuration) --- the downward-crossing rate is a per-pair
+property, so a random body sample estimates it without bias, and a random draw is
+exactly what the $N^2$ extrapolation below assumes --- and isolating
 the 17\,469 pairs with Kepler distance in $[0.05, 0.06)$\,AU --- exactly the band a 0.05\,AU
 catalogue discards --- then re-refining each under full N-body, 0.70\,\%
 [95\,\% CI 0.59--0.83\,\%] cross \emph{downward} below 0.05\,AU (a conservative
-floor of $\sim$0.42\,\% after excluding near-boundary cases). The residual
+floor of $\sim$0.42\,\% after excluding near-boundary cases --- pairs whose
+N-body minimum lands at the edge of the $\pm12$\,h refinement window, where the
+true minimum may fall outside it). The residual
 $\Delta d$ ($N-K$) has median $-3\times10^{-7}$\,AU and $\sigma\approx
 3.7\times10^{-4}$\,AU --- a symmetric, scatter-dominated distribution, not a
 directional bias. In other words the crossing is a threshold selection effect
@@ -340,11 +475,35 @@ low-$q$ / high-$e$ / fast orbits, exactly where two-body propagation is
 weakest --- which independently validates the $q_{\min}<1.8 \lor e_{\max}>0.3$
 subset criterion.
 
-Extrapolated catalog-wide (order-of-magnitude, the $[0.05, 0.06)$ band scaling
-as $N^2$), this implies of order $10^5$ real $<0.05$\,AU encounters censored by
-the Kepler cut ($\sim$1.5--2.5$\times10^5$), separate from and additional to the
-prefilter recall deficit of Sect.~\ref{sec:prefilter}. This is why the word
-``complete'' is never used for this catalogue.
+Extrapolating catalog-wide is an order-of-magnitude exercise anchored on the
+$N=449{,}454$-body universe (Sect.~\ref{sec:method}): the $10^{4}$-body
+experiment yielded $17{,}469$ pairs in $[0.05,0.06)$\,AU, and since pair counts in
+a fixed distance band scale as $N^{2}$, the factor
+$(449{,}454/10{,}000)^{2}\approx2.0\times10^{3}$ implies $\sim$$3.5\times10^{7}$
+band pairs catalog-wide; the measured $0.4$--$0.7$\,\% downward-crossing rate then
+gives of order $10^5$ real $<0.05$\,AU encounters censored by the Kepler cut
+($\sim$1.5--2.5$\times10^5$), separate from and additional to the
+prefilter recall deficit of Sect.~\ref{sec:prefilter}. The $N^2$ scaling is
+validated internally: the same random sample contains 39\,456 pairs below
+0.05\,AU, which scaled by $(449{,}454/10{,}000)^2$ gives $7.97\times10^7$ ---
+within 0.5\,\% of the catalogue's $8.01\times10^7$ entries, confirming that the
+10\,000-body draw is representative and the band-pair extrapolation is sound. This
+is why the word ``complete'' is never used for this catalogue.
+
+\paragraph{A fourth, pipeline-internal term.} Catalogue membership is defined by
+the refined \emph{Kepler} distance $<0.05$\,AU, but a pair only reaches the
+refiner if the coarse N-body scan placed it within the query radius
+$r_q = 0.0572$\,AU at some sample. The margin $r_q - 0.05 = 7.2$\,mAU is smaller
+than the largest Kepler--N-body discrepancies (Sect.~\ref{sec:refineerror}, max
+14.8\,mAU), so a member whose N-body trajectory stayed just outside $r_q$ could
+have been missed as a candidate. We bound this from the measured Stage B $\Delta d$
+distribution: of the $1.53\times10^{7}$ catalogue members in the near-threshold
+band $[0.045, 0.05)$\,AU, a fraction $4.6\times10^{-5}$ have $|\Delta d|$ exceeding
+the (conservative, minimum) 7.2\,mAU margin, giving $\lesssim$700 members that
+could have escaped candidacy --- of order $10^2$--$10^3$, some two to three orders
+of magnitude below the $\sim$$10^5$ threshold-censoring term and hence
+subdominant. Like the other three terms it is reproducible from a dedicated script
+(\texttt{measure\_stageb\_dd\_distribution.py}).
 
 \begin{figure}
   \centering
@@ -372,7 +531,11 @@ exploiting the fact that the prefilter is a pure deterministic mask: running
 detection without the prefilter and intersecting with the mask is
 byte-identical to running with it. Ground truth is 606\,393 real
 adverse--adverse encounters $<0.05$\,AU; the prefilter keeps 463\,164, for a
-recall of 76.38\,\% [95\,\% CI 76.27--76.49\,\%]. Thus 143\,229 encounters would
+recall of 76.38\,\% [95\,\% CI 76.27--76.49\,\%]. This interval and the
+crossing-rate interval of Sect.~\ref{sec:censoring} are binomial (Wilson) and
+treat pairs as independent; because each body recurs in many pairs the true
+intervals are somewhat wider, so both are indicative rather than exact. Thus
+143\,229 encounters would
 be missing from a prefiltered catalogue (a lower bound --- adverse--normal pairs
 were not measured), and 99.6\,\% of that loss is the $|\Delta a|$ cut alone.
 Recall degrades smoothly with eccentricity, from $\sim$99.9\,\% below $e=0.1$ to
@@ -388,14 +551,24 @@ main-belt scale the pair-list prefilter was skipped entirely, so the
 $|\Delta a|$ cut did not actually drop these pairs from the frozen catalogue.
 The 76\,\% figure measures the damage the prefilter \emph{would} cause if
 applied at small $N$, not damage suffered here. Completeness of this freeze is
-instead bounded by the threshold censoring of Sect.~\ref{sec:censoring}. The 12\,h
-coarse cadence does \emph{not} by itself lose encounters up to
-$v_{\rm rel} = v_{\max} = 25$\,km\,s$^{-1}$, because the widened query radius
-(Sect.~\ref{sec:detection}) brackets them; the only encounters it can miss have
-$v_{\rm rel} > 25$\,km\,s$^{-1}$, and just 0.0012\,\% of catalogued encounters
-exceed that (p99.99 $= 20$\,km\,s$^{-1}$, max 68\,km\,s$^{-1}$), so the residual
-cadence-induced incompleteness is $\lesssim 10^{-3}$\,\% --- three orders of
-magnitude below the threshold-censoring term and negligible. For the dynamically cold bulk of the belt (low $e$,
+instead bounded by the threshold censoring of Sect.~\ref{sec:censoring}. The
+12\,h coarse cadence has a \emph{geometric}, distribution-independent bound. A
+pair whose true minimum $d_{\min}$ falls a time $\delta$ from the nearest coarse
+sample has, under near-linear relative motion, a sampled separation
+$d(\delta) = \sqrt{d_{\min}^2 + v_{\rm rel}^2\,\delta^2}$ with $\delta \le
+\Delta t/2$; the pair enters the candidate set whenever
+$d(\Delta t/2) \le r_q$. For $d_{\min} \le 0.05$\,AU this holds for all
+$v_{\rm rel} \le \sqrt{r_q^2 - 0.05^2}\,/\,(\Delta t/2) = 0.0278\,\mathrm{AU}\,/\,
+0.25\,\mathrm{d} \approx 192$\,km\,s$^{-1}$ --- an upper limit set purely by the
+widened radius $r_q = 0.0572$\,AU and the cadence, \emph{not} read off the
+catalogue's own velocity distribution (which would be circular, since the
+catalogue by construction excludes the fast pairs it might have missed). Since
+inter-asteroid encounter velocities never approach $192$\,km\,s$^{-1}$ (physical
+main-belt maxima are a few tens of km\,s$^{-1}$), the cadence loses no encounter.
+A synthetic injection--recovery test kept as a permanent regression guard ---
+minima placed uniformly in phase between coarse samples, at high $v_{\rm rel}$
+and $e$ --- confirms $\ge99$\,\% recovery with unit distance ratio up to
+$v_{\max}$. For the dynamically cold bulk of the belt (low $e$,
 small $\Delta a$) recall is $\sim$99.9\,\%; the incompleteness is a property of
 the high-$e$/high-$i$ tail, which any science touching NEA-crossing or high-$e$
 pairs must cite.
@@ -403,24 +576,26 @@ pairs must cite.
 \subsection{Recovery of literature encounter pairs}
 \label{sec:litrecovery}
 
-As an external check we cross-matched the hand-selected (perturber, target)
+As an external check we cross-matched the signal-ranked (perturber, target)
 pairs that \citet{fuentesmunoz2025} used for mass determination against this
 catalogue. Of 40\,176 numbered pairs drawn from their per-perturber target
-lists, 11\,842 (29.5\,\%) appear as $<0.05$\,AU encounters in the hybrid
+lists, 13\,770 (34.3\,\%) appear as $<0.05$\,AU encounters in the hybrid
 catalogue. This fraction is a lower bound and, crucially, the non-recovery is
-dominated by a \emph{domain difference}, not a detection failure: 91.6\,\% of
-the unmatched pairs have both bodies present in the catalogue but never
-approached within 0.05\,AU, because a measurable mass deflection does not
-require so close an encounter and their signal-ranked target lists are therefore
-not restricted to 0.05\,AU. A further 8.4\,\% are targets or perturbers outside
+dominated by a \emph{domain difference}, not a detection failure: of the 26\,406
+unmatched pairs, 24\,105 (91.3\,\%) have both bodies present in the catalogue but
+never approached within 0.05\,AU \emph{inside the 2.8-yr DR3 window}. For
+main-belt targets \citet{fuentesmunoz2025} apply the same 0.05\,AU threshold used
+here, but they search over the full observational arcs (decades, through late
+2024), so a pair whose close encounter falls outside 2014--2017 cannot appear in
+this catalogue. A further 2\,300 (8.7\,\%) are targets or perturbers outside
 the numbered, propagated universe (high or provisional designations), and ---
-the decisive point --- 0\,\% are pairs that our catalogue contains but places
-beyond 0.05\,AU. In other words, every literature pair that is genuinely a
-$<0.05$\,AU encounter and lies in the numbered population is recovered; the
-apparent shortfall is entirely pairs that are not $<0.05$\,AU encounters or not
-numbered. Per-body recovery among the most-listed perturbers ranges from 6\,\%
-(Davida) to 61\,\% (Liguria), with the Ceres and Vesta calibrators at
-$\sim$36\,\%. Pair-level cross-matching against \citet{goffin2014} is not
+the decisive point --- only one unmatched pair ($<0.01$\,\%) is one our catalogue
+contains but places beyond 0.05\,AU. In other words, essentially every literature
+pair that is genuinely a $<0.05$\,AU encounter and lies in the numbered
+population is recovered; the apparent shortfall is entirely pairs that are not
+$<0.05$\,AU encounters in-window or not numbered. Per-body recovery among the
+most-listed perturbers spans from near zero (comet-like, high-eccentricity
+bodies) to $\sim$68\,\%, with the Ceres and Vesta calibrators at $\sim$37\,\%. Pair-level cross-matching against \citet{goffin2014} is not
 applicable: Goffin's masses come from a single \emph{simultaneous} global fit of
 all perturber masses to the astrometric residuals of the entire numbered
 population, not from per-perturber target lists, so there is no set of
@@ -433,59 +608,79 @@ and literature mass compilations only).
 
 Mining the characterised catalogue surfaces individual events across four axes.
 We stress at the outset that the value of these tables is statistical and
-archival rather than a single headline discovery: there is no new large--large
-($D\gtrsim100$\,km) encounter --- the two such events in the catalogue are both
-already known --- and every candidate below is under the frozen two-body
-assumptions and requires N-body revalidation before publication. Distances are
-physical 3D separations at closest approach; diameters are $H$-derived
-estimates.
+archival rather than a single headline discovery: the large--large
+($D\gtrsim100$\,km) approaches all involve well-studied bodies, and every
+candidate below is under the frozen two-body assumptions and requires N-body
+revalidation before publication. Distances are physical 3D separations at
+closest approach; diameters are measured (IRAS/AKARI/NEOWISE/occultations, via
+the JPL SBDB) for the large bodies tabulated here (all entries in
+Tables~\ref{tab:dd100}--\ref{tab:dd50} carry measured diameters).
 
 \subsection{Large--large encounters}
 \label{sec:largelarge}
 
-Only two encounters have both bodies with estimated $D\gtrsim100$\,km, and both
-involve already-studied bodies (Table~\ref{tab:dd100}). The population of
-both-$D\gtrsim50$\,km encounters is richer (Table~\ref{tab:dd50}). The closest
-both-$D\gtrsim50$\,km event, (305) Gordonia $\times$ (830) Petropolitana at
-$9.9\times10^5$\,km, involves neither of the sixteen studied perturbers and is a
-natural target for N-body revalidation.
+Ten encounters have both bodies with a measured $D\gtrsim100$\,km within the
+observation window (Table~\ref{tab:dd100}); about one hundred have both
+$D\gtrsim50$\,km (Table~\ref{tab:dd50} lists the ten closest). The closest
+large--large event is
+(426) Hippo $\times$ (788) Hohensteina at 0.0076\,AU. All ten involve
+catalogued, well-characterised main-belt asteroids; none is a large perturber
+against a small test body of the kind used for mass determination, and a
+systematic novelty assessment against the encounter literature is deferred. We
+note that (804) Hispania $\times$ (733) Mocia --- a known event
+\citep{fienga2003} at 0.0136\,AU that was \emph{absent} from the pre-2026-07
+frozen catalogue --- reappears here in the both-$D\gtrsim50$\,km list, recovered
+by the refinement-window fix (Sect.~\ref{sec:method}).
 
 \begin{table*}
-\caption{The two encounters with both bodies $D\gtrsim100$\,km.}
+\caption{The ten encounters with both bodies at a measured
+$D\gtrsim100$\,km \emph{within the observation window}, by minimum distance. Two
+further such encounters have their refined minimum $\sim$1\,d past the window end
+(both on 2017-05-29) and are flagged \texttt{edge\_censored} and omitted
+(Sect.~\ref{sec:sources}).}
 \label{tab:dd100}
 \centering
+\small
 \begin{tabular}{llccccc}
 \hline\hline
-body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
+body 1 & body 2 & date (UTC) & dist (AU) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
        &        &            &           & (km/s)        & (km)  & (km)  \\
 \hline
-(1) Ceres & (57) Mnemosyne & 2017-01-10 & $6.5\times10^6$ & 7.25 & 763 & 139 \\
-(7) Iris  & (44) Nysa      & 2014-08-13 & $7.3\times10^6$ & 5.35 & 281 & 139 \\
+(426) Hippo     & (788) Hohensteina  & 2015-04-17 & 0.0076 & 8.8  & 138 & 111 \\
+(145) Adeona    & (780) Armenia      & 2016-11-09 & 0.0101 & 6.3  & 128 & 126 \\
+(51) Nemausa    & (91) Aegina        & 2016-07-13 & 0.0139 & 4.4  & 138 & 103 \\
+(23) Thalia     & (481) Emita        & 2014-10-14 & 0.0242 & 4.4  & 108 & 102 \\
+(90) Antiope    & (508) Princetonia  & 2015-11-11 & 0.0245 & 4.4  & 116 & 117 \\
+(381) Myrrha    & (712) Boliviana    & 2016-09-18 & 0.0287 & 6.7  & 128 & 124 \\
+(426) Hippo     & (814) Tauris       & 2017-05-08 & 0.0407 & 14.0 & 138 & 102 \\
+(121) Hermione  & (739) Mandeville   & 2014-12-14 & 0.0414 & 6.3  & 209 & 105 \\
+(88) Thisbe     & (150) Nuwa         & 2016-04-08 & 0.0429 & 2.1  & 232 & 119 \\
+(1) Ceres       & (57) Mnemosyne     & 2017-01-10 & 0.0435 & 7.3  & 939 & 113 \\
 \hline
 \end{tabular}
 \end{table*}
 
 \begin{table*}
-\caption{Encounters with both bodies $D\gtrsim50$\,km, top ten by minimum
-distance.}
+\caption{Encounters with both bodies at a measured $D\gtrsim50$\,km, top ten by
+minimum distance.}
 \label{tab:dd50}
 \centering
 \small
 \begin{tabular}{llccccc}
 \hline\hline
-body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
+body 1 & body 2 & date (UTC) & dist (AU) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
        &        &            &           & (km/s)        & (km)  & (km)  \\
 \hline
-(305) Gordonia   & (830) Petropolitana & 2014-09-18 & $9.88\times10^5$ & 3.28 & 62.6 & 53.8 \\
-(426) Hippo      & (788) Hohensteina   & 2015-04-17 & $1.15\times10^6$ & 8.82 & 73.5 & 64.6 \\
-(145) Adeona     & (780) Armenia       & 2016-11-09 & $1.50\times10^6$ & 6.34 & 84.0 & 56.3 \\
-(739) Mandeville & (415) Palatia       & 2017-04-05 & $1.70\times10^6$ & 8.36 & 70.9 & 51.1 \\
-(675) Ludmilla   & (80) Sappho         & 2016-02-15 & $1.71\times10^6$ & 2.97 & 93.0 & 90.0 \\
-(51) Nemausa     & (91) Aegina         & 2016-07-13 & $2.08\times10^6$ & 4.42 & 120  & 60.6 \\
-(46) Hestia      & (482) Petrina       & 2016-07-12 & $2.46\times10^6$ & 4.23 & 75.6 & 60.6 \\
-(758) Mancunia   & (740) Cantabia      & 2016-08-13 & $2.63\times10^6$ & 3.70 & 82.9 & 53.8 \\
-(739) Mandeville & (754) Malabar       & 2016-03-14 & $2.72\times10^6$ & 5.26 & 70.9 & 51.6 \\
-(200) Dynamene   & (1304) Arosa        & 2014-12-25 & $2.85\times10^6$ & 7.88 & 79.2 & 51.3 \\
+(426) Hippo       & (788) Hohensteina & 2015-04-17 & 0.0076 & 8.8 & 138 & 111 \\
+(442) Eichsfeldia & (564) Dudu        & 2014-10-30 & 0.0078 & 7.5 & 62  & 52  \\
+(48) Doris        & (300) Geraldina   & 2017-04-24 & 0.0084 & 2.4 & 216 & 67  \\
+(145) Adeona      & (780) Armenia     & 2016-11-09 & 0.0101 & 6.3 & 128 & 126 \\
+(675) Ludmilla    & (80) Sappho       & 2016-02-15 & 0.0114 & 3.0 & 76  & 69  \\
+(739) Mandeville  & (415) Palatia     & 2017-04-05 & 0.0116 & 8.4 & 105 & 84  \\
+(56) Melete       & (449) Hamburga    & 2015-10-09 & 0.0126 & 8.3 & 121 & 86  \\
+(611) Valeria     & (84) Klio         & 2016-08-01 & 0.0126 & 7.1 & 57  & 79  \\
+(192) Nausikaa    & (778) Theobalda   & 2016-06-05 & 0.0133 & 4.8 & 99  & 55  \\
+(804) Hispania    & (733) Mocia       & 2015-02-12 & 0.0136 & 2.4 & 138 & 98  \\
 \hline
 \end{tabular}
 \end{table*}
@@ -494,40 +689,71 @@ body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
 \label{sec:extreme}
 
 The absolute closest approaches in the catalogue are between small bodies, at
-separations of $\sim$1000--7000\,km (Table~\ref{tab:closest}). At these
-separations two-body propagation is most fragile, so these are precisely the
-events most in need of N-body revalidation; those that survive are the
-geometrically most striking events in the dataset.
+catalogue separations of $\sim$1000--2000\,km (Table~\ref{tab:closest}). Their
+reliability is limited not by the formal input-element covariance but by the
+\emph{epoch} of the elements. The Monte-Carlo input-element $1\sigma$ from the
+current SBDB covariance is small ($32$--$82$\,km, $\sim$2--8\,\% of the
+separation; Sect.~\ref{sec:completeness}); however, recomputing the \emph{same}
+encounters with that current (2026) solution --- $\sim$10\,yr more astrometry than
+the frozen MPCORB-2016 snapshot the catalogue uses --- shifts the nominal
+separations by 25--382\,\% ($d_{2026}$ in Table~\ref{tab:closest}), because all
+five closest pairs are recently-numbered bodies with short arcs at the 2016 epoch.
+This epoch shift, of order $10^2$--$10^3$\,km, therefore dominates the formal
+$\sigma_d$ for these events: the tabulated sub-2000\,km values are genuine tail
+members of the catalogue, but their exact separations are not robust to the decade
+of additional astrometry, and N-body plus current-epoch revalidation is required
+before any individual approach is claimed as physical. The effect is confined to
+this extreme-closest, high-number tail; the slower and wider extreme events
+(Table~\ref{tab:slowest}) and lower-number bodies shift by $<3$\,\%.
 
-The slowest encounters (relative velocity down to $\sim$6\,m/s, with at least
+The slowest encounters (relative velocity down to $\sim$4\,m/s, with at least
 one body $D\gtrsim5$\,km; Table~\ref{tab:slowest}) are the natural targets for
 future mass determination, since a low $v_{\rm rel}$ prolongs the gravitational
-interaction and enlarges the deflection. The combined ``large\,+\,slow\,+\,close''
-set (one body $D\gtrsim50$\,km, $v_{\rm rel}\leq1$\,km/s, dist $\leq10^6$\,km;
-Table~\ref{tab:largeslowclose}) is of the highest physical interest, being the
-configuration that maximises measurable deflection.
+interaction and enlarges the deflection. All entries lie well inside the
+observation window ($>130$\,d from either edge), so none is a window-boundary
+truncation artefact --- a failure mode of the pre-2026-07 catalogue that the
+refinement-window fix (Sect.~\ref{sec:method}) removed. The combined
+``large\,+\,slow\,+\,close'' set (one body $D\gtrsim50$\,km,
+$v_{\rm rel}\leq1$\,km/s, dist $\leq10^6$\,km; Table~\ref{tab:largeslowclose}) is
+of the highest physical interest, being the configuration that maximises
+measurable deflection.
 
 \begin{table*}
-\caption{The five closest approaches in the catalogue.}
+\caption{The five closest approaches in the catalogue. $d_{2016}$ is the
+catalogue separation (frozen MPCORB-2016 snapshot); $d_{2026}$ is the same
+encounter recomputed from the current (2026) JPL SBDB solution, which carries
+$\sim$10 more years of astrometry; $\sigma_d$ is the input-element $1\sigma$ from
+a Monte-Carlo propagation of the 2026 covariance (Sect.~\ref{sec:completeness}).
+The formal $\sigma_d$ is small (2--8\,\%, 32--82\,km), but for these
+recently-numbered, then-short-arc bodies the \emph{epoch shift}
+$d_{2016}\!\rightarrow\!d_{2026}$ is far larger (25--382\,\%; one pair moves by
+$\sim$5000\,km), so the individual sub-2000\,km separations are illustrative of
+the catalogue tail, not precise physical closest-approach distances. All bodies
+here are small, high-number objects with no measured size (diameters $H$-derived,
+not measured; Sect.~\ref{sec:characterisation}). Every event lies $>130$\,d from
+either window edge.}
 \label{tab:closest}
 \centering
 \small
-\begin{tabular}{llccccc}
+\begin{tabular}{llccccccc}
 \hline\hline
-body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
-       &        &            &           & (km/s)        & (km)  & (km)  \\
+body 1 & body 2 & date (UTC) & $d_{2016}$ & $d_{2026}$ & $\sigma_d$ & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
+       &        &            & (km)       & (km)       & (km)       & (km/s)        & (km)  & (km)  \\
 \hline
-(153222) 2000 YD43 & (238587) 2004 YX3  & 2016-03-11 & 1094 & 6.90 & 2.82 & 1.78 \\
-(15072) Landolt    & (387599) 2001 XF180 & 2014-12-08 & 1760 & 5.87 & 3.24 & 1.62 \\
-(270730) 2002 QE130 & (366918) 2005 UC211 & 2016-05-29 & 2291 & 3.10 & 1.62 & 1.18 \\
-(117065) 2004 KD9  & (439086) 2011 QP5  & 2015-07-27 & 2535 & 8.25 & 3.72 & 1.86 \\
-(52249) 1981 EK21  & (408138) 2013 CL75 & 2016-11-17 & 2590 & 3.16 & 3.39 & 1.41 \\
+(153222) 2000 YD43  & (238587) 2004 YX3   & 2016-03-11 & 1094 & 1450 & 82 & 6.90 & 2.8 & 1.8 \\
+(279617) 2011 EP37  & (219812) 2002 AM193 & 2016-06-16 & 1109 &  834 & 51 & 2.60 & 2.2 & 1.9 \\
+(238813) 2005 NT70  & (391704) 2008 BB44  & 2017-03-13 & 1320 & 6358 & 56 & 5.95 & 5.1 & 2.2 \\
+(305032) 2007 TT418 & (393772) 2005 GV146 & 2016-07-12 & 1457 &  170 & 39 & 3.46 & 1.6 & 1.3 \\
+(73282) 2002 JH61   & (261459) 2005 VP69  & 2015-04-01 & 1719 & 2884 & 33 & 1.48 & 2.0 & 2.0 \\
 \hline
 \end{tabular}
 \end{table*}
 
 \begin{table*}
-\caption{The five slowest encounters (at least one body $D\gtrsim5$\,km).}
+\caption{The five slowest encounters (at least one body $D\gtrsim5$\,km).
+The $D\gtrsim5$\,km body is measured for three of the five pairs (JPL SBDB); the
+remaining diameters are $H$-plus-albedo estimates (Sect.~\ref{sec:characterisation}).
+All events lie $>130$\,d from either window edge.}
 \label{tab:slowest}
 \centering
 \small
@@ -536,18 +762,22 @@ body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
 body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
        &        &            &           & (km/s)        & (km)  & (km)  \\
 \hline
-(3791) Marci    & (110964) 2001 UW170  & 2017-01-18 & $5.85\times10^6$ & 0.006 & 13.5 & 2.46 \\
-(47042) 1998 WP3 & (99861) Tscharnuter & 2014-07-27 & $6.03\times10^6$ & 0.015 & 5.63 & 3.24 \\
-(7203) Sigeki   & (73664) 1981 EE34    & 2015-02-28 & $7.07\times10^6$ & 0.031 & 8.14 & 1.48 \\
-(3384) Daliya   & (309262) 2007 RZ93   & 2016-12-20 & $4.44\times10^6$ & 0.031 & 6.17 & 1.23 \\
-(7479) 1994 EC1 & (14954) 1996 DL      & 2017-05-12 & $7.10\times10^6$ & 0.032 & 6.46 & 3.09 \\
+(141098) 2001 XO52 & (304642) 2006 WL5   & 2015-05-04 & $5.27\times10^6$ & 0.004 & 5.7  & 4.5 \\
+(3791) Marci       & (110964) 2001 UW170 & 2017-01-17 & $5.85\times10^6$ & 0.005 & 11.7 & 2.5 \\
+(7203) Sigeki      & (73664) 1981 EE34   & 2015-03-01 & $7.07\times10^6$ & 0.029 & 5.8  & 1.5 \\
+(136707) 1995 TE6  & (340823) 2006 UY131 & 2015-01-30 & $5.09\times10^6$ & 0.031 & 5.5  & 2.1 \\
+(3384) Daliya      & (309262) 2007 RZ93  & 2016-12-21 & $4.44\times10^6$ & 0.031 & 6.2  & 1.2 \\
 \hline
 \end{tabular}
 \end{table*}
 
 \begin{table*}
 \caption{The ``large\,+\,slow\,+\,close'' set (one body $D\gtrsim50$\,km,
-$v_{\rm rel}\leq1$\,km/s, dist $\leq10^6$\,km).}
+$v_{\rm rel}\leq1$\,km/s, dist $\leq10^6$\,km). In every pair the large body ($D_1$)
+has a measured diameter (JPL SBDB); the small companion ($D_2$) is an
+$H$-plus-albedo estimate except (14711), which is also measured
+(Sect.~\ref{sec:characterisation}). All events lie $>130$\,d from either window
+edge.}
 \label{tab:largeslowclose}
 \centering
 \small
@@ -556,14 +786,12 @@ $v_{\rm rel}\leq1$\,km/s, dist $\leq10^6$\,km).}
 body 1 & body 2 & date (UTC) & dist (km) & $v_{\rm rel}$ & $D_1$ & $D_2$ \\
        &        &            &           & (km/s)        & (km)  & (km)  \\
 \hline
-(135) Hertha      & (281202) 2007 FE47  & 2016-09-18 & $4.56\times10^5$ & 0.579 & 80.3 & 1.02 \\
-(371) Bohemia     & (14711) 2000 CG36   & 2016-05-14 & $5.92\times10^5$ & 0.982 & 64.0 & 5.90 \\
-(83) Beatrix      & (170676) 2003 YE180 & 2014-09-18 & $6.10\times10^5$ & 0.684 & 65.8 & 2.14 \\
-(678) Fredegundis & (200373) 2000 QH89  & 2015-03-13 & $6.27\times10^5$ & 0.964 & 55.8 & 2.04 \\
-(9) Metis         & (345254) 2005 UT477 & 2016-10-30 & $7.14\times10^5$ & 0.979 & 197  & 1.23 \\
-(639) Latona      & (10793) Quito       & 2014-12-18 & $7.27\times10^5$ & 0.604 & 81.4 & 10.7 \\
-(16) Psyche       & (139485) 2001 PT14  & 2015-01-19 & $9.66\times10^5$ & 0.869 & 235  & 2.57 \\
-(7) Iris          & (153539) 2001 SD101 & 2015-08-17 & $9.97\times10^5$ & 0.806 & 281  & 2.35 \\
+(223) Rosa    & (315162) 2007 FL24  & 2016-07-01 & $3.55\times10^5$ & 0.133 & 79.8 & 1.7 \\
+(66) Maja     & (271017) 2003 AV10  & 2016-10-13 & $3.87\times10^5$ & 0.564 & 71.8 & 1.9 \\
+(135) Hertha  & (281202) 2007 FE47  & 2016-09-18 & $4.56\times10^5$ & 0.579 & 79.2 & 1.0 \\
+(371) Bohemia & (14711) 2000 CG36   & 2016-05-14 & $5.91\times10^5$ & 0.982 & 53.0 & 4.2 \\
+(83) Beatrix  & (170676) 2003 YE180 & 2014-09-18 & $6.09\times10^5$ & 0.684 & 110  & 2.1 \\
+(9) Metis     & (345254) 2005 UT477 & 2016-10-30 & $7.14\times10^5$ & 0.979 & 190  & 1.2 \\
 \hline
 \end{tabular}
 \end{table*}
@@ -576,10 +804,15 @@ $\Delta e\leq0.02$, $\Delta i\leq1\degr$) \emph{and} that had a physical close
 approach are candidate co-orbital / same-family associations. This is a
 proximity proxy in \emph{osculating} elements, not a classification in proper
 elements, and flags rather than confirms family membership. The closest such
-pair, (200764) 2001 XP3 $\times$ (131597) 2001 XT2, passed within 49\,511\,km on
-2014-08-13 with nearly identical $(a, e, i)$ --- $a\approx2.29$\,AU,
-$e\approx0.19$, $i\approx25\degr$ for both --- a plausible genetic pair worth
-follow-up in proper-element space.
+pair, (200764) 2001 XP3 $\times$ (131597) 2001 XT2, passed within
+$\sim$$5\times10^4$\,km on 2014-08-13 with nearly identical $(a, e, i)$ ---
+$a\approx2.29$\,AU, $e\approx0.19$, $i\approx25\degr$ for both --- a plausible
+genetic pair worth follow-up in proper-element space. The Monte-Carlo
+input-element $1\sigma$ on this separation (Sect.~\ref{sec:completeness}) is only
+$\sim$1\,km against the $\sim$$5\times10^4$\,km approach, so unlike the
+$\sim$1000--2000\,km extreme approaches --- whose separations are dominated by the
+element-epoch shift (Sect.~\ref{sec:extreme}) --- this wider pair is robust; the
+caveat here is the proper-vs-osculating element distinction, not the distance.
 
 \subsection{Candidate perturbers beyond the studied sixteen}
 \label{sec:candperturbers}
@@ -588,30 +821,38 @@ Ranking large bodies ($D\gtrsim100$\,km) \emph{not} among the sixteen studied
 perturbers by their number of \emph{useful} encounters ($v_{\rm rel}\leq3$\,km/s
 and dist $\leq3\times10^6$\,km) yields the best prospects for a mass
 determination the frozen mass runs have not yet attempted
-(Table~\ref{tab:candperturbers}). (9) Metis heads the list with 37 useful events
-and a best pair at $v_{\rm rel} = 0.38$\,km/s; (29) Amphitrite is the largest
-($D\approx240$\,km) with a close $3.2\times10^5$\,km approach. These candidates
+(Table~\ref{tab:candperturbers}). (46) Hestia heads the list with 43 useful
+events; (9) Metis offers the slowest encounter ($v_{\rm rel} = 0.38$\,km/s) and
+(203) Pompeja the closest approach ($1.3\times10^5$\,km), while (19) Fortuna is
+the largest ($D\approx200$\,km). All ten already
+carry a published mass from \citet{fuentesmunoz2025} (final column), so they are
+validation opportunities rather than genuinely new masses; their appeal is the
+favourable encounter geometry the catalogue surfaces, which would let an
+independent determination be checked against an existing value. These candidates
 directly informed the F4 mass determination of Sect.~\ref{sec:mass}.
 
 \begin{table*}
-\caption{Large bodies outside the studied sixteen, ranked by useful encounters.}
+\caption{Large bodies outside the studied sixteen, ranked by useful encounters.
+The final column gives the published mass of \citet{fuentesmunoz2025} where
+available: all ten already have a determination, so these are cross-check rather
+than new-mass targets.}
 \label{tab:candperturbers}
 \centering
 \small
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccc}
 \hline\hline
-body & $D$ (km) & class & useful & best dist (km) & min $v_{\rm rel}$ (km/s) \\
+body & $D$ (km) & class & useful & best dist (km) & min $v_{\rm rel}$ (km/s) & FM25 mass (kg) \\
 \hline
-(9) Metis       & 197 & MBA & 37 & $7.14\times10^5$ & 0.378 \\
-(30) Urania     & 109 & --  & 36 & $4.40\times10^5$ & 0.817 \\
-(40) Harmonia   & 141 & --  & 36 & $6.58\times10^5$ & 1.028 \\
-(19) Fortuna    & 133 & MBA & 32 & $7.43\times10^5$ & 0.678 \\
-(21) Lutetia    & 120 & --  & 30 & $8.18\times10^5$ & 0.609 \\
-(64) Angelina   & 104 & MBA & 30 & $8.73\times10^5$ & 0.992 \\
-(44) Nysa       & 140 & --  & 30 & $8.95\times10^5$ & 0.961 \\
-(20) Massalia   & 178 & --  & 28 & $8.78\times10^5$ & 0.514 \\
-(29) Amphitrite & 240 & --  & 27 & $3.17\times10^5$ & 0.643 \\
-(27) Euterpe    & 141 & --  & 26 & $4.63\times10^5$ & 0.847 \\
+(46) Hestia     & 131 & MBA & 43 & $4.42\times10^5$ & 0.912 & $1.3\times10^{18}$ \\
+(203) Pompeja   & 125 & MBA & 38 & $1.30\times10^5$ & 0.872 & $8.5\times10^{17}$ \\
+(9) Metis       & 190 & MBA & 38 & $7.14\times10^5$ & 0.379 & $6.5\times10^{18}$ \\
+(40) Harmonia   & 111 & MBA & 37 & $6.58\times10^5$ & 1.028 & $2.0\times10^{18}$ \\
+(206) Hersilia  & 113 & MBA & 37 & $7.84\times10^5$ & 0.739 & $7.6\times10^{17}$ \\
+(19) Fortuna    & 200 & MBA & 36 & $7.43\times10^5$ & 0.678 & $8.5\times10^{18}$ \\
+(20) Massalia   & 136 & MBA & 33 & $8.78\times10^5$ & 0.514 & $4.3\times10^{18}$ \\
+(308) Polyxo    & 129 & MBA & 29 & $2.44\times10^5$ & 1.098 & $2.5\times10^{18}$ \\
+(91) Aegina     & 103 & MBA & 28 & $3.71\times10^5$ & 0.873 & $1.1\times10^{18}$ \\
+(83) Beatrix    & 110 & MBA & 28 & $6.09\times10^5$ & 0.684 & $7.3\times10^{17}$ \\
 \hline
 \end{tabular}
 \end{table*}
@@ -622,50 +863,84 @@ body & $D$ (km) & class & useful & best dist (km) & min $v_{\rm rel}$ (km/s) \\
 A reference list of encounters touching one of the sixteen studied perturbers
 (1, 2, 3, 4, 7, 10, 15, 16, 31, 52, 65, 87, 88, 107, 511, 704) is provided in
 the companion material so that already-worked events can be separated from
-potential discoveries. The honest verdict is that no new large--large encounter
-of publication interest emerged: the belt's largest bodies are well studied, and
-\citet{fuentesmunoz2025} already published over 230 masses (232 at SNR $>3$)
-covering essentially all
-classical large MBAs. The novelty of this work is the dataset itself --- a
-catalogue with a measured completeness budget --- and the methodological
-framework of Sect.~\ref{sec:mass}, not a single spectacular event.
+potential discoveries. The honest verdict is that the large--large approaches
+(Table~\ref{tab:dd100}) all involve well-studied bodies and none is a
+publication-grade mass-determination opportunity: the belt's largest bodies are
+well studied, and \citet{fuentesmunoz2025} already published over 230 masses
+(232 at SNR $>3$) covering essentially all classical large MBAs. The contribution of this work is the dataset itself --- an
+all-pairs catalogue published in full with a measured completeness budget ---
+demonstrated end-to-end by the mass-determination application of
+Sect.~\ref{sec:mass}, not a single spectacular event.
 
 % =========================================================================
 \section{Application to mass determination}
 \label{sec:mass}
 
-The catalogue is the target-selection front-end of an asteroid
-mass-determination engine. Perturber mass is obtained by a joint least-squares
+This section demonstrates the catalogue end-to-end as the target-selection
+front-end of an asteroid mass-determination engine. It is a \emph{usage
+demonstration}, not a claim of new or improved masses: as noted below and in
+Sect.~\ref{sec:newknown}, every mass recovered here is already published, and a
+single out-of-sixteen perturber with $\sim$50 Gaia-FPR targets yields only a
+coarse determination. Perturber mass is obtained by a joint least-squares
 fit of the perturber's mass and the orbits of its test bodies --- those with a
 $<0.05$\,AU encounter drawn directly from the catalogue --- over the full arc of
-Gaia FPR astrometry. The force model is ASSIST (JPL DE440 ephemeris; EIH
-relativistic corrections; sixteen massive asteroid perturbers); the
-implementation is our own, with no third-party orbit-determination dependency.
+Gaia FPR astrometry \citep{gaiafpr2023}. A window asymmetry is worth noting: the
+catalogue spans the DR3 window (2014--2017) whereas the fit uses the full FPR arc
+(through $\sim$2020), so a test body's most informative approach could fall
+outside the catalogued window. This asymmetry affects only \emph{target
+selection}, not the model: the perturber is integrated as a massive body
+continuously over the whole arc, so its deflection is modelled at every epoch
+regardless of when the catalogued encounter occurred; the catalogue merely
+identifies which bodies are worth fitting. A test body whose deepest approach is
+post-2017 is therefore not mis-modelled --- at worst it is a good target the
+DR3-window selection misses, making the yield a conservative lower bound. The
+force model is ASSIST \citep{holman2023} on the JPL DE440 ephemeris
+\citep{park2021}, with EIH relativistic corrections and sixteen massive asteroid
+perturbers carried as explicit massive rebound particles rather than through the
+ASSIST \texttt{ASTEROIDS} ephemeris force (which is disabled), so the perturber
+whose mass is being fitted is never double-counted; the
+fitting layer (observation model, partials, least squares) is implemented in
+this work on top of rebound/ASSIST \citep{rein2012, rein2015ias15, holman2023}
+and astropy \citep{astropy2022}. Non-gravitational forces on the test bodies
+(Yarkovsky) are not modelled: for the km-scale bodies used here the secular
+semimajor-axis drift is of order $10^{-4}$\,AU\,Myr$^{-1}$, an along-track
+displacement of $\lesssim$1\,km ($\lesssim$1\,mas geocentric) over the
+$\sim$6-yr arc, most of which a smooth drift the per-body orbit fit absorbs ---
+well below the localised encounter deflections the mass fit exploits.
 
-\paragraph{Calibrators.} The four calibrator masses are recovered at $|z|<3$
-against the literature (Table~\ref{tab:calibrators}). With $N\geq20$ test bodies,
-the fit/literature ratios of Ceres \citep{park2016}, Vesta
+\paragraph{A-priori determinability.} The astrometric signature of a perturber
+is the along-scan deflection it imprints on a test body, of order
+$\Delta\theta \sim 2GM\,t/(b\,v_{\rm rel}\,\Delta)$ for impact parameter $b$,
+relative velocity $v_{\rm rel}$, geocentric distance $\Delta$, and
+post-encounter arc $t$: the impulse velocity kick $2GM/(b\,v_{\rm rel})$
+accumulated over $t\sim1$\,yr of the DR3 window and referred to $\Delta$. For a
+$\sim$0.02\,AU encounter at a few km\,s$^{-1}$, a perturber of
+$10^{-12}\,M_\odot$ ($\approx2\times10^{18}$\,kg) produces a per-transit
+deflection at or below Gaia's per-CCD along-scan precision, so its
+signal-to-noise is $\lesssim1$ \emph{per target} and it is recoverable only by
+stacking many test bodies; a perturber of $10^{-11}\,M_\odot$
+($\approx2\times10^{19}$\,kg) is individually determinable. This a-priori
+threshold --- set before any fit --- broadly matches what the engine delivers,
+provided the comparison is against \emph{independent} determinations rather than
+the DE441 seed: perturbers whose mass is $\gtrsim2\times10^{19}$\,kg are
+recovered near unity ratio against FM25 and \citet{siltala2022}, whereas the
+lighter ones are driven below their true value by the mass$\leftrightarrow$orbit
+regression discussed below and fall to bounds. (52) Europa illustrates the
+distinction: near unity against independent masses (0.88 vs FM25, 0.78 vs SG22)
+but only 0.58 against a seed that is itself high, so the seed ratio alone would
+misread it. (88) Thisbe (FM mass $8.8\times10^{18}$\,kg, our fit
+$6.9\times10^{18}$\,kg) is the clearest sub-threshold case: a naive
+$\mathrm{snr_{jack}}$ flag would call it measured, but the leverage-robust
+bootstrap $\sigma$ discussed below correctly returns it to a bound. The mass
+layer does not claim sensitivity below this frontier.
+
+\paragraph{Calibrators.} The four calibrator masses (Table~\ref{tab:sixteen})
+are recovered at $|z|<3$ against the literature. With $N\geq20$ test bodies, the
+fit/literature ratios of Ceres \citep{park2016}, Vesta
 \citep[DAWN;][]{russell2012} and Hygiea \citep{vernazza2020} fall in
-$[0.943, 0.990]$ (mean bias $-4$\,\%);
-Pallas, limited to 6 encounters in the catalogue, gives ratio 1.240
-($z=+2.67$).
-
-\begin{table}
-\caption{Calibrator masses recovered by the joint orbit+mass fit. The $z$ column
-uses the total (formal $\oplus$ systematic) $\sigma$.}
-\label{tab:calibrators}
-\centering
-\begin{tabular}{lccccc}
-\hline\hline
-body & $N$ & fitted mass (kg) & $\sigma_{\rm tot}$ & ratio fit/lit & $z$ \\
-\hline
-Ceres  & 28 & $8.96\times10^{20}$ & 4.6\,\% & 0.955 & $-1.01$ \\
-Vesta  & 28 & $2.44\times10^{20}$ & 4.6\,\% & 0.943 & $-1.30$ \\
-Hygiea & 20 & $8.22\times10^{19}$ & 5.7\,\% & 0.990 & $-0.13$ \\
-Pallas & 6  & $2.54\times10^{20}$ & 7.0\,\% & 1.240 & $+2.67$ \\
-\hline
-\end{tabular}
-\end{table}
+$[0.94, 0.99]$ (mean bias $-4$\,\%); Pallas, limited to 8 encounters in the
+catalogue, gives ratio 1.20 ($z=+2.2$). The $-4$\,\% mean bias sets the scale of
+the residual systematic (Sect.~\ref{sec:mass}, ``external $\sigma$'' below).
 
 \paragraph{FOV-block covariance.} Each Gaia focal-plane crossing yields $\sim$7
 CCD observations ($\sim$5\,s apart) with correlated residuals. Treating them as
@@ -673,33 +948,151 @@ independent underestimates $\sigma(\mathrm{mass})$ by a factor 1.66 (effective
 $N\approx0.36\,N$). The measured intra-crossing correlation is ICC $= 0.32$; we
 whiten each crossing with a block covariance
 $C = \mathrm{diag}(\sigma_{\rm AL}^2) + s_c^2\,\mathbf{1}\mathbf{1}^{\mathsf T}$,
-the correlated floor $s_c$ calibrated by bisection to $\chi^2_{\rm red} = 1$.
+the correlated floor $s_c$ calibrated by bisection to $\chi^2_{\rm red} = 1$
+\emph{per perturber}, on that fit's converged along-scan residuals; where the raw
+residuals already give $\chi^2_{\rm red}\le1$ no floor is added ($s_c=0$), which
+is why several tabulated $\chi^2_{\rm red}$ sit below unity. This
+calibration is not a hidden fit knob for the mass: refitting the calibrators with
+$s_c$ fixed across $0.5$--$1.1$\,mas (a $>2\times$ range bracketing the calibrated
+value) shifts their masses by $<1.3$\,\% ($\partial\ln M/\partial\ln s_c\approx
+-0.01$ for Ceres, Vesta and Hygiea), far below the $-4$\,\% accuracy bias --- so the
+floor inflates the error bar, not the central mass, and the calibrator anchoring is
+not circular through $s_c$.
 
-\paragraph{Sixteen perturbers.} The engine determines all sixteen. Only (16)
-Psyche reaches calibrator-grade precision outside the calibrators:
-$M = 2.43\times10^{19}$\,kg, $\sigma_{\rm stat} = 3.3$\,\%, $N = 36$,
-$\chi^2_{\rm red} = 0.99$, ratio 1.020 vs DE441 and 1.014 ($z=+0.25$) vs the
-independent \citet{fuentesmunoz2025} FPR fit. Six perturbers whose deflection
-sits below the per-encounter astrometric noise return ratios in $[0.39, 0.72]$:
-this is the mass$\leftrightarrow$orbit degeneracy (the fit reproduces the
-astrometry with a smaller mass and a re-adjusted orbit --- regression toward zero
-mass), and for these the formal Fisher $\sigma$ underestimates the error.
+\paragraph{Sixteen perturbers.} The engine returns a fit for all sixteen
+(Table~\ref{tab:sixteen}); six clear the identifiability criterion below and are
+flagged \emph{measured}, eight are \emph{bounds}, one (Davida, $N=6$) is
+non-physical (best-fit mass $<0$), and one (Camilla, $N=2$) is unconstrained.
+Only (16) Psyche approaches calibrator-grade precision outside the calibrators
+($\sigma_{\rm tot} = 9$\,\%): ratio 0.95 vs its DE441 seed and 0.95 ($z=-0.7$) vs
+the independent \citet{fuentesmunoz2025} FPR fit. Several perturbers whose deflection sits below
+the per-encounter astrometric noise return ratios well under unity: this is the
+mass$\leftrightarrow$orbit degeneracy (the fit reproduces the astrometry with a
+smaller mass and a re-adjusted orbit --- regression toward zero mass), and for
+these the formal Fisher $\sigma$ underestimates the error, which is why the
+jackknife $\sigma$ and the identifiability flag below are needed. The target
+lists are drawn from the published catalogue (the B1-fixed freeze of
+Sect.~\ref{sec:method}). We verified that this selection is not load-bearing by
+re-running the entire sixteen-perturber fit against the target lists produced by
+the earlier, pre-B1 catalogue: the four calibrator ratios move by $<2$\,\%
+(Ceres $0.96\to0.955$, Vesta $0.94\to0.943$, Hygiea $0.99\to0.987$,
+Pallas $1.24\to1.20$) and the measured/bound partition is unchanged but for a
+single body at the $\mathrm{snr_{jack}}=3$ boundary --- confirming that the masses
+are Gaia-FPR astrometric determinations essentially insensitive to which catalogue
+freeze supplied the targets, so re-selection is a consistency refinement, not a
+correction.
+
+\begin{table*}
+\caption{The sixteen perturber masses from the joint orbit$+$mass fit to Gaia FPR
+astrometry. $N$ = test bodies; $\sigma_{\rm tot}$ = total (formal $\oplus$
+systematic) fractional uncertainty; ratio = fit / reference (literature for the
+four calibrators, DE441 seed otherwise); $z = (M_{\rm fit}-M_{\rm ref})/\sqrt{\sigma_{\rm tot}^2+\sigma_{\rm ref}^2}$
+(i.e.\ $\sigma_{\rm tot}$ combined in quadrature with the reference uncertainty); lev.\ =
+top-1 jackknife leverage (fraction of the jackknife variance from the single most
+influential replica; $>0.5$ means $\sigma_{\rm jack}$ has $\sim$1 effective
+degree of freedom and is not defensible as a $\sigma$); status from the
+identifiability criterion (measured / bound / non-physical / unconstrained). For
+the four \emph{measured} cases with lev.\ $>0.5$ (Ceres, Juno, Psyche, Thisbe) the
+quoted $\sigma_{\rm tot}$ and status use the leverage-robust bootstrap $\sigma$
+(text): this leaves Ceres and Psyche measured but demotes Juno and Thisbe to
+bounds.}
+\label{tab:sixteen}
+\centering
+\small
+\begin{tabular}{lrccccccc}
+\hline\hline
+perturber & $N$ & mass (kg) & $\sigma_{\rm tot}$ & $\chi^2_{\rm red}$ & ratio & $z$ & lev. & status \\
+\hline
+(1) Ceres        & 28 & $9.0\times10^{20}$  & 6\,\%   & 0.99 & 0.96 & $-0.7$ & 0.68 & measured \\
+(2) Pallas       &  8 & $2.5\times10^{20}$  & 7\,\%   & 0.99 & 1.20 & $+2.2$ & 0.27 & bound \\
+(3) Juno         & 24 & $2.0\times10^{19}$  & 42\,\%  & 0.99 & 0.70 & $-1.0$ & 0.93 & bound \\
+(4) Vesta        & 28 & $2.4\times10^{20}$  & 6\,\%   & 0.97 & 0.94 & $-1.1$ & 0.27 & measured \\
+(7) Iris         & 27 & $7.1\times10^{18}$  & 119\,\% & 0.98 & 0.42 & $-1.2$ & 0.62 & bound \\
+(10) Hygiea      & 26 & $8.2\times10^{19}$  & 7\,\%   & 0.98 & 0.99 & $-0.2$ & 0.43 & measured \\
+(15) Eunomia     & 29 & $2.3\times10^{19}$  & 31\,\%  & 0.98 & 0.77 & $-1.0$ & 0.32 & measured \\
+(16) Psyche      & 26 & $2.3\times10^{19}$  & 9\,\%   & 0.98 & 0.95 & $-0.6$ & 0.64 & measured \\
+(31) Euphrosyne  & 26 & $2.0\times10^{19}$  & 45\,\%  & 0.99 & 1.26 & $+0.5$ & 0.23 & bound \\
+(52) Europa      & 28 & $2.3\times10^{19}$  & 17\,\%  & 0.98 & 0.58 & $-4.3$ & 0.43 & measured \\
+(65) Cybele      & 15 & $6.1\times10^{19}$  & 60\,\%  & 0.93 & 4.33 & $+1.3$ & 0.41 & bound \\
+(87) Sylvia      & 12 & $3.5\times10^{19}$  & 39\,\%  & 0.99 & 1.06 & $+0.2$ & 0.46 & bound \\
+(88) Thisbe      & 27 & $6.9\times10^{18}$  & 57\,\%  & 0.98 & 0.39 & $-2.8$ & 0.84 & bound \\
+(107) Camilla    &  2 & $1.7\times10^{20}$  & 67\,\%  & 0.99 & 8.07 & $+1.3$ & ---  & unconstrained \\
+(511) Davida     &  6 & $-1.1\times10^{20}$ & 50\,\%  & 0.81 & ---  & $-3.1$ & 0.60 & non-physical \\
+(704) Interamnia & 29 & $2.0\times10^{19}$  & 40\,\%  & 0.98 & 0.47 & $-2.8$ & 0.31 & bound \\
+\hline
+\end{tabular}
+\end{table*}
 
 \paragraph{External $\sigma$ by jackknife.} Because the formal $\sigma$ scales as
 $1/\sqrt{N}$ and ignores the mass$\leftrightarrow$orbit regression seen only by
-leaving encounters out, we report a jackknife $\sigma$ that reincorporates it.
-It is systematically 2--3$\times$ the formal $\sigma$. Its diagnostic value is
-visible in the calibrators themselves: Pallas and Vesta --- whose true masses are
-known --- sit at $|z|>3$ under the formal $\sigma$ but within $|z|<3$ under the
-jackknife $\sigma$, showing the formal bar is genuinely too tight rather than the
-jackknife being permissive. Cross-checking the ten \emph{measured}
-(identifiable, $\mathrm{snr_{jack}}\geq3$) perturbers against
-\citet{fuentesmunoz2025}, 10/10 fall within $|z|<3$ under the jackknife
-$\sigma$, versus 5/10 under the formal $\sigma$ (6/6 vs 3/6 for the
-non-calibrators, the genuinely independent comparison). The remaining perturbers
-are flagged \texttt{not\_identifiable} --- their deflection does not clear the
-per-encounter noise and their masses are reported as explicit bounds, not
-measurements.
+leaving encounters out, we report a leave-one-target-out jackknife $\sigma$ that
+reincorporates it; it is systematically 2--3$\times$ the formal $\sigma$, and its
+combination with the systematic floor is the single $\sigma_{\rm tot}$ quoted in
+Table~\ref{tab:sixteen}. Its diagnostic value is visible in the calibrators
+themselves: Vesta --- whose true mass is known --- moves from $|z|>3$ under the
+formal $\sigma$ to $|z|<3$ under $\sigma_{\rm tot}$, showing the formal bar is too
+tight. We deliberately do \emph{not} present agreement with
+\citet{fuentesmunoz2025} as a proof of accuracy: FM fit the \emph{same} Gaia FPR
+astrometry, so the two analyses are not independent, and the total error bars of
+the non-calibrators (8--119\,\%) cannot resolve deviations of the size the fits
+themselves show. Two points nonetheless matter for reading
+Table~\ref{tab:sixteen}. First, the ratios tabulated there are against the
+\emph{DE441 seed}: the three measured non-calibrators give seed ratios 0.77
+(Eunomia), 0.95 (Psyche) and 0.58 (Europa), geometric mean 0.75. Against the
+FM25 masses the same three give 0.75, 0.95 and 0.88, geometric mean 0.85 --- a
+coherent $\sim$15\,\% one-sided pull consistent with the regression-toward-zero
+signature (a sign test gives $p\approx0.25$, suggestive but not significant at
+this $N$). Against FM25 all six \emph{measured} perturbers agree at $|z|<1.2$
+(Ceres $-0.7$, Vesta $-1.1$, Hygiea $-0.1$, Eunomia $-1.1$, Psyche $-0.7$,
+Europa $-0.8$).
+
+Second, the one alarming entry in Table~\ref{tab:sixteen} --- (52) Europa at
+$z=-4.3$ --- is a disagreement with the \emph{seed}, not with measured masses.
+The DE441 seed for Europa ($4.0\times10^{19}$\,kg) is high relative to every
+independent determination: FM25 give $2.7\times10^{19}$\,kg;
+\citet{siltala2022}, from Gaia DR2 plus ground-based astrometry and therefore
+\emph{independent of the FPR data that both this work and FM25 use}, give
+$(1.51\pm0.05)\times10^{-11}\,M_\odot$ ($3.0\times10^{19}$\,kg); and our fit
+gives $2.3\times10^{19}$\,kg. Against FM25 Europa sits at $z=-0.8$ and against
+the independent SG22 value at $z=-1.7$ --- it is the seed, not the fit, that is
+the outlier. For (15) Eunomia the seed, FM25 and SG22 masses agree at
+$\sim$3.0--3.1$\times10^{19}$\,kg while our fit is $\sim$25\,\% lower ($z=-1.0$
+against SG22), the same mild downward pull. The identifiability flag is a
+precision test (snr and leverage), not an accuracy test against the seed, so
+Europa is legitimately \emph{measured} --- its mass is well constrained
+($\mathrm{snr_{jack}}=8.2$) --- even as it disagrees with a questionable seed;
+the abstract's ``broadly consistent'' is a statement about the independent FM25
+and SG22 masses, to which it holds. A wide external $\sigma$ makes almost any
+value formally ``consistent''; the genuine accuracy anchor remains the four
+calibrators (external truth), which carry the $-4$\,\% bias noted above. Perturbers whose $\mathrm{snr_{jack}}<3$ (with and without their
+dominant jackknife replica) are flagged as bounds, not measurements; the top-1
+jackknife leverage in Table~\ref{tab:sixteen} flags the six cases where
+$\sigma_{\rm jack}$ rests on effectively one replica. For the four \emph{measured}
+ones among them (Ceres, Juno, Psyche, Thisbe) we recomputed $\sigma$ with a
+nonparametric bootstrap (resampling targets with replacement, warm-started from the
+converged fit), which is robust to single-replica dominance because a high-leverage
+target does not enter every resample. The bootstrap confirms the low-leverage pair
+(Ceres $\sigma_{\rm boot}/\sigma_{\rm jack}=0.94$, Psyche $1.07$; both stay
+$\mathrm{snr}>3$) but shows the jackknife \emph{underestimated} $\sigma$ for the two
+highest-leverage cases: Juno (lev.\ 0.93, $\sigma_{\rm boot}/\sigma_{\rm jack}=1.9$,
+$\mathrm{snr_{boot}}=2.4$) and Thisbe (lev.\ 0.84, ratio $4.0$,
+$\mathrm{snr_{boot}}=1.8$) both fall below the $\mathrm{snr}=3$ identifiability
+threshold and are accordingly demoted from measured to bounds. This is the concrete
+payoff of the leverage diagnostic: two masses that a jackknife-only analysis would
+have published as measurements are, under the robust $\sigma$, only bounds ---
+notably Thisbe, whose apparent $z=-10.6$ against the literature collapses to a
+statistically unremarkable $z=-2.8$ once its uncertainty is honestly sized.
+
+\paragraph{Estimator injection--recovery.} That the estimator itself is unbiased
+--- separate from the force-model accuracy anchored by the calibrators --- is
+verified by an injection--recovery test: a known perturber mass is injected into
+synthetic per-transit astrometry of a set of test bodies (controlled encounter
+geometry, realistic along-scan noise) and recovered by the same joint mass$+$orbit
+fit. Injecting $2\times10^{19}$\,kg into 24 targets at 2\,mas per-transit noise
+recovers $2.18\times10^{19}$\,kg ($z=+0.5$, $\chi^2_{\rm red}=0.88$), with the
+jackknife $\sigma$ again exceeding the formal $\sigma$ by the expected factor; the
+recovery is unbiased across injected masses and seeds. The test is kept as a
+permanent regression guard.
 
 \paragraph{Beyond the sixteen.} The engine is not restricted to the sixteen
 ephemeris perturbers: each perturber is integrated as a massive rebound particle
@@ -712,8 +1105,8 @@ The methodological gate is green: the engine generalises to bodies beyond the
 ephemeris set. Fortuna is not itself a new mass (it appears in
 \citealt{goffin2014} and \citealt{fuentesmunoz2025}), and its 20\,\% $\sigma$
 makes it a coarse determination consistent with the literature within the
-jackknife bar ($z=+1.25$). The catalogue's top ranked out-of-sixteen candidate,
-(9) Metis (37 useful encounters, Sect.~\ref{sec:candperturbers}), was run as a
+jackknife bar ($z=+1.25$). A highly ranked out-of-sixteen candidate,
+(9) Metis (38 useful encounters, Sect.~\ref{sec:candperturbers}), was run as a
 second out-of-sixteen case and fits with $\chi^2_{\rm red} = 0.981$ and
 $M = 4.74\times10^{18}\pm1.53\times10^{18}$\,kg (55 targets, jackknife
 $\sigma = 32$\,\%), a ratio of 0.73 against \citet{fuentesmunoz2025}
@@ -735,69 +1128,174 @@ $-0.02$\,\%, Vesta $-0.23$\,\%, Hygiea $+0.18$\,\%), three orders of magnitude
 below the deficit being probed; the systematic floor $f_{\rm sys}$ does not drop
 (4.16\,\% $\to$ 4.26\,\%). Background incompleteness is therefore \emph{not} the
 origin of the $-4$\,\% bias --- a far-field, dispersed perturber population
-averages to nearly zero deflection over the target ensemble. The residual bias is
+averages to nearly zero deflection over the target ensemble. A scale bound
+confirms this: the thirty-five modelled bodies carry $\approx1.7\times10^{21}$\,kg,
+leaving an unmodelled tail of only $\sim$$7\times10^{20}$\,kg (against a total
+main-belt mass $\approx2.4\times10^{21}$\,kg) spread over $>10^{5}$ objects each
+below $\sim$$5\times10^{18}$\,kg --- individually an order of magnitude lighter
+and far more numerous, hence more dispersed, than the twenty just added. Since
+the $4\to35$ enlargement (concentrating $1.6\times10^{20}$\,kg in the largest
+remaining bodies) moved the paired $\Delta$mass by $<0.25$\,\%, the residual tail
+--- lighter per body and closer to isotropic --- bounds to well below that gate
+and cannot produce a $4$\,\% coherent deficit. The residual bias is therefore
 more plausibly attributable to per-target orbit imperfection over the short Gaia
 arc or unmodelled per-encounter astrometric systematics.
+
+\paragraph{Relation to other methods.} The estimator used here (a joint
+orbit$+$mass least-squares fit with an FOV-block covariance, an external
+jackknife $\sigma$, and an identifiability flag) is functionally a transparent
+reimplementation of established encounter-based mass determination, not a new
+methodology. \citet{siltala2020} obtain full Bayesian posteriors by MCMC, which
+natively expose multi-modality and non-Gaussian tails that a single covariance
+cannot; \citet{fuentesmunoz2025} propagate a prior to a posterior over the same
+Gaia FPR astrometry. Relative to those, our contribution in this section is not
+methodological sophistication but end-to-end demonstration that the open
+all-pairs catalogue feeds a mass pipeline whose every step (target selection,
+covariance model, jackknife, identifiability cut) is open and reproducible.
+Because \citet{fuentesmunoz2025} fits the same FPR data, the cross-check below is
+a consistency test between two analyses of one dataset, not an independent
+confirmation.
 
 % =========================================================================
 \section{Data availability}
 \label{sec:data}
 
 The primary product is the Kepler-refined candidate catalogue,
-\texttt{encounters\_catalog\_rebound\_005au.parquet} (72\,236\,904 rows, SHA-256
-\texttt{b0272be7\ldots}), a typed Parquet file with a machine-readable
-provenance sidecar recording the MPCORB snapshot hash, the frozen configuration,
-and the pipeline parameters. The derived \emph{hybrid} catalogue,
-\texttt{encounters\_catalog\_hybrid\_stageb.parquet}, carries per-row
-$\mathrm{refinement\_method}\in\{\mathrm{kepler},\mathrm{nbody}\}$ and both the
-Kepler and N-body distances, epochs, velocities, and their residuals; it should
-be cited for any science depending on sub-mAU geometry. The characterised
-catalogue, \texttt{encounters\_characterized\_full.parquet}, adds observability,
-solar elongation, magnitudes, diameters, and taxonomic classes for the full
-72\,M rows. Anything derived from the catalogue must cite both the freeze
-(catalog SHA \texttt{b0272be7\ldots}) and the code commit at its own generation
-time.
-% TODO(author): register the catalogue in a public archive (Zenodo/VizieR) and
-% insert the DOI here before submission.
+\texttt{encounters\_catalog\_rebound\_005au\_b1fix.parquet} (80\,072\,774 rows),
+a typed Parquet file with a machine-readable provenance sidecar recording the
+MPCORB snapshot hash (full SHA-256), the frozen configuration, and the pipeline
+parameters. The characterised catalogue,
+\texttt{encounters\_characterized\_b1fix.parquet}, adds observability, solar
+elongation, magnitudes, measured/estimated diameters (with a per-row provenance
+flag), a dynamical class, and a deflection-signal estimate for all 80\,M rows
+(schema in Appendix~\ref{sec:schema}). A derived \emph{hybrid} catalogue
+(\texttt{encounters\_catalog\_hybrid\_stageb\_b1fix.parquet}) carrying
+per-row $\mathrm{refinement\_method}\in\{\mathrm{kepler},\mathrm{nbody}\}$ and
+both Kepler and N-body geometry on the fragile subset --- for science depending
+on sub-mAU distances --- is regenerated from the same freeze. The catalogue and
+its input hashes (MPCORB snapshot and the JPL SBDB physical-data snapshot) are
+recorded in the sidecars; anything derived downstream must cite the catalogue
+SHA-256 and the code commit at its generation time. The three products will be
+deposited in a public archive upon acceptance, with their SHA-256 digests and a
+DOI added to the published version; they are available from the author on request
+in the meantime.
 
 % =========================================================================
 \section{Conclusions}
 \label{sec:conclusions}
 
-We have built and characterised a systematic catalogue of 72\,236\,904 real 3D
+We have built and characterised a systematic catalogue of 80\,072\,774 real 3D
 close encounters ($<0.05$\,AU) between numbered asteroids during the Gaia DR3
-observation window. Unlike prior encounter-based work, which selects individual
-events by hand, the catalogue is exhaustive over the numbered population and ---
+observation window. Unlike prior encounter-based work --- published truncated
+(top candidates per perturber) or without a characterised selection function ---
+the catalogue is exhaustive over the numbered population and ---
 its distinguishing feature --- comes with a \emph{measured} completeness budget
 rather than an assumed one: the two-body refinement error (median 12\,$\mu$AU,
-p99 2.5\,mAU), the threshold-induced false-negative rate (0.70\,\%, symmetric
-and scatter-dominated, implying $\sim$$10^5$ censored encounters catalog-wide),
+p99 2.5\,mAU), the threshold-induced false-negative rate (0.70\,\% within the
+discarded 0.05--0.06\,AU band, symmetric and scatter-dominated, implying
+$\sim$$10^5$ censored encounters catalog-wide, $\sim$0.25\,\% of the catalogue),
 and the orbital prefilter recall on the adverse high-$e$/high-$i$ tail (76\,\%,
 with a zero-cost radial-overlap fix that recovers 100\,\%). A hybrid variant
 provides N-body-grade geometry on the dynamically fragile subset.
 
 The catalogue is a working target-selection front-end for mass determination: a
-joint orbit+mass engine on Gaia FPR astrometry recovers all four calibrators at
-$|z|<3$, determines sixteen perturbers (all ten identifiable masses consistent
-with \citealt{fuentesmunoz2025} at $|z|<3$ under a jackknife $\sigma$), and
-generalises to bodies beyond the ephemeris set. We are explicit about the
+joint orbit+mass fit on Gaia FPR astrometry recovers the calibrators, determines
+the studied perturbers, and generalises to bodies beyond the ephemeris set,
+demonstrated end-to-end (Sect.~\ref{sec:mass}). We are explicit about the
 limits: distances are candidates under frozen two-body assumptions except on the
-N-body-refined subset, the catalogue is not complete, and no new large--large
-encounter or unpublished large-body mass emerged --- the belt's massive bodies
-are already well surveyed. The contribution is the dataset with its quantified
-budget and the methodological framework (FOV-block covariance, identifiability
-criterion, external jackknife $\sigma$), which together turn a bulk propagation
-into a defensibly characterised catalogue.
+N-body-refined subset, the catalogue is not complete, and the large--large
+($D\gtrsim100$\,km) approaches it contains all involve well-surveyed bodies with
+no unpublished large-body mass emerging --- the mass layer is a demonstration of
+use rather than a source of competitive new masses. The contribution is the dataset itself:
+an all-pairs catalogue published in full with a quantified incompleteness budget,
+fed to a mass pipeline whose every step (FOV-block covariance, external jackknife
+$\sigma$, identifiability flag) is open and reproducible --- a transparent
+reimplementation of established encounter-based mass determination
+\citep{siltala2020, fuentesmunoz2025}, not a new methodology. Future
+high-cadence, all-sky surveys --- notably the Vera C.\ Rubin Observatory's Legacy
+Survey of Space and Time --- are expected to extend the encounter-based approach
+well beyond Gaia: \citet{bernstein2025} forecast mass determinations for several
+hundred main-belt asteroids from mutual close encounters observed over ten years
+of LSST astrometry, roughly an order of magnitude more than are known today.
 
 \begin{acknowledgements}
-% TODO(author): acknowledgements, funding, software (astropy, rebound, ASSIST,
-% polars, scipy), and Gaia/DPAC boilerplate.
+The author is an independent researcher; this work received no external funding,
+and the computational resources used were funded by the author.
 This work has made use of data from the European Space Agency (ESA) mission
 \emph{Gaia} (\url{https://www.cosmos.esa.int/gaia}), processed by the \emph{Gaia}
-Data Processing and Analysis Consortium (DPAC).
+Data Processing and Analysis Consortium (DPAC). It has also made use of data and
+services provided by the IAU Minor Planet Center and by NASA's Jet Propulsion
+Laboratory (Horizons and SBDB). This research made use of \texttt{astropy}
+\citep{astropy2022}, \texttt{rebound} \citep{rein2012} with the IAS15 integrator
+\citep{rein2015ias15}, and \texttt{ASSIST} \citep{holman2023} on the JPL DE440
+ephemeris \citep{park2021}, as well as the open-source packages \texttt{numpy},
+\texttt{scipy}, \texttt{polars}, and \texttt{duckdb}. The close-encounter
+catalogue and the mass-determination engine are openly available (see
+Sect.~\ref{sec:data}).
 \end{acknowledgements}
 
 \bibliographystyle{aa}
 \bibliography{references}
+
+\appendix
+
+% =========================================================================
+\section{Catalogue column schema}
+\label{sec:schema}
+
+Table~\ref{tab:schema} documents the columns of the characterised catalogue
+(\texttt{encounters\_characterized\_b1fix.parquet}), the widest of the three
+published products. The detection catalogue
+(\texttt{encounters\_catalog\_rebound\_005au\_b1fix.parquet}) carries the first block of
+identity and geometry columns only (\texttt{number\_1} through
+\texttt{rel\_vel\_m\_s}); the hybrid catalogue
+(\texttt{encounters\_catalog\_hybrid\_stageb\_b1fix.parquet}) adds a
+\texttt{refinement\_method} $\in\{\texttt{kepler},\texttt{nbody}\}$ column and,
+for the N-body-refined rows, parallel \texttt{dist\_au\_nbody},
+\texttt{jd\_tdb\_nbody}, \texttt{rel\_vel\_au\_day\_nbody} columns and their
+Kepler$-$N-body residuals. Bodies are ordered so that subscript~1 is the larger
+(perturber) body of the pair (Sect.~\ref{sec:characterisation}).
+
+\begin{table*}
+\caption{Columns of the characterised close-encounter catalogue.}
+\label{tab:schema}
+\centering
+\footnotesize
+\begin{tabular}{p{0.26\textwidth}p{0.07\textwidth}p{0.08\textwidth}p{0.50\textwidth}}
+\hline\hline
+column & type & unit & description \\
+\hline
+\texttt{run\_id} & string & --- & Pipeline run identifier (ISO timestamp) \\
+\texttt{number\_1} & int32 & --- & MPC number of body 1 (larger/perturber) \\
+\texttt{number\_2} & int32 & --- & MPC number of body 2 (smaller/target) \\
+\texttt{designation\_1} & string & --- & MPC packed designation of body 1 \\
+\texttt{designation\_2} & string & --- & MPC packed designation of body 2 \\
+\texttt{jd\_tdb} & float64 & d & Julian Date of closest approach (TDB) \\
+\texttt{date\_utc} & string & --- & Calendar date of closest approach (UTC) \\
+\texttt{dist\_au} & float64 & AU & Minimum 3D separation at closest approach \\
+\texttt{dist\_km} & float64 & km & Minimum 3D separation at closest approach \\
+\texttt{rel\_vel\_au\_day} & float64 & AU\,d$^{-1}$ & Relative velocity at encounter \\
+\texttt{rel\_vel\_km\_s} & float64 & km\,s$^{-1}$ & Relative velocity at encounter \\
+\texttt{rel\_vel\_m\_s} & float64 & m\,s$^{-1}$ & Relative velocity at encounter \\
+\texttt{H\_1} & float64 & mag & Absolute magnitude of body 1 (MPCORB) \\
+\texttt{H\_2} & float64 & mag & Absolute magnitude of body 2 (MPCORB) \\
+\texttt{diameter\_1\_km} & float64 & km & Diameter of body 1 (measured if available, else from $H$) \\
+\texttt{diameter\_2\_km} & float64 & km & Diameter of body 2 (measured if available, else from $H$) \\
+\texttt{diameter\_source\_1} & string & --- & Provenance: measured\,$\vert$\,albedo\_measured\,$\vert$\,zone\_albedo\,$\vert$\,default\_albedo\,$\vert$\,unknown \\
+\texttt{diameter\_source\_2} & string & --- & Provenance of \texttt{diameter\_2\_km} (same categories) \\
+\texttt{deflection\_dv\_m\_s} & float64 & m\,s$^{-1}$ & Impulse-approximation velocity kick $2GM_1/(b\,v_{\rm rel})$ on body 2; ranking metric, not a measurement \\
+\texttt{class\_1} & string & --- & Dynamical class of body 1 (NEA/MBA/Trojan/Centaur/TNO/Other) \\
+\texttt{class\_2} & string & --- & Dynamical class of body 2 \\
+\texttt{solar\_elongation\_deg} & float64 & deg & Solar elongation of encounter midpoint (legacy) \\
+\texttt{solar\_elongation\_1\_deg} & float64 & deg & Solar elongation of body 1 from Earth \\
+\texttt{solar\_elongation\_2\_deg} & float64 & deg & Solar elongation of body 2 from Earth \\
+\texttt{app\_mag\_1} & float64 & mag & Apparent $V$ magnitude of body 1 (HG model) \\
+\texttt{app\_mag\_2} & float64 & mag & Apparent $V$ magnitude of body 2 (HG model) \\
+\texttt{gaia\_observable\_1} & bool & --- & Body 1 individually detectable by Gaia at encounter \\
+\texttt{gaia\_observable\_2} & bool & --- & Body 2 individually detectable by Gaia at encounter \\
+\texttt{gaia\_observable} & bool & --- & Combined flag: \texttt{gaia\_observable\_1} OR \texttt{gaia\_observable\_2} \\
+\hline
+\end{tabular}
+\end{table*}
 
 \end{document}

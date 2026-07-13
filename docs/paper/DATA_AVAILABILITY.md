@@ -3,6 +3,14 @@
 Steps to satisfy the A&A data policy and fill the `TODO(author)` DOI in
 `aa_encounters.tex` (Sect. "Data availability").
 
+> **⚠️ Post-B1 regeneration (2026-07):** the SHA-256 prefixes and row counts below
+> refer to the pre-2026-07 freeze. The catalogue is being **regenerated** after the
+> refinement-window fix (`refine.py`, tribunal B1), which changes epochs/distances of
+> a large fraction of rows. Re-record all SHAs and the exact row count from the new
+> `encounters_catalog_rebound_005au_b1fix.parquet` (and its characterised/hybrid
+> derivatives) before depositing. The full column dictionary is Appendix A
+> (`\ref{tab:schema}`) of the paper.
+
 ## What to deposit
 
 | File | Rows | Size | SHA-256 prefix | Role |
@@ -45,5 +53,8 @@ route may prefer a reduced table plus a link to the full Zenodo record.
 ## Reproducibility note
 
 MPCORB is a living file; the catalogue is bit-reproducible only against the frozen
-snapshot `MPCORB_20160217.DAT` (SHA `3e44e7d3…`). Anything derived downstream must cite
-both the catalogue SHA (`b0272be7…`) and the code commit at its generation time.
+snapshot `MPCORB_20160217.DAT` (SHA `3e44e7d3…`). The measured diameters/albedos in the
+characterised catalogue are a second living input: the JPL SBDB physical-data snapshot
+(`data/raw/sbdb_physical.parquet`, download date and SHA-256 in its JSON sidecar). Both
+input hashes must be recorded at deposit. Anything derived downstream must cite the
+catalogue SHA and the code commit at its generation time.

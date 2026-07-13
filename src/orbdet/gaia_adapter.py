@@ -171,6 +171,11 @@ def propagate_elements(
             asteroid_perturbers=asteroid_perturbers,
             return_velocity=True,
         )
+    # Nota (tribunal 2026-07-04, menor 3): el estado del Sol viene de la efeméride
+    # builtin de astropy (erfa), mientras pos_bary puede venir de ASSIST/DE440.
+    # La mezcla introduce ~km en r_helio (fraccionalmente ~1e-5 en los elementos
+    # heliocéntricos del perturbador en modo perturber-orbit=mpcorb). Acotado por
+    # el gate Horizons (0.17 mas); unificar efeméride si se requiere mejor.
     sun_p, sun_v = planet_state_ecliptic("sun", epoch_to_jd_tdb)
     r_helio = np.asarray(pos_bary[0], dtype=float) - sun_p
     v_helio = np.asarray(vel_bary[0], dtype=float) - sun_v

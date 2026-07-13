@@ -1,10 +1,11 @@
 # Completitud del catálogo frente a la literatura de determinación de masas
 
-**Estado:** cerrado (primera medición) · **Fecha:** 2026-07-03 · **Autor:** Daniel Frascarelli
+**Estado:** cerrado, con cuantificación por época (Tarea 11) · **Fecha:** 2026-07-08 (actualizado; primera medición 2026-07-03) · **Autor:** Daniel Frascarelli
 
 **Script reproducible:** `scripts/validate/crosscheck_literature_encounters.py`
+(cuantificación por época: `scripts/validate/estimate_fm_gap_temporal_window.py`, §5.1)
 **Salidas:** `data/output/literature_validation/completeness_{pairs,per_perturber}.csv`,
-`completeness_summary.json`
+`completeness_summary.json`, `fm_gap_temporal_window_{sample.csv,summary.json}`
 **Catálogo evaluado:** `data/output/encounters_catalog_hybrid_stageb.parquet`
 (72,236,904 encuentros, `dist_au` ∈ [7×10⁻⁶, 0.0572] AU; el que consume el motor de masas)
 
@@ -184,16 +185,112 @@ Interpretación:
   no-recuperados).** El objetivo (o, en 270 casos, el perturbador) nunca aparece
   en ninguna fila del catálogo. Son mayormente objetivos de numeración alta y
   reciente (ejemplos verificados para Ceres: 613383, 668956, 731182) que quedan
-  fuera de nuestro subconjunto de numerados propagados / del prefiltro orbital.
+  fuera de nuestro subconjunto de numerados propagados (snapshot 2016 + corte
+  a ∈ [1.5, 4.0]; el prefiltro orbital **no** aplicó al freeze —
+  `skipped_large_n`, corrección 2026-05-31).
 - **Sin encuentro cercano (25,962, 91.6 % de los no-recuperados) — causa
-  dominante y esperada.** Ambos cuerpos *están* en el catálogo, pero ese par
-  concreto nunca se aproximó a < 0.05 AU en nuestra propagación. Esto **no es un
-  fallo de completitud**: la lista de "señal" de FM **no está limitada a
-  0.05 AU**. La señal de masa depende de la geometría y de la masa del
-  perturbador, no de un corte geométrico duro; FM incluye encuentros
-  genuinamente más anchos que 0.05 AU. Nuestro catálogo, por diseño, solo cataloga
-  encuentros < 0.05 AU. Esta diferencia de criterio explica la mayor parte de la
-  brecha entre el 29.5 % recuperado y el 100 %.
+  dominante: la ventana temporal.** Ambos cuerpos *están* en el catálogo, pero
+  ese par concreto no se aproximó a < 0.05 AU **dentro de 2014-07 → 2017-05**.
+  > **Corrección (2026-07-04, tribunal M1):** la explicación anterior de este
+  > documento ("la lista de FM no está limitada a 0.05 AU") era **factualmente
+  > errónea** — Fuentes-Muñoz et al. 2025 usa exactamente 0.05 AU como umbral
+  > para MBAs. La diferencia real de dominio es la **ventana temporal**: FM
+  > busca encuentros sobre los arcos completos (décadas, hasta nov-2024),
+  > mientras este catálogo cubre ~2.8 años. Un par FM cuyo encuentro < 0.05 AU
+  > ocurrió fuera de la ventana DR3 cae aquí como "sin encuentro cercano".
+
+  > **Cuantificación (2026-07-08, Tarea 11 / tribunal M1):** ver §5.1 — sobre
+  > una muestra de 500 pares, **83.8 % [IC 95 %: 80.3–86.8 %]** tienen su
+  > aproximación < 0.05 AU (propagación Kepler de dos cuerpos, línea de base
+  > 1990–2024) **fuera** de la ventana DR3. Esto confirma la ventana temporal
+  > como causa dominante y cuantificada de la brecha, con las salvedades
+  > metodológicas documentadas en §5.1.
+
+### 5.1 Cuantificación por época (Tarea 11)
+
+**¿FM publica la época del encuentro por par?** No. Se verificó directamente
+contra el encabezado byte-by-byte de
+`data/raw/fuentes_munoz_2025/ajae0cc9t5_mrt.txt` (Tabla 5): las columnas son
+`Asteroid, Group, GMini, e_GMini, r_GMini, GMfin, e_GMfin, Ntest, Nsign, List,
+Bibcode, Shortbib, SPKID`. No hay ninguna columna de época/fecha/MJD; `List`
+es solo una lista de identificadores de objetivo (truncada al top-100 por
+señal), no de fechas. Por lo tanto la época del encuentro **no es extraíble
+por parseo** — requiere propagar cada par.
+
+**Método** (script nuevo `scripts/validate/estimate_fm_gap_temporal_window.py`):
+
+1. Se toman los 25,833 pares únicos (claves `{lo,hi}` no-ordenadas; el CSV
+   original con outcome `absent_no_close_encounter` tiene 25,962 filas listadas
+   por FM, algunas duplicadas bajo dos perturbadores distintos).
+2. Muestra aleatoria de **500 pares** (`seed=42`, `config.yaml`).
+3. Para cada par se propagan ambos cuerpos con el propagador Kepler de dos
+   cuerpos del proyecto (`src/propagate/kepler.py`), usando el mismo snapshot
+   de elementos MPCORB que alimentó el catálogo congelado
+   (`data/cache/nbody_validation/mpcorb_stageb_elements.parquet`, época única
+   JD 2457400.5 ≈ 2016-02-16), sobre una grilla diaria 1990-01-01 → 2024-12-31
+   (35 años, a escala del baseline archival de FM) con refinamiento horario
+   local alrededor del mínimo grueso.
+4. Se clasifica cada par por su mínimo GLOBAL de separación en ese baseline:
+   `outside_window` (< 0.05 AU, época fuera de la ventana DR3),
+   `inside_window` (< 0.05 AU, época dentro de la ventana — anómalo, ver
+   abajo), `no_encounter_in_range` (nunca < 0.05 AU en 1990–2024).
+
+**Resultado** (n=500 de 25,833; ver
+`data/output/literature_validation/fm_gap_temporal_window_{sample.csv,summary.json}`):
+
+| Categoría | N | % | Interpretación |
+|---|---:|---:|---|
+| `outside_window` | 419 | 83.8 % (IC 95 %: 80.3–86.8 %) | Confirma la ventana temporal como causa |
+| `inside_window` (anómalo) | 40 | 8.0 % | Ver salvedad — no refuta la ventana, señala otra cosa |
+| `no_encounter_in_range` | 41 | 8.2 % | La ventana temporal sola no explica el par |
+
+> **Conclusión cuantificada:** de la brecha de 25,962 pares FM sin encuentro
+> cercano en catálogo, aproximadamente **84 % (IC 95 %: 80–87 %)** tiene su
+> aproximación < 0.05 AU fuera de la ventana DR3 — la ventana temporal es la
+> causa dominante y ahora cuantificada, consistente con la hipótesis del
+> tribunal M1.
+
+**Salvedades metodológicas (léanse antes de citar el número):**
+
+- **Kepler de dos cuerpos, no N-cuerpos.** Con elementos fijos en una única
+  época (2016-02-16) se ignoran las perturbaciones seculares/resonantes
+  planetarias, cuyo efecto crece con `|t - época|`. Es una aproximación
+  gruesa (explícitamente aceptada como tratable para esta tarea) para ubicar
+  en qué ventana multi-año ocurre la aproximación más profunda, no para fijar
+  época o distancia con precisión sub-0.001 AU.
+- **El 8.0 % `inside_window` es una señal a seguir, no ruido descartable.**
+  Se auditó manualmente el caso más extremo de la muestra (par 1356/427941):
+  el mínimo Kepler es una caída suave y físicamente plausible a
+  **2.1×10⁻⁴ AU el 2016-03-11** (58 días después de la época de los
+  elementos — ventana en la que el error de Kepler-vs-N-cuerpos debería ser
+  mínimo según el propio CLAUDE.md, "Kepler puro… suficiente a 0.01 AU en
+  escalas de pocos años"), muy por debajo del umbral censal del catálogo
+  (~0.057 AU) y sin embargo el par nunca aparece en
+  `encounters_catalog_rebound_005au_b1fix.parquet`. Esto es más consistente
+  con un **hueco de completitud del catálogo de producción para pares
+  puntuales** (p. ej. el objeto de numeración alta 427941 ausente de un
+  batch/chunk de la corrida out-of-core) que con error de aproximación de
+  Kepler — **queda como pendiente de auditoría separada** (no es objeto de
+  esta tarea, que es de cuantificación, no de remediación del catálogo). El
+  8.0 % **no** debe leerse como evidencia contra la explicación de ventana
+  temporal: son pares *dentro* de la ventana con un posible defecto de
+  cobertura propio del catálogo, no pares cuyo encuentro FM cae fuera de ella.
+- **El 8.2 % `no_encounter_in_range`** tampoco refuta la explicación de
+  ventana: en Kepler de dos cuerpos los nodos/argumento de perihelio son
+  constantes exactas (sin precesión), de modo que si la fase relativa
+  (periodo sinódico) no produce un acercamiento en 35 años bajo ese supuesto,
+  una precesión secular real (no modelada) podría habilitar un acercamiento
+  en escalas de décadas que este método no puede capturar; alternativamente,
+  la "señal" de FM para ese par podría no provenir de un único paso
+  sub-umbral. Ninguna de las dos hipótesis se distingue con este método —
+  se documenta como límite honesto, no se le atribuye causa.
+
+**Reproducir:**
+
+```bash
+docker compose run --rm pipeline python -m \
+    scripts.validate.estimate_fm_gap_temporal_window --n-sample 500
+```
 
 ---
 
@@ -201,10 +298,16 @@ Interpretación:
 
 - **Recuperación honesta: 29.5 %** de los pares (perturbador, objetivo) numerados
   del top-100-por-señal de FM aparecen como encuentros < 0.05 AU en el catálogo.
-- El déficit **no** se debe a fallos de detección dentro de nuestro dominio: el
-  ~92 % de la brecha son encuentros que FM usa pero que son **más anchos que
-  nuestro umbral de 0.05 AU** (definición de dominio distinta), y solo ~8 % son
-  objetos fuera de nuestro subconjunto de numerados propagados.
+- El déficit se explica sobre todo por la **ventana temporal** (FM busca sobre
+  los arcos completos hasta nov-2024; este catálogo cubre 2014-07 → 2017-05;
+  FM usa el mismo umbral 0.05 AU para MBAs — corrección 2026-07-04, tribunal
+  M1); ~8 % son objetos fuera de nuestro subconjunto de numerados propagados.
+  **Cuantificado (Tarea 11, §5.1): ~84 % (IC 95 %: 80–87 %, n=500) de los
+  pares "sin encuentro cercano" tienen su aproximación FM < 0.05 AU fuera de
+  la ventana DR3** (propagación Kepler de dos cuerpos, baseline 1990–2024).
+  Un 8 % de la muestra muestra una anomalía dentro-de-ventana que apunta a un
+  posible hueco de completitud puntual del catálogo de producción (pendiente
+  de auditoría separada, no a un fallo de la explicación de ventana).
 - Los calibradores Big-4 (Ceres 36 %, Vesta 37 %, Pallas 11 %, Hygiea 18 %) y los
   perturbadores del motor de masas (Psyche 38 %, Sylvia 39 %, Europa 41 %,
   Eunomia 51 %) se recuperan con fracciones consistentes con esta interpretación:

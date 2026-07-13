@@ -9,6 +9,16 @@ El marco interno del propagador kepleriano es **eclíptico** (la eclíptica J200
 es natural para elementos orbitales); Gaia reporta en **ecuatorial ICRS**. Las
 conversiones eclíptica↔ecuatorial son una rotación alrededor del eje X por la
 oblicuidad.
+
+Nota sobre el frame bias (tribunal 2026-07-04, menor C8): la rotación usada aquí
+es la oblicuidad IAU2006 pura, no incluye el *frame bias* ICRS↔dinámico-J2000
+(~17 mas, un giro fijo entre el ecuador dinámico J2000 y el polo ICRS). Es
+inofensivo para este pipeline porque **se cancela en la cadena de observación**:
+los elementos "eclípticos" del motor son, de hecho, "ICRS rotado por ε", y la
+posición se rota de vuelta a ICRS con la misma ε antes de comparar contra la
+astrometría de Gaia (también ICRS). El bias entraría solo si se compararan estos
+"elementos eclípticos" contra un catálogo en eclíptica dinámica verdadera. El
+gate Horizons (0.17 mas) acota cualquier residuo de marco por debajo del piso.
 """
 
 from __future__ import annotations

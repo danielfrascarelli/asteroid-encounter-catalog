@@ -95,6 +95,19 @@ def _verify_major_bodies(results: pl.DataFrame) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Gaia asteroid encounter detection")
     parser.add_argument("--config", default="config.yaml")
+    parser.add_argument(
+        "--resume-from-scan",
+        default=None,
+        help="Path to a coarse-scan checkpoint parquet (written automatically as "
+        "<output>_scan_candidates.parquet). Skips prefilter+scan and resumes at "
+        "refinement — use to recover a killed refinement, optionally with a "
+        "different parallel.n_workers in the config.",
+    )
+    parser.add_argument(
+        "--no-scan-checkpoint",
+        action="store_true",
+        help="Disable writing the coarse-scan checkpoint before refinement.",
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -263,44 +276,88 @@ def main() -> int:
     )
     t0 = time.monotonic()
 
-    results = detect_encounters(
-        elements,
-        grid,
-        threshold_au=det.threshold_au,
-        semimajor_diff_max_au=det.prefilter.semimajor_diff_max_au,
-        inclination_diff_max_deg=det.prefilter.inclination_diff_max_deg,
-        leaf_size=det.kdtree.leaf_size,
-        fine_step_seconds=det.refinement.fine_time_step_seconds,
-        window_hours=det.refinement.window_hours,
-        prefilter_enabled=det.prefilter.enabled,
-        refinement_enabled=det.refinement.enabled,
-        n_workers=n_workers,
-        chunk_size_days=par.chunk_size_days,
-        positions=positions,
-        query_radius_au=query_radius_au,
-        force_kepler_refine=use_tiered,
+    # Coarse-scan checkpoint next to the output; refinement is long and
+    # memory-heavy, so persisting the scan lets a killed refinement resume via
+    # --resume-from-scan (optionally with a different parallel.n_workers).
+    out_dir = Path(cfg.paths.output)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    scan_ckpt_path = (
+        None
+        if args.no_scan_checkpoint
+        else str(out_dir / f"{cfg.output.filename}_scan_candidates.parquet")
     )
+    if args.resume_from_scan:
+        logger.info("Resuming refinement from scan checkpoint: %s", args.resume_from_scan)
 
-    elapsed = time.monotonic() - t0
-    logger.info(
-        "Detection complete in %.1fs — %d encounters ≤ %.4f AU",
-        elapsed,
-        len(results),
-        det.threshold_au,
-    )
+    out_path = out_dir / f"{cfg.output.filename}.{cfg.output.format}"
+
+    if det.out_of_core:
+        # Out-of-core path: bounds parent RAM (scan→disk shards, DuckDB dedup,
+        # batched refine→streaming write). Required for the full numbered
+        # population on a memory-constrained VM. Writes out_path directly, then we
+        # re-read for the gate check and sidecar. Refinement is always Kepler here
+        # (matches force_kepler_refine in tiered mode).
+        from src.detect.ooc import detect_encounters_ooc
+
+        logger.info("Detection: out-of-core mode (spill+DuckDB dedup+streaming refine)")
+        n_out = detect_encounters_ooc(
+            elements,
+            grid,
+            threshold_au=det.threshold_au,
+            leaf_size=det.kdtree.leaf_size,
+            fine_step_seconds=det.refinement.fine_time_step_seconds,
+            window_hours=det.refinement.window_hours,
+            n_workers=n_workers,
+            chunk_size_days=par.chunk_size_days,
+            out_path=out_path,
+            spill_dir=Path(cfg.paths.cache) / f"{cfg.output.filename}_ooc",
+            positions=positions,
+            query_radius_au=query_radius_au,
+        )
+        elapsed = time.monotonic() - t0
+        logger.info(
+            "Detection complete (OOC) in %.1fs — %d encounters ≤ %.4f AU → %s",
+            elapsed,
+            n_out,
+            det.threshold_au,
+            out_path,
+        )
+        # Re-read only the columns needed for the major-body gate (bounded memory).
+        results = pl.read_parquet(out_path, columns=["number_1", "number_2", "dist_au"])
+    else:
+        results = detect_encounters(
+            elements,
+            grid,
+            threshold_au=det.threshold_au,
+            semimajor_diff_max_au=det.prefilter.semimajor_diff_max_au,
+            inclination_diff_max_deg=det.prefilter.inclination_diff_max_deg,
+            leaf_size=det.kdtree.leaf_size,
+            fine_step_seconds=det.refinement.fine_time_step_seconds,
+            window_hours=det.refinement.window_hours,
+            prefilter_enabled=det.prefilter.enabled,
+            refinement_enabled=det.refinement.enabled,
+            n_workers=n_workers,
+            chunk_size_days=par.chunk_size_days,
+            positions=positions,
+            query_radius_au=query_radius_au,
+            force_kepler_refine=use_tiered,
+            scan_checkpoint_path=scan_ckpt_path,
+            resume_from_scan=args.resume_from_scan,
+        )
+        elapsed = time.monotonic() - t0
+        logger.info(
+            "Detection complete in %.1fs — %d encounters ≤ %.4f AU",
+            elapsed,
+            len(results),
+            det.threshold_au,
+        )
+        if cfg.output.format == "parquet":
+            results.write_parquet(out_path, compression=cfg.output.compression)  # type: ignore[arg-type]
+        else:
+            results.write_csv(out_path)
 
     # --- Gate check: major bodies ---
     gate_checks = _verify_major_bodies(results)
-
-    # --- Save ---
-    out_dir = Path(cfg.paths.output)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{cfg.output.filename}.{cfg.output.format}"
-
-    if cfg.output.format == "parquet":
-        results.write_parquet(out_path, compression=cfg.output.compression)  # type: ignore[arg-type]
-    else:
-        results.write_csv(out_path)
 
     logger.info("Catalog saved → %s  (%d rows)", out_path, len(results))
 
@@ -326,19 +383,35 @@ def main() -> int:
     )
 
     # --- Top encounters ---
-    if len(results) > 0:
-        logger.info("Top 10 closest encounters:")
-        for row in results.head(10).iter_rows(named=True):
-            t = Time(row["jd_tdb"], format="jd", scale="tdb")
-            logger.info(
-                "  (%d) %-20s — (%d) %-20s  %.6f AU  %s",
-                row["number_1"],
-                row["designation_1"],
-                row["number_2"],
-                row["designation_2"],
-                row["dist_au"],
-                t.utc.iso[:10],
+    # Read the 10 closest from the written catalog rather than from `results`:
+    # in the out-of-core path `results` carries only the gate columns
+    # (number_1/2, dist_au), so it lacks jd_tdb/designations. Reading the file
+    # lazily is robust for both paths and bounded in memory.
+    if len(results) > 0 and cfg.output.format == "parquet":
+        try:
+            top = (
+                pl.scan_parquet(out_path)
+                .select(
+                    ["number_1", "designation_1", "number_2", "designation_2", "jd_tdb", "dist_au"]
+                )
+                .sort("dist_au")
+                .head(10)
+                .collect()
             )
+            logger.info("Top 10 closest encounters:")
+            for row in top.iter_rows(named=True):
+                t = Time(row["jd_tdb"], format="jd", scale="tdb")
+                logger.info(
+                    "  (%d) %-20s — (%d) %-20s  %.6f AU  %s",
+                    row["number_1"],
+                    row["designation_1"],
+                    row["number_2"],
+                    row["designation_2"],
+                    row["dist_au"],
+                    t.utc.iso[:10],
+                )
+        except Exception as exc:  # cosmetic logging only — never fail the run
+            logger.warning("Top-10 logging skipped: %s", exc)
 
     return 0
 

@@ -128,7 +128,7 @@ def main() -> int:
         inclination_diff_max_deg=30.0,
         leaf_size=30,
         fine_step_seconds=120.0,
-        window_hours=2.0,
+        window_hours=6.0,  # ≥ coarse_step/2 (B1); 2.0 era el valor del bug
         prefilter_enabled=False,
         refinement_enabled=True,
         n_workers=1,

@@ -240,6 +240,10 @@ class DetectionConfig:
     # coarsely. ~25 km/s safely covers MBA-only subsets (max heliocentric
     # speeds ≲ 30 km/s at perihelion; mutual encounter velocities much lower).
     max_relative_velocity_km_s: float = 25.0
+    # Out-of-core detection: stream scan candidates to disk shards, dedup with
+    # DuckDB, and refine in batches. Bounds parent RAM for the full numbered
+    # population, which OOMs the in-memory path in a 24 GB Docker Desktop VM.
+    out_of_core: bool = False
 
 
 @dataclass
@@ -248,6 +252,8 @@ class CharacterizeConfig:
     compute_phase_angle: bool
     estimate_diameters: bool
     default_albedo: float
+    # Tabla de diámetros/albedos medidos (SBDB). None = solo albedo por zona/default.
+    physical_data: str | None = None
 
 
 @dataclass
@@ -489,6 +495,7 @@ def _build(raw: dict[str, Any]) -> PipelineConfig:
             kdtree=KdTreeConfig(**det["kdtree"]),
             refinement=RefinementConfig(**det["refinement"]),
             max_relative_velocity_km_s=float(det.get("max_relative_velocity_km_s", 25.0)),
+            out_of_core=bool(det.get("out_of_core", False)),
         ),
         characterize=CharacterizeConfig(**char),
         parallel=ParallelConfig(**par),

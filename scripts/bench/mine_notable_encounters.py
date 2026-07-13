@@ -53,8 +53,8 @@ KNOWN_PERTURBERS: frozenset[int] = frozenset(
     {1, 2, 3, 4, 7, 10, 15, 16, 31, 52, 65, 87, 88, 107, 511, 704}
 )
 
-#: Ruta por defecto al catálogo de encuentros caracterizado.
-DEFAULT_CATALOG = "data/output/encounters_characterized_full.parquet"
+#: Ruta por defecto al catálogo de encuentros caracterizado (freeze b1fix del paper).
+DEFAULT_CATALOG = "data/output/encounters_characterized_b1fix.parquet"
 
 #: Snapshot de elementos orbitales (a, e, i) por número, para el proxy de familia.
 DEFAULT_ELEMENTS = "data/raw/gaia_orbits.parquet"

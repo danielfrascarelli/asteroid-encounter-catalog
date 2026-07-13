@@ -18,7 +18,7 @@ puts both z side by side so the impact is explicit.
 Two z-scores per perturber (reference = Fuentes-Muñoz GMfin, Table 5):
 
     z_formal = (M_ours - M_fm) / sqrt(sigma_formal^2 + sigma_fm^2)
-    z_jack   = (M_ours - M_fm) / sqrt(sigma_total^2  + sigma_fm^2)
+    z_total  = (M_ours - M_fm) / sqrt(sigma_total^2  + sigma_fm^2)
 
 where ``sigma_total`` already combines σ_jack with the systematic floor
 (``sigma_total_kg`` in the jack catalog). ``sigma_formal`` is the raw Fisher σ.
@@ -106,25 +106,34 @@ def crosscheck(catalog: pl.DataFrame, fm: pl.DataFrame) -> pl.DataFrame:
     -------
     pl.DataFrame
         One row per overlapping perturber, sorted by MPC number, with columns
-        ``ratio_ours_over_fm``, ``z_formal`` and ``z_jack`` added.
+        ``ratio_ours_over_fm``, ``z_formal`` and ``z_total`` added.
     """
     joined = catalog.join(fm, on="perturber", how="inner").sort("perturber")
 
     ratios: list[float] = []
     z_formal: list[float | None] = []
-    z_jack: list[float | None] = []
+    z_total: list[float | None] = []
+    min_det: list[float] = []
     for r in joined.iter_rows(named=True):
         m = r["mass_fit_kg"]
         ref = r["fm_mass_kg"]
         s_ref = r["fm_sigma_kg"]
         ratios.append(m / ref if ref else float("nan"))
         z_formal.append(_z_score(m, ref, r.get("sigma_formal_kg"), s_ref))
-        z_jack.append(_z_score(m, ref, r.get("sigma_total_kg"), s_ref))
+        z_total.append(_z_score(m, ref, r.get("sigma_total_kg"), s_ref))
+        # Potencia (B7): desviación fraccional mínima detectable a 3σ. Un |z|<3
+        # solo excluye desviaciones mayores que esto; si la desviación observada
+        # es menor, el test no tiene potencia para verla.
+        s_tot = r.get("sigma_total_kg") or 0.0
+        min_det.append(
+            3.0 * math.sqrt(s_tot**2 + (s_ref or 0.0) ** 2) / ref if ref else float("nan")
+        )
 
     return joined.with_columns(
         pl.Series("ratio_ours_over_fm", ratios),
         pl.Series("z_formal", z_formal, dtype=pl.Float64),
-        pl.Series("z_jack", z_jack, dtype=pl.Float64),
+        pl.Series("z_total", z_total, dtype=pl.Float64),
+        pl.Series("min_detectable_frac_3sigma", min_det, dtype=pl.Float64),
     )
 
 
@@ -179,22 +188,23 @@ def main() -> int:
         "fm_sigma_kg",
         "ratio_ours_over_fm",
         "z_formal",
-        "z_jack",
+        "z_total",
+        "min_detectable_frac_3sigma",
     ).write_csv(out_csv)
 
     # Tallies. Independent = non-calibrators (FM pins calibrators to the seed).
     indep = joined.filter(~pl.col("is_calibrator"))
     all_f = _count_within(joined, "z_formal")
-    all_j = _count_within(joined, "z_jack")
+    all_j = _count_within(joined, "z_total")
     ind_f = _count_within(indep, "z_formal")
-    ind_j = _count_within(indep, "z_jack")
+    ind_j = _count_within(indep, "z_total")
 
     summary = {
         "reference": "Fuentes-Muñoz et al. 2025, AJ 170, 353, Table 5 (GMfin)",
         "catalog": str(cat_path),
         "n_overlap": joined.height,
         "note": (
-            "z_formal uses the Fisher σ (sigma_formal_kg); z_jack uses sigma_total_kg "
+            "z_formal uses the Fisher σ (sigma_formal_kg); z_total uses sigma_total_kg "
             "which folds the external jackknife σ (F1) with the systematic floor. Only "
             "mass_status=='measured' rows count toward the |z|<3 tally; "
             "'not_identifiable' rows are bounds, not measurements."
@@ -212,7 +222,7 @@ def main() -> int:
     print("=" * 104)
     print(
         f"{'#':>5} {'name':<12} {'cal':>3} {'st':>4} {'M_ours':>10} {'M_FM':>10} "
-        f"{'ratio':>7} {'z_form':>7} {'z_jack':>7} {'status':>16}"
+        f"{'ratio':>7} {'z_form':>7} {'z_tot':>7} {'pow3σ':>6} {'status':>16}"
     )
     print("-" * 104)
 
@@ -225,20 +235,48 @@ def main() -> int:
             f"{r['perturber']:>5} {r['name'][:12]:<12} "
             f"{'Y' if r['is_calibrator'] else '.':>3} {st:>4} "
             f"{r['mass_fit_kg']:>10.3e} {r['fm_mass_kg']:>10.3e} "
-            f"{r['ratio_ours_over_fm']:>7.3f} {_zt(r['z_formal']):>7} {_zt(r['z_jack']):>7} "
+            f"{r['ratio_ours_over_fm']:>7.3f} {_zt(r['z_formal']):>7} {_zt(r['z_total']):>7} "
+            f"{r['min_detectable_frac_3sigma'] * 100:>5.0f}% "
             f"{r['mass_status']:>16}"
         )
     print("-" * 104)
     print(
         f"measured within |z|<3  —  ALL overlap: formal {all_f[0]}/{all_f[1]}, "
-        f"jack {all_j[0]}/{all_j[1]}"
+        f"total {all_j[0]}/{all_j[1]}"
     )
     print(
         f"                          non-calibrators: formal {ind_f[0]}/{ind_f[1]}, "
-        f"jack {ind_j[0]}/{ind_j[1]}"
+        f"total {ind_j[0]}/{ind_j[1]}"
     )
+
+    # Test de signo (B7, resultado principal para no-calibradores): con barras del
+    # 20-70 %, |z|<3 no tiene potencia frente a los sesgos observados (14-30 %).
+    # El signo de ratio-1 sí la tiene: bajo H0 (sin sesgo) es Binomial(n, 1/2).
+    meas_ind = indep.filter(pl.col("mass_status") == "measured")
+    rr = [x for x in meas_ind["ratio_ours_over_fm"].to_list() if x and math.isfinite(x)]
+    if rr:
+        n_below = sum(1 for x in rr if x < 1.0)
+        n = len(rr)
+        # p-value exacto de dos colas del test de signo
+        k = min(n_below, n - n_below)
+        p_two = sum(math.comb(n, i) for i in range(0, k + 1)) * 2 / 2**n
+        p_two = min(1.0, p_two)
+        geo = math.exp(sum(math.log(x) for x in rr) / n)
+        print(
+            f"sign test (measured non-calibrators): {n_below}/{n} below FM, "
+            f"geometric-mean ratio {geo:.3f}, two-sided p = {p_two:.3f}"
+        )
+        summary["sign_test_noncalibrators"] = {
+            "n_below_fm": n_below,
+            "n": n,
+            "geometric_mean_ratio": geo,
+            "p_two_sided": p_two,
+        }
+        (out_dir / "fuentes_munoz_jack_mass_summary.json").write_text(json.dumps(summary, indent=2))
     print("Note: calibrators are pinned by FM to the seed → not an independent check.")
     print("      'not_identifiable' rows are bounds, excluded from the tally.")
+    print("      FM 2025 fits the same Gaia FPR astrometry → errors are NOT independent;")
+    print("      pow3σ is the minimum fractional deviation this test could detect at 3σ.")
     print("=" * 104)
     return 0
 

@@ -10,8 +10,10 @@ Convenciones:
 - Unidades: AU, días, M_sun. ``sim.G`` se fija explícitamente a ``GM_SUN`` (= k²)
   para que el GM solar coincida **exactamente** con el del propagador kepleriano
   (``kepler.py``) — así el límite de dos cuerpos es consistente bit a bit.
-- Estados planetarios: ``astropy`` con efemérides ``builtin`` (DE440 reducida),
-  rotados ICRS→eclíptica con la oblicuidad de ``constants``.
+- Estados planetarios: ``astropy`` con efemérides ``builtin`` (series analíticas
+  erfa ``epv00``/``plan94`` — precisión ~km, NO una versión de DE440; el backend
+  ASSIST usa DE440 real y es el de producción), rotados ICRS→eclíptica con la
+  oblicuidad de ``constants``.
 """
 
 from __future__ import annotations

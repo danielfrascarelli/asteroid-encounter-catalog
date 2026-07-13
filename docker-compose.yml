@@ -5,6 +5,14 @@ services:
   pipeline:
     build: .
     image: gaia-asteroid-encounters
+    # Cap de memoria DURO (protección del host). Con el Docker engine NATIVO
+    # (sin la VM de Docker Desktop) un contenedor sin límite se come toda la RAM
+    # + swap y MATA la PC host. mem_limit lo hace cumplir el kernel: si el
+    # contenedor se pasa, el kernel mata SOLO al contenedor, nunca al host.
+    # memswap_limit = mem_limit ⇒ el contenedor NO usa swap. Ajustar al host
+    # (dejar ≥8-10 GB libres; host de 31 GB ⇒ 18 GB).
+    mem_limit: 18g
+    memswap_limit: 18g
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

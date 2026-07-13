@@ -205,7 +205,13 @@ detection:
     # precisión sub-µAU en el tiempo del encuentro (no requerida para
     # detección a 0.05 AU).
     fine_time_step_seconds: 120.0
-    window_hours: 2.0                # Ventana alrededor del mínimo grueso
+    # Semiancho de la ventana fina alrededor de cada sample grueso. DEBE ser
+    # ≥ coarse_step_hours/2 (validado en src/detect/pipeline.py): con la
+    # ventana de 2.0 h bajo grilla de 12 h, ~60 % del catálogo congelado
+    # pre-2026-07 quedó con la época recortada en el borde de ventana y la
+    # distancia sesgada hacia arriba (hallazgo B1 del tribunal 2026-07-04).
+    # El refinador además re-centra iterativamente si el argmin cae en borde.
+    window_hours: 6.0
 
 
 # -----------------------------------------------------------------------------
@@ -214,8 +220,12 @@ detection:
 characterize:
   compute_relative_velocity: true    # |v1 - v2| en el encuentro
   compute_phase_angle: true          # Para visibilidad desde Gaia
-  estimate_diameters: true           # Desde magnitud absoluta H (asume albedo típico)
-  default_albedo: 0.14               # Albedo geométrico promedio (C-type)
+  estimate_diameters: true           # Medidos (SBDB) > H+albedo medido > H+albedo por zona > H+default
+  default_albedo: 0.14               # Fallback final cuando no hay ni albedo ni semieje
+  # Tabla de diámetros/albedos medidos (descargar con
+  # scripts.ingest.download_sbdb_physical). B3 del tribunal: sin esto, Ceres
+  # sale con 763 km en vez de 939. null = degradar a albedo por zona.
+  physical_data: "data/raw/sbdb_physical.parquet"
 
 
 # -----------------------------------------------------------------------------

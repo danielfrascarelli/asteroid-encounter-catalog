@@ -25,7 +25,11 @@ from src.characterize.observability import (
     is_gaia_observable,
     solar_elongation_deg,
 )
-from src.characterize.physical import classify_orbit, diameter_km
+from src.characterize.physical import (
+    classify_orbit,
+    deflection_dv_m_s,
+    diameter_km_with_source,
+)
 from src.propagate.kepler import kepler_to_cartesian
 
 logger = logging.getLogger(__name__)
@@ -107,6 +111,7 @@ def characterize_catalog(
     mpcorb: pl.DataFrame,
     albedo: float = 0.14,
     *,
+    physical: pl.DataFrame | None = None,
     sort: bool = True,
 ) -> pl.DataFrame:
     """Enrich the detection catalog with physical and observational properties.
@@ -125,6 +130,15 @@ def characterize_catalog(
     albedo:
         Default geometric albedo for diameter estimation when an
         asteroid-specific value is unavailable.
+    physical:
+        Optional measured-physical-data table (from
+        ``scripts.ingest.download_sbdb_physical``) with columns ``number``
+        (Int32), ``diameter_km`` (Float64, NaN/null where unmeasured) and
+        ``albedo`` (Float64).  When provided, diameters follow the B3 priority
+        chain (measured D > D(H, measured albedo) > D(H, zone albedo) >
+        D(H, default)) and the provenance is emitted in
+        ``diameter_source_1/2``.  When None, diameters fall back to the zone
+        albedo (source ``zone_albedo``/``default_albedo``).
     sort:
         When True (default) the result is sorted by ``dist_au`` ascending.
         Set to False for the streaming path (:func:`characterize_catalog_streaming`),
@@ -210,8 +224,44 @@ def characterize_catalog(
         h1 = df["H_1"].to_numpy()
         h2 = df["H_2"].to_numpy()
 
-    diam_1 = diameter_km(h1, albedo)
-    diam_2 = diameter_km(h2, albedo)
+    # Measured diameters/albedos (B3): join post-swap so `_1`/`_2` line up with
+    # the final perturber/target ordering, then apply the priority chain.
+    a1_diam = df["a_au_1"].to_numpy()
+    a2_diam = df["a_au_2"].to_numpy()
+    dmeas_1 = ameas_1 = dmeas_2 = ameas_2 = None
+    if physical is not None:
+        phys = physical.select(
+            pl.col("number").cast(pl.Int32),
+            pl.col("diameter_km"),
+            pl.col("albedo"),
+        )
+        df = df.join(
+            phys.rename({"diameter_km": "_diam_meas_1", "albedo": "_albedo_meas_1"}),
+            left_on="number_1",
+            right_on="number",
+            how="left",
+        ).join(
+            phys.rename({"diameter_km": "_diam_meas_2", "albedo": "_albedo_meas_2"}),
+            left_on="number_2",
+            right_on="number",
+            how="left",
+        )
+        dmeas_1 = df["_diam_meas_1"].to_numpy()
+        ameas_1 = df["_albedo_meas_1"].to_numpy()
+        dmeas_2 = df["_diam_meas_2"].to_numpy()
+        ameas_2 = df["_albedo_meas_2"].to_numpy()
+
+    diam_1, diam_src_1 = diameter_km_with_source(
+        h1, a1_diam, dmeas_1, ameas_1, default_albedo=albedo
+    )
+    diam_2, diam_src_2 = diameter_km_with_source(
+        h2, a2_diam, dmeas_2, ameas_2, default_albedo=albedo
+    )
+
+    # Señal de deflexión por par (M7): kick Δv del perturbador (cuerpo 1, el
+    # grande tras el reordenamiento) sobre el cuerpo 2. Métrica de ranking de
+    # utilidad para determinación de masas.
+    deflection_dv = deflection_dv_m_s(diam_1, a1_diam, dist_km * 1e3, vel_m_s)
 
     # ------------------------------------------------------------------ #
     # 5. Orbit classification                                              #
@@ -293,6 +343,9 @@ def characterize_catalog(
             "H_2": h2,
             "diameter_1_km": diam_1,
             "diameter_2_km": diam_2,
+            "diameter_source_1": diam_src_1.astype(str),
+            "diameter_source_2": diam_src_2.astype(str),
+            "deflection_dv_m_s": deflection_dv,
             "class_1": cls1,
             "class_2": cls2,
             "solar_elongation_deg": elong_mid,
@@ -330,6 +383,7 @@ def characterize_catalog_streaming(
     run_id: str,
     *,
     albedo: float = 0.14,
+    physical: pl.DataFrame | None = None,
     chunk_size: int = 1_000_000,
     mpcorb_path: object | None = None,
     config_dict: dict | None = None,
@@ -398,7 +452,9 @@ def characterize_catalog_streaming(
             chunk = pl.from_arrow(batch)
             if isinstance(chunk, pl.Series):  # single-column safety (never here)
                 chunk = chunk.to_frame()
-            enriched = characterize_catalog(chunk, elements, mpcorb, albedo=albedo, sort=False)
+            enriched = characterize_catalog(
+                chunk, elements, mpcorb, albedo=albedo, physical=physical, sort=False
+            )
             enriched = enriched.with_columns(pl.lit(run_id).alias("run_id"))
             present = [c for c in CATALOG_SCHEMA if c in enriched.columns]
             enriched = enriched.select(present).with_columns(
@@ -457,7 +513,7 @@ def characterize_catalog_streaming(
     if mp is not None and mp.exists():
         meta["mpcorb"] = {
             "path": str(mp),
-            "sha256_prefix": _hash_file(mp),
+            "sha256": _hash_file(mp),
             "size_bytes": mp.stat().st_size,
         }
     if config_dict is not None:
